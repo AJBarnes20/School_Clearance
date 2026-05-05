@@ -194,7 +194,7 @@
             <strong>Note:</strong> After registering, your account
             will be reviewed by the Admin who will assign your role
             (Student or Instructor) and activate your account.
-            You will not be able to log in until your account is activated.
+            You will be <strong>notified via email</strong> once your account is activated.
         </div>
     </div>
 
@@ -205,7 +205,6 @@
         <div class="auth-title">Create Account</div>
         <p class="auth-sub">
             Fill in your information below to register.
-            The Admin will assign your role after registration.
         </p>
 
         @if (!ViewData.ModelState.IsValid && ViewData.ModelState.ErrorCount > 0)
@@ -239,18 +238,25 @@
                     <span asp-validation-for="LastName" class="field-error"></span>
                 </div>
 
-                <!-- ID Number + Username -->
-                <div class="col-md-6">
+                <!-- ID Number (full width) -->
+                <div class="col-12">
                     <label class="form-label-sm">ID Number <span class="req">*</span></label>
                     <input asp-for="IdNumber" class="form-input"
                            placeholder="e.g. 2024-00001"/>
                     <span asp-validation-for="IdNumber" class="field-error"></span>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label-sm">Username <span class="req">*</span></label>
-                    <input asp-for="Username" class="form-input"
-                           placeholder="Choose a username"/>
-                    <span asp-validation-for="Username" class="field-error"></span>
+
+                <!-- Email (full width) -->
+                <div class="col-12">
+                    <label class="form-label-sm">Email Address <span class="req">*</span></label>
+                    <input asp-for="Email" class="form-input"
+                           type="email"
+                           placeholder="e.g. yourname@email.com"
+                           autocomplete="email"/>
+                    <span asp-validation-for="Email" class="field-error"></span>
+                    <span style="font-size:11px;color:#9ca3af;margin-top:3px;display:block;">
+                        📧 You will be notified at this email when your account is activated.
+                    </span>
                 </div>
 
                 <!-- Password row -->

@@ -16,5 +16,14 @@ namespace OnlineClearanceSystem.Models
         // Computed
         public string FullName =>
             $"{FirstName} {(string.IsNullOrEmpty(MiddleInitial) ? "" : MiddleInitial + ". ")}{LastName} {Suffix}".Trim();
+
+        // Signature: relative web path stored in signatories.uploaded_signature_path
+        // Null = no signature on file yet → view shows "Not yet saved"
+        public string? SignaturePath { get; set; }
+
+        // Positions from organizations table matched by curriculum_id.
+        // Empty list = student has no assigned org position →
+        // the entire E-Signature + Assigned Organization section is hidden in the view.
+        public List<OrganizationSignatory> Positions { get; set; } = new();
     }
 }

@@ -195,8 +195,8 @@
     <div class="auth-right">
         <h2 class="auth-title">Account Login</h2>
         <p class="auth-sub">
-            If you are already a member you can login with<br/>
-            your username and password.
+            Sign in using your school ID Number<br/>
+            and your password.
         </p>
 
         @if (!string.IsNullOrEmpty(ViewBag.SuccessMessage))
@@ -213,13 +213,14 @@
             @Html.AntiForgeryToken()
 
             <div style="margin-bottom:16px;">
-                <label class="form-label-sm" asp-for="Username">Username</label>
-                <input asp-for="Username"
+                <label class="form-label-sm" asp-for="IdNumber">ID Number</label>
+                <input asp-for="IdNumber"
                        class="form-input"
                        type="text"
-                       placeholder="Enter your username"
-                       autocomplete="username"/>
-                <span asp-validation-for="Username" class="field-error"></span>
+                       placeholder="e.g. 2024-00001"
+                       autocomplete="username"
+                       autofocus/>
+                <span asp-validation-for="IdNumber" class="field-error"></span>
             </div>
 
             <div style="margin-bottom:14px;">
@@ -256,10 +257,10 @@
 <script>
 document.querySelector('form').addEventListener('submit', function(e) {
     let valid = true;
-    const un = document.querySelector('input[name="Username"]');
+    const id = document.querySelector('input[name="IdNumber"]');
     const pw = document.querySelector('input[name="Password"]');
-    if (!un.value.trim()) { un.style.borderColor='#dc2626'; valid=false; }
-    else                   { un.style.borderColor=''; }
+    if (!id.value.trim()) { id.style.borderColor='#dc2626'; valid=false; }
+    else                   { id.style.borderColor=''; }
     if (!pw.value.trim()) { pw.style.borderColor='#dc2626'; valid=false; }
     else                   { pw.style.borderColor=''; }
     if (!valid) e.preventDefault();
