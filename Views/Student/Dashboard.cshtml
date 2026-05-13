@@ -162,7 +162,6 @@
         <div>
             <div class="stat-num">@(Model?.SubjectIncomplete ?? 0)</div>
             <div class="stat-label">Subject Pending</div>
-            <div class="stat-sub">Across all enrolled subjects</div>
         </div>
         <div class="stat-icon-wrap">
             <i class="fas fa-clock"></i>
@@ -174,7 +173,6 @@
         <div>
             <div class="stat-num">@(Model?.OrgCleared ?? 0)</div>
             <div class="stat-label">Organization Cleared</div>
-            <div class="stat-sub">Across all organization signatures</div>
         </div>
         <div class="stat-icon-wrap">
             <i class="fas fa-sitemap"></i>
@@ -186,7 +184,6 @@
         <div class="period-card-inner">
             <div class="period-icon"><i class="fas fa-calendar-alt"></i></div>
             <div>
-                <div class="period-card-label">Active Academic Period</div>
                 <div class="period-card-value" id="period-display">
                     @(Model?.ActivePeriod ?? "A.Y. 2025–2026, 2nd Semester")
                 </div>

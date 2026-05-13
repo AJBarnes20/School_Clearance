@@ -5,56 +5,245 @@
     Layout = "~/Views/Shared/_StaffLayout.cshtml";
 }
 
+<style>
+    /* ── CHECK BOX ── */
+    .check-box { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ccc; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s; background: white; flex-shrink: 0; margin-top: 1px; }
+    .check-box i { display: none; font-size: 11px; }
+    .check-box.active { background: var(--green); border-color: var(--green); }
+    .check-box.active i { display: block; color: white; }
+
+    /* ── STAT ROW ── */
+    .stat-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 18px;
+        align-items: stretch;
+        flex-wrap: wrap;
+    }
+
+    /* ── STAT CARD ── */
+    .stat-card {
+        flex: 1 1 140px;
+        border-radius: 12px;
+        padding: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border: none;
+        min-width: 0;
+        min-height: 100px;
+    }
+    .stat-card.green-card  { background: linear-gradient(135deg, #1e7a46, #28a745); }
+    .stat-card.orange-card { background: linear-gradient(135deg, #b8560a, #e07b2a); }
+
+    .stat-num   { font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1; }
+    .stat-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.9); margin-top: 3px; }
+    .stat-sub   { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 2px; }
+
+    .stat-icon-wrap {
+        width: 48px; height: 48px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.2);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 20px;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    /* ── PERIOD CARD ── */
+    .period-card {
+        flex: 1 1 200px;
+        background: linear-gradient(135deg, #1a3a5c, #2b5282);
+        border: none;
+        border-radius: 12px;
+        padding: 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        position: relative;
+        min-width: 0;
+        min-height: 100px;
+        transition: filter 0.2s;
+        user-select: none;
+        justify-content: space-between;
+    }
+    .period-card:hover { filter: brightness(1.1); }
+    .period-card-inner { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .period-icon {
+        width: 48px; height: 48px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.2);
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .period-icon i { color: white; font-size: 20px; }
+    .period-card-label { font-size: 11px; color: rgba(255,255,255,0.65); margin-bottom: 2px; }
+    .period-card-value { font-size: 13px; font-weight: 700; color: #ffffff; line-height: 1.4; }
+    .period-chevron {
+        color: rgba(255,255,255,0.7);
+        font-size: 12px;
+        transition: transform 0.2s;
+        flex-shrink: 0;
+    }
+    .period-card.open .period-chevron { transform: rotate(180deg); }
+
+    .period-card .active-badge {
+        background: rgba(255,255,255,0.2);
+        color: #ffffff;
+        border: 1px solid rgba(255,255,255,0.35);
+        margin-top: 5px;
+        display: inline-block;
+    }
+
+    /* ── PERIOD DROPDOWN ── */
+    .period-dropdown {
+        display: none;
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        min-width: 260px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        z-index: 999;
+        padding: 10px;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .period-dropdown.open { display: flex; }
+    .pd-section-label {
+        font-size: 10px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.9px;
+        color: var(--muted); padding: 4px 8px 6px;
+    }
+    .pd-option {
+        padding: 9px 12px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .pd-option:hover { background: rgba(0,0,0,0.05); }
+    .pd-option.selected { background: rgba(66,153,225,0.15); color: #3182ce; }
+    .pd-option.selected::after {
+        content: '\f00c';
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 900;
+        font-size: 11px;
+    }
+    .pd-divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+
+    /* ── CHECKLIST HEADER ── */
+    .checklist-card-hd {
+        background: linear-gradient(135deg, #1e7a46, #28a745);
+        color: white;
+        padding: 13px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 700;
+        font-size: 14px;
+        border-radius: 12px 12px 0 0;
+    }
+    .progress-badge-white {
+        background: rgba(255,255,255,0.25);
+        border-radius: 20px;
+        padding: 3px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        color: white;
+    }
+</style>
+
+<!-- WELCOME BANNER -->
 <div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-3">
     <div>
-         
-        <p style="font-size:13px;color:#888;margin:0;"></p>
+        <h4 style="font-size:22px;font-weight:800;color:#1a1a2e;">
+            Welcome back, <span style="color:var(--green);">@(Model?.StaffName ?? "Staff")!</span>
+        </h4>
+        <p style="font-size:13px;color:#888;margin:0;">Here's what's happening to your clearance today</p>
     </div>
-    <div class="period-box" style="background:white;box-shadow:0 1px 4px rgba(0,0,0,0.07);">
-        <div class="period-icon" style="background:#e6f4ea;">
-            <i class="fas fa-calendar-alt" style="color:var(--green);"></i>
-        </div>
+</div>
+
+<!-- STAT ROW -->
+<div class="stat-row">
+
+    <!-- Approved -->
+    <div class="stat-card green-card">
         <div>
-            <div class="period-label" style="color:#888;">Active Academic Period</div>
-            <div class="period-value" style="color:var(--green);">@(Model?.ActivePeriod ?? "—")</div>
+            <div class="stat-num">@(Model?.Approved ?? 0)</div>
+            <div class="stat-label">Approved Requests</div>
         </div>
-        <span class="active-badge">Active</span>
+        <div class="stat-icon-wrap">
+            <i class="fas fa-check-circle"></i>
+        </div>
     </div>
-</div>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-icon green"><i class="fas fa-check"></i></div>
+    <!-- Pending -->
+    <div class="stat-card orange-card">
+        <div>
+            <div class="stat-num">@(Model?.Pending ?? 0)</div>
+            <div class="stat-label">Pending Requests</div>
+        </div>
+        <div class="stat-icon-wrap">
+            <i class="fas fa-clock"></i>
+        </div>
+    </div>
+
+    <!-- Period Card -->
+    <div class="period-card" id="period-card" onclick="togglePeriodDropdown()">
+        <div class="period-card-inner">
+            <div class="period-icon"><i class="fas fa-calendar-alt"></i></div>
             <div>
-                <div class="stat-num">@(Model?.Approved ?? 0)</div>
-                <div class="stat-label">Approved</div>
+                <div class="period-card-value" id="period-display">
+                    @(Model?.ActivePeriod ?? "A.Y. 2025–2026, 2nd Semester")
+                </div>
+                <span class="active-badge">Active</span>
             </div>
         </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-icon orange"><i class="fas fa-clock"></i></div>
-            <div>
-                <div class="stat-num">@(Model?.Pending ?? 0)</div>
-                <div class="stat-label">Pending</div>
-            </div>
+        <i class="fas fa-chevron-down period-chevron"></i>
+
+        <div class="period-dropdown" id="period-dropdown">
+            <div class="pd-section-label">Academic Year</div>
+            <div class="pd-option" data-ay="2023-2024" onclick="selectAY(event,'2023-2024')">A.Y. 2023–2024</div>
+            <div class="pd-option" data-ay="2024-2025" onclick="selectAY(event,'2024-2025')">A.Y. 2024–2025</div>
+            <div class="pd-option selected" data-ay="2025-2026" onclick="selectAY(event,'2025-2026')">A.Y. 2025–2026</div>
+            <div class="pd-option" data-ay="2026-2027" onclick="selectAY(event,'2026-2027')">A.Y. 2026–2027</div>
+            <hr class="pd-divider" />
+            <div class="pd-section-label">Semester</div>
+            <div class="pd-option" data-sem="1st Semester" onclick="selectSem(event,'1st Semester')">1st Semester</div>
+            <div class="pd-option selected" data-sem="2nd Semester" onclick="selectSem(event,'2nd Semester')">2nd Semester</div>
+            <div class="pd-option" data-sem="Summer" onclick="selectSem(event,'Summer')">Summer</div>
         </div>
     </div>
+
 </div>
 
+<!-- BOTTOM ROW: CHECKLIST + ANNOUNCEMENTS -->
 <div class="row g-3">
-    <!-- CHECKLIST — static -->
+
+    <!-- CLEARANCE CHECKLIST -->
     <div class="col-md-5">
-        <div class="page-card">
-            <div class="page-card-hd dark" style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="page-card" style="border-radius:12px;overflow:hidden;">
+            <div class="checklist-card-hd">
                 <span><i class="fas fa-tasks me-2"></i>Clearance Checklist</span>
-                <span id="progress-badge" style="background:var(--green-accent);border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700;">0/3 Completed</span>
+                <span id="progress-badge" class="progress-badge-white">0/3 Completed</span>
             </div>
             @foreach (var step in new[] {
-                new { title="Step 1: Upload E-Signature", desc="Add your e-signature in your profile dashboard." },
-                new { title="Step 2: Review Organization Requests", desc="Approve or decline organization/department requests." },
-                new { title="Step 3: Final Review", desc="Check all entries and make corrections if needed." },
+                new { title="Step 1: Upload E-Signature",
+                      desc="Add your e-signature in your profile dashboard." },
+                new { title="Step 2: Review Organization Requests",
+                      desc="Approve or decline organization/department requests." },
+                new { title="Step 3: Final Review",
+                      desc="Check all entries and make corrections if needed." },
             })
             {
                 <div class="checklist-item">
@@ -68,67 +257,154 @@
         </div>
     </div>
 
-    <!-- ANNOUNCEMENTS — from DB -->
+    <!-- ANNOUNCEMENTS -->
     <div class="col-md-7">
-        <div class="page-card">
-            <div class="page-card-hd dark">
-                <div class="ann-tabs" style="margin-bottom:0;">
-                    <button class="ann-tab active" onclick="filterAnn('all', this)">ALL</button>
-                    <button class="ann-tab" onclick="filterAnn('Pinned', this)" style="background:var(--green);color:white;border-color:var(--green);"><i class="fas fa-thumbtack me-1"></i>PINNED</button>
-                    <button class="ann-tab" onclick="filterAnn('Urgent', this)" style="background:var(--red);color:white;border-color:var(--red);">URGENT</button>
-                    <button class="ann-tab" onclick="filterAnn('Event', this)" style="background:#0d6efd;color:white;border-color:#0d6efd;">EVENTS</button>
-                </div>
+        <div style="background:white;border-radius:12px;padding:18px;
+                    box-shadow:0 1px 4px rgba(0,0,0,0.07);">
+
+            <div class="d-flex gap-2 mb-3 flex-wrap">
+                <button class="ann-tab active" onclick="filterAnn('all', this)">ALL</button>
+                <button class="ann-tab" onclick="filterAnn('Pinned', this)"
+                        style="background:#1a4731;color:white;border-color:#1a4731;">
+                    <i class="fas fa-thumbtack me-1"></i>PINNED
+                </button>
+                <button class="ann-tab" onclick="filterAnn('Urgent', this)"
+                        style="background:#dc3545;color:white;border-color:#dc3545;">
+                    URGENT
+                </button>
+                <button class="ann-tab" onclick="filterAnn('Event', this)"
+                        style="background:#0d6efd;color:white;border-color:#0d6efd;">
+                    EVENTS
+                </button>
             </div>
-            <div id="ann-list" style="padding:16px;">
+
+            <div id="ann-list">
                 @if (Model?.Announcements != null && Model.Announcements.Any())
                 {
                     @foreach (var ann in Model.Announcements)
                     {
-                        <div class="ann-card mb-3" data-tag="@ann.Type.ToLower()">
-                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                                <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="ann-card" data-tag="@ann.Type.ToLower()">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <div class="d-flex align-items-center gap-2">
                                     <div class="ann-avatar">SA</div>
                                     <div>
-                                        <div style="font-weight:700;font-size:13px;">System Administrator</div>
+                                        <div style="font-weight:700;font-size:12px;">System Administrator</div>
                                         <div style="font-size:11px;color:#888;">@ann.Date</div>
                                     </div>
                                 </div>
-                                <span class="ann-tag" style="background:#f3f4f6;color:#555;">@ann.Type</span>
+                                <div class="d-flex gap-1">
+                                    @if (ann.Type == "Pinned")
+                                    {
+                                        <span class="ann-tag tag-pinned">
+                                            <i class="fas fa-thumbtack me-1"></i>Pinned
+                                        </span>
+                                    }
+                                    @if (ann.Type == "Urgent")
+                                    {
+                                        <span class="ann-tag tag-urgent">Urgent</span>
+                                    }
+                                    @if (ann.Type == "Event")
+                                    {
+                                        <span class="ann-tag tag-event">Event</span>
+                                    }
+                                    @if (ann.Type == "General" || ann.Type == "Reminder" || string.IsNullOrEmpty(ann.Type))
+                                    {
+                                        <span class="ann-tag" style="background:#f3f4f6;color:#555;">
+                                            @(string.IsNullOrEmpty(ann.Type) ? "General" : ann.Type)
+                                        </span>
+                                    }
+                                </div>
                             </div>
-                            <div class="ann-title">@ann.Title</div>
-                            <div class="ann-body">@ann.Content</div>
+                            <div style="font-weight:700;font-size:13px;margin-bottom:6px;">@ann.Title</div>
+                            <div style="font-size:12px;color:#555;line-height:1.6;">@ann.Content</div>
                         </div>
                     }
                 }
                 else
                 {
                     <div style="text-align:center;padding:40px 24px;color:#888;">
-                        <i class="fas fa-bullhorn" style="font-size:32px;color:#ddd;display:block;margin-bottom:12px;"></i>
+                        <i class="fas fa-bullhorn"
+                           style="font-size:32px;color:#ddd;margin-bottom:12px;display:block;"></i>
                         <div style="font-size:14px;font-weight:600;color:#aaa;">No announcements yet</div>
+                        <div style="font-size:12px;margin-top:4px;">
+                            Check back later for updates from the Admin.
+                        </div>
                     </div>
                 }
             </div>
         </div>
     </div>
+
 </div>
 
 @section Scripts {
 <script>
-    document.querySelectorAll('.check-box').forEach(box => {
-        box.addEventListener('click', () => { box.classList.toggle('active'); updateProgress(); });
-    });
-    function updateProgress() {
-        const t = document.querySelectorAll('.check-box').length;
-        const c = document.querySelectorAll('.check-box.active').length;
-        document.getElementById('progress-badge').textContent = `${c}/${t} Completed`;
-    }
-    updateProgress();
+    /* ── Period dropdown ── */
+    let selectedAY  = '2025-2026';
+    let selectedSem = '2nd Semester';
 
+    function togglePeriodDropdown() {
+        const card     = document.getElementById('period-card');
+        const dropdown = document.getElementById('period-dropdown');
+        card.classList.toggle('open');
+        dropdown.classList.toggle('open');
+    }
+
+    function selectAY(e, ay) {
+        e.stopPropagation();
+        selectedAY = ay;
+        document.querySelectorAll('[data-ay]').forEach(el => el.classList.remove('selected'));
+        document.querySelector(`[data-ay="${ay}"]`).classList.add('selected');
+        updateDisplay();
+    }
+
+    function selectSem(e, sem) {
+        e.stopPropagation();
+        selectedSem = sem;
+        document.querySelectorAll('[data-sem]').forEach(el => el.classList.remove('selected'));
+        document.querySelector(`[data-sem="${sem}"]`).classList.add('selected');
+        updateDisplay();
+    }
+
+    function updateDisplay() {
+        document.getElementById('period-display').textContent =
+            `A.Y. ${selectedAY}, ${selectedSem}`;
+    }
+
+    document.addEventListener('click', function (e) {
+        const card = document.getElementById('period-card');
+        if (!card.contains(e.target)) {
+            card.classList.remove('open');
+            document.getElementById('period-dropdown').classList.remove('open');
+        }
+    });
+
+    /* ── Checklist ── */
+    document.querySelectorAll('.check-box').forEach(box => {
+        box.addEventListener('click', () => {
+            box.classList.toggle('active');
+            const total   = document.querySelectorAll('.check-box').length;
+            const checked = document.querySelectorAll('.check-box.active').length;
+            document.getElementById('progress-badge').textContent =
+                `${checked}/${total} Completed`;
+        });
+    });
+
+    /* ── Announcement filter ── */
     function filterAnn(tag, btn) {
-        document.querySelectorAll('.ann-tab').forEach(b => { b.style.background='white'; b.style.color='#555'; b.style.borderColor='#dee2e6'; });
-        btn.style.background='#28a745'; btn.style.color='white'; btn.style.borderColor='#28a745';
-        document.querySelectorAll('#ann-list [data-tag]').forEach(c => {
-            c.style.display = tag === 'all' ? '' : (c.getAttribute('data-tag')||'').toLowerCase().includes(tag.toLowerCase()) ? '' : 'none';
+        document.querySelectorAll('.ann-tab').forEach(b => {
+            b.style.background  = '';
+            b.style.color       = '';
+            b.style.borderColor = '';
+            b.classList.remove('active');
+        });
+        btn.classList.add('active');
+
+        document.querySelectorAll('#ann-list .ann-card').forEach(c => {
+            c.style.display = tag === 'all'
+                ? ''
+                : (c.dataset.tag || '').toLowerCase()
+                    .includes(tag.toLowerCase()) ? '' : 'none';
         });
     }
 </script>
