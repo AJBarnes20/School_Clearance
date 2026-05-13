@@ -22,7 +22,28 @@ namespace OnlineClearanceSystem.Controllers
             var firstName = User.FindFirst("FirstName")?.Value ?? "";
             var lastName  = User.FindFirst("LastName")?.Value  ?? "";
             ViewData["InstructorName"] = $"{firstName} {lastName}".Trim();
+
+            // Get the actual employee ID (id_number) from the database
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            try
+            {
+                using var conn = DbHelper.GetConnection(_config);
+                conn.Open();
+                var cmd = new MySqlCommand("SELECT COALESCE(id_number, '—') FROM users WHERE id = @id", conn);
+                cmd.Parameters.AddWithValue("@id", userId);
+                ViewData["InstructorId"] = cmd.ExecuteScalar()?.ToString() ?? "—";
+            }
+            catch
+            {
+                ViewData["InstructorId"] = "—";
+            }
         }
+
+        public override void OnActionExecuting(Microsoft.AspNetCore.Mvc.Filters.ActionExecutingContext context)
+            {
+                SetUserViewData();
+                base.OnActionExecuting(context);
+            }
 
         // ── Dashboard ─────────────────────────────────────────────────────
         public IActionResult Dashboard()
@@ -33,6 +54,8 @@ namespace OnlineClearanceSystem.Controllers
 
             var model = new InstructorDashboardViewModel
             {
+                EmployeeId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0"),
+                InstructorId   = userId,
                 InstructorName = $"{firstName} {lastName}".Trim(),
                 ActivePeriod   = "—",
                 Announcements  = new List<AnnouncementItem>()
@@ -258,8 +281,6 @@ namespace OnlineClearanceSystem.Controllers
         // ── Organization Requests ─────────────────────────────────────────
         public IActionResult Organization()
         {
-            SetUserViewData();
-
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
             var items  = new List<OrganizationRequest>();
 

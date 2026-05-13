@@ -32,33 +32,33 @@ namespace OnlineClearanceSystem.Controllers
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
 
-                // 1. Recent announcements (for all roles)
+                // Recent announcements (all roles)
                 var annCmd = new MySqlCommand(@"
-                    SELECT id, title, type, created_at
-                    FROM announcements
-                    ORDER BY created_at DESC
-                    LIMIT 5", conn);
+                    SELECT id, title, type, posted_at
+                    FROM   announcements
+                    ORDER  BY posted_at DESC
+                    LIMIT  5", conn);
 
                 using var ar = annCmd.ExecuteReader();
                 while (ar.Read())
                 {
                     notifications.Add(new
                     {
-                        id      = ar.GetInt32("id"),
-                        title   = ar.GetString("title"),
-                        type    = ar.IsDBNull(ar.GetOrdinal("type")) ? "General" : ar.GetString("type"),
-                        source  = "announcement",
-                        icon    = "fa-bullhorn",
-                        time    = ar.GetDateTime("created_at").ToString("MMM d, h:mm tt")
+                        id     = ar.GetInt32("id"),
+                        title  = ar.GetString("title"),
+                        type   = ar.IsDBNull(ar.GetOrdinal("type")) ? "General" : ar.GetString("type"),
+                        source = "announcement",
+                        icon   = "fa-bullhorn",
+                        time   = ar.GetDateTime("posted_at").ToString("MMM d, h:mm tt")
                     });
                 }
                 ar.Close();
 
-                // 2. Clearance status updates (for students)
+                // Clearance status updates (students only)
                 if (role == "Student")
                 {
                     var snCmd = new MySqlCommand(
-                        "SELECT student_number FROM students WHERE user_id = @uid LIMIT 1", conn);
+                        "SELECT student_number FROM users WHERE id = @uid LIMIT 1", conn);
                     snCmd.Parameters.AddWithValue("@uid", userId);
                     var studentNumber = snCmd.ExecuteScalar()?.ToString() ?? "";
 
@@ -66,18 +66,16 @@ namespace OnlineClearanceSystem.Controllers
                     {
                         var clrCmd = new MySqlCommand(@"
                             SELECT
-                                cs.id,
-                                s.subject_code,
-                                st.label AS status,
-                                cs.signed_at
+                                cs.mis_code,
+                                COALESCE(s.subject_code, cs.mis_code) AS subject_code,
+                                cs.status,
+                                cs.period_id
                             FROM clearance_subjects cs
-                            JOIN subject_offerings so ON so.mis_code = cs.mis_code
-                            JOIN subjects s ON s.subject_code = so.subject_code
-                            LEFT JOIN status_table st ON st.id = cs.status
+                            LEFT JOIN subject_offerings so ON so.mis_code = cs.mis_code
+                            LEFT JOIN subjects          s  ON s.id        = so.subject_id
                             WHERE cs.student_number = @sn
-                            AND cs.status IN (2, 3)
-                            AND cs.signed_at IS NOT NULL
-                            ORDER BY cs.signed_at DESC
+                              AND cs.status IN ('Cleared', 'Declined')
+                            ORDER BY cs.id DESC
                             LIMIT 5", conn);
                         clrCmd.Parameters.AddWithValue("@sn", studentNumber);
 
@@ -87,27 +85,26 @@ namespace OnlineClearanceSystem.Controllers
                             var status = cr.GetString("status");
                             notifications.Add(new
                             {
-                                id     = cr.GetInt32("id"),
+                                id     = 0,
                                 title  = $"{cr.GetString("subject_code")} — {status}",
-                                type   = status == "Cleared" ? "Approved" : "Declined",
+                                type   = status,
                                 source = "clearance",
                                 icon   = status == "Cleared" ? "fa-check-circle" : "fa-times-circle",
-                                time   = cr.IsDBNull(cr.GetOrdinal("signed_at"))
-                                            ? "" : cr.GetDateTime("signed_at").ToString("MMM d, h:mm tt")
+                                time   = "Recent"
                             });
                         }
                     }
                 }
 
-                // 3. Pending requests (for instructors)
+                // Pending clearance requests (instructors only)
                 if (role == "Instructor")
                 {
                     var pendCmd = new MySqlCommand(@"
                         SELECT COUNT(*) AS cnt
-                        FROM clearance_subjects cs
-                        JOIN subject_offerings so ON so.mis_code = cs.mis_code
-                        WHERE so.instructor_user_id = @uid
-                        AND cs.status = 1", conn);
+                        FROM   clearance_subjects cs
+                        JOIN   subject_offerings  so ON so.mis_code = cs.mis_code
+                        WHERE  so.user_id = @uid
+                          AND  cs.status  = 'Pending'", conn);
                     pendCmd.Parameters.AddWithValue("@uid", userId);
                     var pendingCount = Convert.ToInt32(pendCmd.ExecuteScalar() ?? 0);
 
@@ -127,7 +124,6 @@ namespace OnlineClearanceSystem.Controllers
             }
             catch { }
 
-            // Sort by time descending, take 10
             return Json(new
             {
                 count = notifications.Count,

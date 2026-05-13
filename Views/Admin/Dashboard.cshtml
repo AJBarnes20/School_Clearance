@@ -3,27 +3,6 @@
     ViewData["ActivePage"] = "Dashboard";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
 }
-
-<div class="d-flex align-items-center justify-content-between mb-4">
-    <div>
-        <div class="page-title" style="margin-bottom:4px;">Welcome, Admin!</div>
-        <div style="font-size:13px;color:var(--muted);">Manage and monitor the clearance system</div>
-    </div>
-
-    <!-- Active Academic Period -->
-    <div id="period-widget" style="background:var(--card);border-radius:10px;padding:10px 18px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
-        <div style="width:36px;height:36px;background:rgba(66,153,225,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;">
-            <i class="fas fa-calendar-alt" style="color:#63b3ed;"></i>
-        </div>
-        <div>
-            <div id="period-ay"  style="font-size:14px;font-weight:800;color:#4299e1;">No Active Period</div>
-            <div id="period-sem" style="font-size:13px;font-weight:700;color:var(--text);"></div>
-            <div style="font-size:10px;color:var(--muted);">Active Academic Period</div>
-        </div>
-        <span id="period-badge" class="badge-active" style="font-size:12px;display:none;">Active</span>
-    </div>
-</div>
-
 <!-- STAT CARDS -->
 <div class="row g-3 mb-4">
     <div class="col-md-3">

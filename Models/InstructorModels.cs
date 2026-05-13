@@ -3,6 +3,8 @@ namespace OnlineClearanceSystem.Models
     public class InstructorDashboardViewModel
     {
         public string InstructorName  { get; set; } = "";
+        public int    InstructorId    { get; set; } 
+        public int EmployeeId { get; set; }
         public string ActivePeriod    { get; set; } = "—";
         public int    SubjectAssigned { get; set; }
         public int    TotalStudents   { get; set; }

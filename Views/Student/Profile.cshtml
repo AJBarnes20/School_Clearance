@@ -23,59 +23,141 @@
 
     <!-- ── LEFT COLUMN: Edit Profile ── -->
     <div class="col-md-7">
-
-        <!-- EDIT PROFILE -->
         <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:12px;">
+
+            <!-- HEADER -->
             <div style="padding:14px 18px;background:var(--green);display:flex;align-items:center;gap:8px;">
                 <i class="fas fa-user-edit" style="color:white;"></i>
                 <span style="font-size:14px;font-weight:700;color:white;">Edit Profile</span>
             </div>
+
             <div style="padding:20px;">
                 <form asp-action="SaveProfile" asp-controller="Student" method="post" novalidate>
                     @Html.AntiForgeryToken()
                     <div class="row g-3">
 
-                        <div class="col-md-6">
-                            <label class="profile-label">First Name</label>
-                            <div class="profile-input-wrap">
-                                <input asp-for="FirstName" class="profile-input" placeholder="First Name"/>
-                                <i class="fas fa-pen profile-edit-icon"></i>
+                        <!-- ══ IDENTIFICATION ══ -->
+                        <div class="col-12">
+                            <div class="prof-section-label">
+                                <i class="fas fa-id-card me-1"></i> Identification
                             </div>
                         </div>
 
-                        <div class="col-md-6">
-                            <label class="profile-label">Last Name</label>
-                            <div class="profile-input-wrap">
-                                <input asp-for="LastName" class="profile-input" placeholder="Last Name"/>
-                                <i class="fas fa-pen profile-edit-icon"></i>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="profile-label">Middle Initial</label>
-                            <div class="profile-input-wrap">
-                                <input asp-for="MiddleInitial" class="profile-input" placeholder="M.I." maxlength="3"/>
-                                <i class="fas fa-pen profile-edit-icon"></i>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="profile-label">Suffix</label>
-                            <div class="profile-input-wrap">
-                                <input asp-for="Suffix" class="profile-input" placeholder="e.g. Jr., Sr."/>
-                                <i class="fas fa-pen profile-edit-icon"></i>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
+                        <!-- Student Number — full width, locked -->
+                        <div class="col-6">
                             <label class="profile-label">Student Number</label>
                             <div class="profile-input-wrap">
-                                <input asp-for="StudentId" class="profile-input" placeholder="e.g. 2023-00001"
-                                       readonly style="background:#f3f4f6;color:#9ca3af;cursor:not-allowed;"/>
+                                <input asp-for="StudentId" class="profile-input"
+                                       placeholder="e.g. 2023-00001"
+                                       readonly
+                                       style="background:#f3f4f6;color:#9ca3af;cursor:not-allowed;" />
                                 <i class="fas fa-lock profile-edit-icon"></i>
                             </div>
                         </div>
+                         <!-- Password -->
+                         <div class="col-6">
+                            <label class="profile-label">
+                                Account Password
+                                <span style="font-weight:400;color:#aaa;font-size:10px;">(leave blank to keep current)</span>
+                            </label>
+                            <div class="profile-input-wrap" style="position:relative;">
+                                <input id="pw-field" asp-for="Password" class="profile-input"
+                                       type="password" placeholder="Enter new password to change"
+                                       autocomplete="new-password" />
+                                <button type="button" onclick="togglePw()"
+                                        style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                                               background:none;border:none;cursor:pointer;color:#aaa;padding:0;font-size:14px;">
+                                    <i class="fas fa-eye-slash" id="pw-icon"></i>
+                                </button>
+                            </div>
+                        </div>
 
+                        <!-- Email — full width -->
+                        <div class="col-6">
+                            <label class="profile-label">Email Address</label>
+                            <div class="profile-input-wrap">
+                                <input asp-for="Email" class="profile-input" placeholder="Email" />
+                                <i class="fas fa-pen profile-edit-icon"></i>
+                            </div>
+                        </div>
+
+                        <!-- Assigned Position (read-only) -->
+                        <div class="col-6">
+                            <label class="profile-label">Assigned Position</label>
+                            @if (Model?.Positions != null && Model.Positions.Any())
+                            {
+                                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                    @foreach (var pos in Model.Positions)
+                                    {
+                                        <div style="background:#f3f4f6;border:1px solid #e2e8f0;border-radius:8px;
+                                                    padding:9px 13px;font-size:13px;font-weight:600;color:#9ca3af;
+                                                    cursor:not-allowed;display:flex;align-items:center;gap:6px;">
+                                            <i class="fas fa-lock" style="font-size:11px;color:#c0c4cc;"></i>
+                                            @pos.OrgRole
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div style="background:#f3f4f6;border:1px solid #e2e8f0;border-radius:8px;
+                                            padding:9px 13px;font-size:13px;color:#c0c4cc;">
+                                    <i class="fas fa-lock me-1" style="font-size:11px;"></i>No position assigned yet.
+                                </div>
+                            }
+                        </div>
+
+                        <!-- ══ PERSONAL INFORMATION ══ -->
+                        <div class="col-12" style="margin-top:4px;">
+                            <div class="prof-section-label">
+                                <i class="fas fa-user me-1"></i> Personal Information
+                            </div>
+                        </div>
+
+                        <!-- First Name + Last Name -->
+                        <div class="col-md-4">
+                            <label class="profile-label">First Name</label>
+                            <div class="profile-input-wrap">
+                                <input asp-for="FirstName" class="profile-input" placeholder="First Name" />
+                                <i class="fas fa-pen profile-edit-icon"></i>
+                            </div>
+                        </div>
+
+                        <!-- Middle Initial + Suffix -->
+                        <div class="col-md-2">
+                            <label class="profile-label">Middle Initial</label>
+                            <div class="profile-input-wrap">
+                                <input asp-for="MiddleInitial" class="profile-input" placeholder="M.I." maxlength="3" />
+                                <i class="fas fa-pen profile-edit-icon"></i>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="profile-label">Last Name</label>
+                            <div class="profile-input-wrap">
+                                <input asp-for="LastName" class="profile-input" placeholder="Last Name" />
+                                <i class="fas fa-pen profile-edit-icon"></i>
+                            </div>
+                        </div>
+
+                        
+
+                        <div class="col-md-2">
+                            <label class="profile-label">Suffix</label>
+                            <div class="profile-input-wrap">
+                                <input asp-for="Suffix" class="profile-input" placeholder="e.g. Jr., Sr." />
+                                <i class="fas fa-pen profile-edit-icon"></i>
+                            </div>
+                        </div>
+
+                        <!-- ══ ACADEMIC INFORMATION ══ -->
+                        <div class="col-12" style="margin-top:4px;">
+                            <div class="prof-section-label">
+                                <i class="fas fa-graduation-cap me-1"></i> Academic Information
+                            </div>
+                        </div>
+
+                        <!-- Course + Year Level + Section -->
                         <div class="col-md-4">
                             <label class="profile-label">Course</label>
                             <div class="profile-input-wrap select-wrap">
@@ -116,58 +198,6 @@
                                 <i class="fas fa-chevron-down profile-edit-icon"></i>
                             </div>
                         </div>
-
-                        <div class="col-12">
-                            <label class="profile-label">Email</label>
-                            <div class="profile-input-wrap">
-                                <input asp-for="Email" class="profile-input" placeholder="Email"/>
-                                <i class="fas fa-pen profile-edit-icon"></i>
-                            </div>
-                        </div>
-
-                        <!-- ASSIGNED POSITION (read-only, merged into profile) -->
-                        <div class="col-12">
-                            <label class="profile-label">Assigned Position</label>
-                            @if (Model?.Positions != null && Model.Positions.Any())
-                            {
-                                <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                                    @foreach (var pos in Model.Positions)
-                                    {
-                                        <div style="background:#f3f4f6;border:1px solid #e2e8f0;border-radius:8px;
-                                                    padding:9px 13px;font-size:13px;font-weight:600;color:#9ca3af;
-                                                    cursor:not-allowed;display:flex;align-items:center;gap:6px;">
-                                            <i class="fas fa-lock" style="font-size:11px;color:#c0c4cc;"></i>
-                                            @pos.OrgRole
-                                        </div>
-                                    }
-                                </div>
-                            }
-                            else
-                            {
-                                <div style="background:#f3f4f6;border:1px solid #e2e8f0;border-radius:8px;
-                                            padding:9px 13px;font-size:13px;color:#c0c4cc;">
-                                    <i class="fas fa-lock me-1" style="font-size:11px;"></i>No position assigned yet.
-                                </div>
-                            }
-                        </div>
-
-                        <div class="col-12">
-                            <label class="profile-label">
-                                Account Password
-                                <span style="font-weight:400;color:#aaa;font-size:10px;">(leave blank to keep current)</span>
-                            </label>
-                            <div class="profile-input-wrap" style="position:relative;">
-                                <input id="pw-field" asp-for="Password" class="profile-input"
-                                       type="password" placeholder="Enter new password to change"
-                                       autocomplete="new-password"/>
-                                <button type="button" onclick="togglePw()"
-                                        style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
-                                               background:none;border:none;cursor:pointer;color:#aaa;padding:0;font-size:14px;">
-                                    <i class="fas fa-eye-slash" id="pw-icon"></i>
-                                </button>
-                            </div>
-                        </div>
-
                     </div>
 
                     <div style="margin-top:20px;text-align:center;">
@@ -183,13 +213,13 @@
 
     <!-- ── RIGHT COLUMN: E-Signature ── -->
     <div class="col-md-5">
-
-        <!-- E-SIGNATURE -->
         <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:12px;">
+
             <div style="padding:14px 18px;background:var(--green);display:flex;align-items:center;gap:8px;">
                 <i class="fas fa-signature" style="color:white;"></i>
                 <span style="font-size:14px;font-weight:700;color:white;">E-Signature</span>
             </div>
+
             <div style="padding:16px;">
 
                 <!-- MODE TOGGLE -->
@@ -244,7 +274,7 @@
                         <div style="font-size:11px;color:#aaa;">PNG, JPG supported</div>
                     </div>
                     <input type="file" id="sig-upload" accept="image/*" style="display:none;"
-                           onchange="previewUploadedSignature(this)"/>
+                           onchange="previewUploadedSignature(this)" />
                 </div>
 
                 <!-- SAVED SIGNATURE PREVIEW -->
@@ -254,7 +284,7 @@
                     </div>
                     <div style="background:#111;border-radius:10px;height:80px;
                                 display:flex;align-items:center;justify-content:center;overflow:hidden;">
-                        <img id="saved-sig-preview" src="" style="display:none;max-height:100%;max-width:100%;object-fit:contain;"/>
+                        <img id="saved-sig-preview" src="" style="display:none;max-height:100%;max-width:100%;object-fit:contain;" />
                         <span id="saved-sig-placeholder" style="color:rgba(255,255,255,0.3);font-size:12px;">
                             No signature saved yet
                         </span>
@@ -268,10 +298,11 @@
                         <span id="sig-timestamp" style="font-size:10px;color:#aaa;"></span>
                     </div>
                 </div>
+
             </div>
         </div>
-
     </div>
+
 </div>
 
 @section Styles {
@@ -281,6 +312,20 @@
     .profile-input      { width:100%; border:1px solid #d1d5db; border-radius:8px; padding:10px 40px 10px 13px; font-size:13px; font-family:inherit; color:#1a1a2e; outline:none; transition:border-color 0.2s,box-shadow 0.2s; background:white; appearance:none; }
     .profile-input:focus{ border-color:#1a4731; box-shadow:0 0 0 3px rgba(26,71,49,0.1); }
     .profile-edit-icon  { position:absolute; right:12px; top:50%; transform:translateY(-50%); color:#aaa; font-size:12px; pointer-events:none; }
+
+    /* ── Section divider labels ── */
+    .prof-section-label {
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #1a4731;
+        padding-bottom: 7px;
+        border-bottom: 1.5px solid #e8f5e9;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
 </style>
 }
 

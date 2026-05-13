@@ -51,6 +51,7 @@ namespace OnlineClearanceSystem.Models
     {
         public List<SubjectItem> AvailableSubjects { get; set; } = new();
         public string            ActivePeriod      { get; set; } = "A.Y. 2025-2026, 2nd Semester";
+        public int               ActivePeriodId    { get; set; } = 0;
     }
 
     public class SubjectItem
@@ -67,10 +68,11 @@ namespace OnlineClearanceSystem.Models
     // ── PDF Download ──────────────────────────────────────────────────────────
     public class StudentClearancePdfViewModel
     {
-        public string StudentName { get; set; } = "";
-        public string StudentId   { get; set; } = "";
-        public string CourseYear  { get; set; } = "";
-        public string AySemester  { get; set; } = "";
+        public string StudentName    { get; set; } = "";
+        public string StudentId      { get; set; } = "";
+        public string CourseYear     { get; set; } = "";
+        public string AySemester     { get; set; } = "";
+        public int    ActivePeriodId { get; set; } = 0;
         public List<PdfSubjectItem>      Subjects      { get; set; } = new();
         public List<PdfOrganizationItem> Organizations { get; set; } = new();
     }

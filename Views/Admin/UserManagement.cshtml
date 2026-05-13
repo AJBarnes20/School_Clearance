@@ -135,43 +135,196 @@
 <!-- ─── ORG OFFICERS PANEL ─── -->
 <div id="org-panel" style="display:none;">
     <div class="panel mb-4">
-        <div class="panel-hd">
-            <span class="panel-hd-title"><i class="fas fa-id-badge me-2"></i>Student Org Officers</span>
+        <div class="panel-hd" style="display:flex;align-items:center;justify-content:space-between;">
+            <span class="panel-hd-title"><i class="fas fa-id-badge me-2"></i>Org Officers &amp; Signatories</span>
+            <button onclick="openAssignOrgModal()"
+                    style="background:rgba(56,161,105,0.2);border:1px solid rgba(56,161,105,0.4);
+                           color:#68d391;border-radius:8px;padding:6px 16px;font-size:12px;
+                           font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <i class="fas fa-user-plus"></i> Assign Position
+            </button>
         </div>
-        <div style="padding:20px 20px 0;">
-            <div class="row g-2 mb-3">
-                <div class="col-md-5">
-                    <label class="dark-label">Student</label>
-                    <select class="dark-input dark-select" id="sig-student-sel">
-                        <option value="">-- Select Student --</option>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>ID / Student No.</th>
+                        <th>Position</th>
+                        <th>Section (if Adviser)</th>
+                        <th style="text-align:center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="all-org-tbody"></tbody>
+            </table>
+        </div>
+        <div id="all-org-empty"
+             style="padding:48px 24px;text-align:center;color:var(--muted);font-size:13px;display:none;">
+            <i class="fas fa-id-badge" style="font-size:28px;opacity:0.3;display:block;margin-bottom:10px;"></i>
+            No org officers or signatories assigned yet.
+        </div>
+    </div>
+</div>
+
+<!-- ─── ASSIGN ORG POSITION MODAL ─── -->
+<div id="assign-org-overlay"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1040;"
+     onclick="closeAssignOrgModal()"></div>
+<div id="assign-org-modal"
+     style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+            width:520px;max-height:90vh;overflow-y:auto;background:var(--card);
+            border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);z-index:1050;padding:0;">
+    <div style="background:var(--tbl-hd-navy);padding:16px 20px;display:flex;
+                align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;">
+        <span style="font-size:14px;font-weight:700;color:white;">
+            <i class="fas fa-user-tag me-2"></i>Assign Org Position
+        </span>
+        <button onclick="closeAssignOrgModal()"
+                style="background:rgba(255,255,255,0.12);border:none;color:white;
+                       border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div style="padding:20px;">
+        <!-- User search -->
+        <div class="mb-3">
+            <label class="dark-label">Search &amp; Select User (any role)</label>
+            <div style="position:relative;">
+                <input class="dark-input" id="ao-search" placeholder="Type name or ID…"
+                       autocomplete="off" oninput="filterAoDD(this.value)"
+                       onfocus="filterAoDD(this.value)" style="padding-right:36px;" />
+                <i class="fas fa-search"
+                   style="position:absolute;right:12px;top:50%;transform:translateY(-50%);
+                          color:var(--muted);pointer-events:none;"></i>
+                <div id="ao-dropdown"
+                     style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;
+                            background:var(--card);border:1px solid var(--border);border-radius:8px;
+                            max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);
+                            margin-top:4px;"></div>
+            </div>
+            <div id="ao-pill" style="display:none;margin-top:10px;background:rgba(56,161,105,0.1);
+                 border:1px solid rgba(56,161,105,0.3);border-radius:8px;padding:10px 14px;
+                 display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div id="ao-pill-av" class="user-avatar-sm" style="background:#38a169;"></div>
+                    <div>
+                        <div id="ao-pill-name" style="font-size:13px;font-weight:700;color:var(--text);"></div>
+                        <div id="ao-pill-meta" style="font-size:11px;color:var(--muted);"></div>
+                    </div>
+                </div>
+                <button onclick="clearAoSelection()"
+                        style="background:none;border:none;color:var(--muted);cursor:pointer;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Position selector -->
+        <div class="mb-3">
+            <label class="dark-label">Position</label>
+            <select class="dark-input" id="ao-pos" onchange="onAoPosChange(this.value)"
+                    style="appearance:auto;-webkit-appearance:auto;cursor:pointer;">
+                <option value="" disabled selected>— Select a position —</option>
+                <option value="Class Adviser">Class Adviser</option>
+                <option value="Departmental Chairperson">Departmental Chairperson</option>
+                <option value="Organization Adviser">Organization Adviser</option>
+                <option value="SSG President">SSG President</option>
+                <option value="SSG Vice President">SSG Vice President</option>
+                <option value="SSG Secretary">SSG Secretary</option>
+                <option value="SSG Treasurer">SSG Treasurer</option>
+                <option value="SSG Auditor">SSG Auditor</option>
+                <option value="__custom__">Other (type manually)</option>
+            </select>
+        </div>
+        <div id="ao-custom-wrap" style="display:none;" class="mb-3">
+            <label class="dark-label">Custom Position Title</label>
+            <input class="dark-input" id="ao-custom" placeholder="e.g. Club President" />
+        </div>
+
+        <!-- Class Adviser extras -->
+        <div id="ao-adviser-wrap"
+             style="display:none;background:rgba(66,153,225,0.06);border:1px solid rgba(66,153,225,0.2);
+                    border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+            <div style="font-size:12px;font-weight:700;color:#4299e1;margin-bottom:12px;">
+                <i class="fas fa-chalkboard-teacher me-2"></i>Class Adviser — Select Section
+            </div>
+            <div class="row g-2">
+                <div class="col-12">
+                    <label class="dark-label">Course</label>
+                    <select class="dark-input" id="ao-ca-course" onchange="aoFilterYear()"
+                            style="appearance:auto;-webkit-appearance:auto;cursor:pointer;">
+                        <option value="" disabled selected>— Select Course —</option>
                     </select>
                 </div>
-                <div class="col-md-5">
-                    <label class="dark-label">Position / Role</label>
-                    <input class="dark-input" id="sig-position" placeholder="e.g. Organization Treasurer" />
+                <div class="col-6">
+                    <label class="dark-label">Year Level</label>
+                    <select class="dark-input" id="ao-ca-year" onchange="aoFilterSection()"
+                            style="appearance:auto;-webkit-appearance:auto;cursor:pointer;">
+                        <option value="" disabled selected>— Year —</option>
+                    </select>
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button class="btn-green-sm w-100" onclick="addStudentSignatory()">
-                        <i class="fas fa-plus me-1"></i>Assign
-                    </button>
+                <div class="col-6">
+                    <label class="dark-label">Section</label>
+                    <select class="dark-input" id="ao-ca-section"
+                            style="appearance:auto;-webkit-appearance:auto;cursor:pointer;">
+                        <option value="" disabled selected>— Section —</option>
+                    </select>
                 </div>
             </div>
         </div>
-        <div class="table-responsive">
-            <table class="data-table" id="sig-table">
-                <thead>
-                    <tr>
-                        <th>#</th><th>Name</th><th>Student No.</th>
-                        <th>Course</th><th>Position</th><th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="sig-tbody"></tbody>
-            </table>
+
+        <div id="ao-error" style="display:none;color:#fc8181;font-size:12px;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button onclick="closeAssignOrgModal()"
+                    style="background:rgba(255,255,255,0.06);border:1px solid var(--border);
+                           color:var(--muted);border-radius:8px;padding:9px 22px;font-size:13px;cursor:pointer;">
+                Cancel
+            </button>
+            <button onclick="submitAssignOrg()" id="ao-submit-btn" class="btn-green-sm"
+                    style="padding:9px 22px;font-size:13px;">
+                <i class="fas fa-check me-1"></i>Assign
+            </button>
         </div>
-        <div id="sig-empty"
-             style="padding:48px 24px;text-align:center;color:var(--muted);font-size:13px;display:none;">
-            <i class="fas fa-id-badge" style="font-size:28px;opacity:0.3;display:block;margin-bottom:10px;"></i>
-            No org officers assigned yet.
+    </div>
+</div>
+
+<!-- ─── VIEW CLEARANCE REQUESTS MODAL ─── -->
+<div id="view-org-overlay"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1040;"
+     onclick="closeViewOrgModal()"></div>
+<div id="view-org-modal"
+     style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+            width:780px;max-width:95vw;max-height:90vh;overflow-y:auto;background:var(--card);
+            border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);z-index:1050;">
+    <div style="background:var(--tbl-hd-navy);padding:16px 20px;display:flex;
+                align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;
+                position:sticky;top:0;z-index:1;">
+        <span style="font-size:14px;font-weight:700;color:white;">
+            <i class="fas fa-clipboard-list me-2"></i>
+            Clearance Requests — <span id="view-org-title" style="color:#68d391;"></span>
+        </span>
+        <button onclick="closeViewOrgModal()"
+                style="background:rgba(255,255,255,0.12);border:none;color:white;
+                       border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- Period filter -->
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);
+                display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:700;color:var(--muted);">Filter by Period:</span>
+        <div id="view-period-pills" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+
+    <div style="padding:16px 20px;">
+        <div id="view-org-body">
+            <div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">
+                <i class="fas fa-spinner fa-spin" style="font-size:20px;display:block;margin-bottom:10px;"></i>
+                Loading…
+            </div>
         </div>
     </div>
 </div>
@@ -216,34 +369,61 @@ let stuSignatories  = [];   // student org officers
 let staffPositions  = [];
 let curriculums     = [];
 let selectedInstructor = null;
+let allUsers        = [];   // all active users for assign dropdown
+let allOrgPositions = [];   // unified org positions list
+let allPeriodsList  = [];   // academic periods for view modal
 
 let currentRole    = 'all';
 let assignMode     = null;  // 'instructor' | 'staff' | null
+let aoSelectedUser = null;  // selected user in assign-org modal
+let viewOrgCurrentPos = '';
+let viewOrgCurrentPid = 0;
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════════════════════════════
 async function init() {
-    await Promise.all([
-        loadStudents(),
-        loadInstructors(),
-        loadStaff(),
-        loadOrgSignatories(),
-        loadStuSignatories(),
-        loadStaffPositions(),
-        loadCurriculums()
-    ]);
-    updateStats();
-    render();
-    populateStudentDropdown();
+    try {
+        await Promise.all([
+            loadStudents(),
+            loadInstructors(),
+            loadStaff(),
+            loadOrgSignatories(),
+            loadStuSignatories(),
+            loadStaffPositions(),
+            loadCurriculums(),
+            loadAllUsers(),
+            loadAllOrgPositions(),
+            loadAllPeriods()
+        ]);
+        console.log('All loaded:', students.length, instructors.length, staffList.length);
+        updateStats();
+        console.log('Stats updated');
+        render();
+        console.log('Rendered');
+    } catch(e) {
+        console.error('INIT FAILED:', e);
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  LOADERS
 // ══════════════════════════════════════════════════════════════════════════════
 async function loadStudents() {
-    try { const r = await fetch('/api/admin/students'); students = await r.json(); } catch {}
-    if (!Array.isArray(students)) students = [];
+    try {
+        const r = await fetch('/api/admin/students');
+        const d = await r.json();
+        console.log('loadStudents response:', d); // ADD THIS
+        if (!Array.isArray(d)) {
+            console.error('GetStudents error:', d?.error ?? d);
+            students = [];
+            return;
+        }
+        students = d;
+    } catch (e) {
+        console.error('loadStudents fetch error:', e);
+        students = [];
+    }
 }
 async function loadInstructors() {
     try { const r = await fetch('/api/admin/instructors'); instructors = await r.json(); } catch {}
@@ -276,6 +456,18 @@ async function loadStaffPositions() {
 async function loadCurriculums() {
     try { const r = await fetch('/api/admin/curriculums'); curriculums = await r.json(); } catch {}
     if (!Array.isArray(curriculums)) curriculums = [];
+}
+async function loadAllUsers() {
+    try { const r = await fetch('/api/admin/all-users'); allUsers = await r.json(); } catch {}
+    if (!Array.isArray(allUsers)) allUsers = [];
+}
+async function loadAllOrgPositions() {
+    try { const r = await fetch('/api/admin/all-org-positions'); allOrgPositions = await r.json(); } catch {}
+    if (!Array.isArray(allOrgPositions)) allOrgPositions = [];
+}
+async function loadAllPeriods() {
+    try { const r = await fetch('/api/student/periods'); allPeriodsList = await r.json(); } catch {}
+    if (!Array.isArray(allPeriodsList)) allPeriodsList = [];
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -324,6 +516,10 @@ function render() {
 // ══════════════════════════════════════════════════════════════════════════════
 function renderAllTable() {
     const panel = document.getElementById('main-panel');
+
+     // DEBUG: remove after fix
+    console.log('students:', students.length, 'instructors:', instructors.length, 'staff:', staffList.length);
+
     const rows  = [
         ...students.map(s => ({
             role: 'Student', name: s.name, id: s.idNum || '—',
@@ -607,8 +803,8 @@ function renderStaffTable() {
                                     ? `<span style="${badgeStyle('#0d9488','rgba(13,148,136,0.15)')};">${escHtml(s.posLabel)}</span>`
                                     : `<span style="color:var(--muted);font-size:12px;">—</span>`}
                             </td>
-                            <td><span style="${badgeStyle('#68d391','rgba(56,161,105,0.15)');}">${s.approved}</span></td>
-                            <td><span style="${badgeStyle('#f6e05e','rgba(236,201,75,0.15)');}">${s.pending}</span></td>
+                            <td><span style="${badgeStyle('#68d391','rgba(56,161,105,0.15)')}">${s.approved}</span></td>
+                            <td><span style="${badgeStyle('#f6e05e','rgba(236,201,75,0.15)')}">${s.pending}</span></td>
                             <td><span style="${badgeStyle('#38a169','rgba(56,161,105,0.15)')}">Active</span></td>
                         </tr>`).join('')}
                 </tbody>
@@ -617,78 +813,341 @@ function renderStaffTable() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  ORG OFFICERS (STUDENT SIGNATORIES)
+//  ORG OFFICERS — UNIFIED (all sources)
 // ══════════════════════════════════════════════════════════════════════════════
 function renderOrgOfficers() {
-    const tbody = document.getElementById('sig-tbody');
-    const empty = document.getElementById('sig-empty');
+    const tbody = document.getElementById('all-org-tbody');
+    const empty = document.getElementById('all-org-empty');
     tbody.innerHTML = '';
 
-    if (!stuSignatories.length) {
+    // Use dedicated API result; fall back to merging existing loaded arrays
+    let positions = allOrgPositions;
+    if (!positions.length) {
+        positions = [
+            ...stuSignatories.map(s => ({
+                source: 'sig', id: s.id, userId: s.userId ?? 0,
+                name: s.name, role: 'Student', idNum: s.idNum ?? '—',
+                posTitle: s.position ?? '—', courseCode: '', yearLevel: 0, section: ''
+            })),
+            ...orgSignatories.map(s => ({
+                source: 'org', id: s.id, userId: s.userId ?? 0,
+                name: s.name, role: 'Instructor', idNum: s.eid ?? '—',
+                posTitle: s.pos ?? '—', courseCode: s.courseCode ?? '',
+                yearLevel: s.yearLevel ?? 0, section: s.section ?? ''
+            }))
+        ];
+    }
+
+    if (!positions.length) {
         empty.style.display = 'block'; return;
     }
     empty.style.display = 'none';
 
-    stuSignatories.forEach((s, i) => {
+    const roleColor = { Student:'#9f7aea', Instructor:'#4299e1', Staff:'#0d9488', Admin:'#ed8936' };
+
+    positions.forEach((p, i) => {
+        const rc = roleColor[p.role] ?? '#718096';
+        const advSection = p.posTitle === 'Class Adviser' && p.courseCode
+            ? `${p.courseCode} – ${p.yearLevel}${p.section ? ', Sec ' + p.section : ''}`
+            : '—';
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td style="color:var(--muted);">${String(i+1).padStart(2,'0')}</td>
             <td>
                 <div class="d-flex align-items-center gap-2">
-                    <div class="user-avatar-sm" style="background:#9f7aea;">${escHtml(s.name.charAt(0))}</div>
-                    <span style="font-weight:600;font-size:13px;">${escHtml(s.name)}</span>
+                    <div class="user-avatar-sm" style="background:${rc};">${escHtml(p.name.charAt(0))}</div>
+                    <span style="font-weight:600;font-size:13px;">${escHtml(p.name)}</span>
                 </div>
             </td>
-            <td style="color:var(--muted);">${escHtml(s.idNum || '—')}</td>
-            <td>${escHtml(s.course || '—')}</td>
-            <td><span style="${badgeStyle('#9f7aea','rgba(159,122,234,0.15)')};">${escHtml(s.position || '—')}</span></td>
-            <td>
-                <button onclick="removeStuSignatory(${s.id})"
-                        style="${btnStyle('#e53e3e','rgba(229,62,62,0.12)')}">
-                    <i class="fas fa-trash-alt me-1"></i>Remove
-                </button>
+            <td><span style="${badgeStyle(rc, rc + '22')}">${escHtml(p.role)}</span></td>
+            <td style="color:var(--muted);font-size:12px;">${escHtml(p.idNum)}</td>
+            <td><span style="${badgeStyle('#38a169','rgba(56,161,105,0.15)')}">${escHtml(p.posTitle)}</span></td>
+            <td style="font-size:12px;color:var(--muted);">${escHtml(advSection)}</td>
+            <td style="text-align:center;">
+                <div style="display:flex;gap:6px;justify-content:center;">
+                    <button onclick="openViewOrgModal('${escHtml(p.posTitle).replace(/'/g,"\\'")}', '${escHtml(p.name).replace(/'/g,"\\'")}', '${escHtml(advSection).replace(/'/g,"\\'")}' )"
+                            style="${btnStyle('#4299e1','rgba(66,153,225,0.12)')}">
+                        <i class="fas fa-eye me-1"></i>View
+                    </button>
+                    <button onclick="removeOrgPosition('${p.source}', ${p.id})"
+                            style="${btnStyle('#e53e3e','rgba(229,62,62,0.12)')}">
+                        <i class="fas fa-trash-alt me-1"></i>Remove
+                    </button>
+                </div>
             </td>`;
         tbody.appendChild(tr);
     });
 }
 
-function populateStudentDropdown() {
-    const sel = document.getElementById('sig-student-sel');
-    sel.innerHTML = '<option value="">-- Select Student --</option>';
-    students.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value       = s.id;
-        opt.textContent = `${s.name} (${s.idNum || '—'})`;
-        sel.appendChild(opt);
-    });
-}
-
-async function addStudentSignatory() {
-    const userId   = document.getElementById('sig-student-sel').value;
-    const position = document.getElementById('sig-position').value.trim();
-    if (!userId || !position) { alert('Please select a student and enter a position.'); return; }
+async function removeOrgPosition(source, id) {
+    if (!confirm('Remove this position assignment?')) return;
+    const url = source === 'sig'
+        ? `/api/admin/student-signatories/${id}`
+        : `/api/admin/org-signatories/${id}`;
     try {
-        const res  = await fetch('/api/admin/student-signatories', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: parseInt(userId), position })
-        });
-        const data = await res.json();
-        if (data.success) {
-            await loadStuSignatories();
-            renderOrgOfficers();
-            document.getElementById('sig-student-sel').value = '';
-            document.getElementById('sig-position').value    = '';
-        } else { alert(data.error || 'Failed to assign position.'); }
-    } catch (e) { alert('Error: ' + e.message); }
-}
-
-async function removeStuSignatory(id) {
-    if (!confirm('Remove this org officer assignment?')) return;
-    try {
-        await fetch(`/api/admin/student-signatories/${id}`, { method: 'DELETE' });
-        stuSignatories = stuSignatories.filter(s => s.id !== id);
+        await fetch(url, { method: 'DELETE' });
+        await loadAllOrgPositions();
         renderOrgOfficers();
     } catch (e) { alert('Error: ' + e.message); }
+}
+
+// ── ASSIGN ORG POSITION MODAL ───────────────────────────────────────────────
+function openAssignOrgModal() {
+    aoSelectedUser = null;
+    document.getElementById('ao-search').value     = '';
+    document.getElementById('ao-pill').style.display = 'none';
+    document.getElementById('ao-dropdown').style.display = 'none';
+    document.getElementById('ao-pos').value        = '';
+    document.getElementById('ao-custom-wrap').style.display  = 'none';
+    document.getElementById('ao-adviser-wrap').style.display = 'none';
+    document.getElementById('ao-error').style.display        = 'none';
+    populateAoCaCourses();
+    document.getElementById('assign-org-overlay').style.display = 'block';
+    document.getElementById('assign-org-modal').style.display   = 'flex';
+    document.getElementById('assign-org-modal').style.flexDirection = 'column';
+}
+function closeAssignOrgModal() {
+    document.getElementById('assign-org-overlay').style.display = 'none';
+    document.getElementById('assign-org-modal').style.display   = 'none';
+}
+
+function filterAoDD(val) {
+    const dd  = document.getElementById('ao-dropdown');
+    const q   = val.trim().toLowerCase();
+    const matches = allUsers.filter(u =>
+        u.name.toLowerCase().includes(q) || u.idNum.toLowerCase().includes(q)
+    ).slice(0, 12);
+
+    if (!q || !matches.length) { dd.style.display = 'none'; return; }
+
+    dd.innerHTML = matches.map(u => `
+        <div onclick="selectAoUser(${u.id})"
+             style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;
+                    border-bottom:1px solid var(--border);transition:background 0.12s;"
+             onmouseover="this.style.background='rgba(56,161,105,0.08)'"
+             onmouseout="this.style.background=''">
+            <div class="user-avatar-sm" style="background:#38a169;flex-shrink:0;">${escHtml(u.name.charAt(0))}</div>
+            <div>
+                <div style="font-size:13px;font-weight:600;color:var(--text);">${escHtml(u.name)}</div>
+                <div style="font-size:11px;color:var(--muted);">${escHtml(u.role)} · ${escHtml(u.idNum)}</div>
+            </div>
+        </div>`).join('');
+    dd.style.display = 'block';
+}
+function selectAoUser(id) {
+    const u = allUsers.find(x => x.id === id);
+    if (!u) return;
+    aoSelectedUser = u;
+    document.getElementById('ao-search').value = u.name;
+    document.getElementById('ao-dropdown').style.display = 'none';
+    document.getElementById('ao-pill-av').textContent    = u.name.charAt(0);
+    document.getElementById('ao-pill-name').textContent  = u.name;
+    document.getElementById('ao-pill-meta').textContent  = `${u.role} · ${u.idNum}`;
+    document.getElementById('ao-pill').style.display     = 'flex';
+}
+function clearAoSelection() {
+    aoSelectedUser = null;
+    document.getElementById('ao-search').value = '';
+    document.getElementById('ao-pill').style.display = 'none';
+}
+
+function onAoPosChange(val) {
+    document.getElementById('ao-custom-wrap').style.display  = val === '__custom__' ? '' : 'none';
+    document.getElementById('ao-adviser-wrap').style.display = val === 'Class Adviser' ? '' : 'none';
+}
+
+function populateAoCaCourses() {
+    const sel = document.getElementById('ao-ca-course');
+    const courses = [...new Set(curriculums.map(c => c.courseCode).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="" disabled selected>— Select Course —</option>' +
+        courses.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+    document.getElementById('ao-ca-year').innerHTML    = '<option value="" disabled selected>— Year —</option>';
+    document.getElementById('ao-ca-section').innerHTML = '<option value="" disabled selected>— Section —</option>';
+}
+function aoFilterYear() {
+    const course = document.getElementById('ao-ca-course').value;
+    const years  = [...new Set(curriculums.filter(c => c.courseCode === course).map(c => c.yearLevel))].sort();
+    const sel    = document.getElementById('ao-ca-year');
+    sel.innerHTML = '<option value="" disabled selected>— Year —</option>' +
+        years.map(y => {
+            const label = y === 1 ? '1st Year' : y === 2 ? '2nd Year' : y === 3 ? '3rd Year' : `${y}th Year`;
+            return `<option value="${y}">${label}</option>`;
+        }).join('');
+    document.getElementById('ao-ca-section').innerHTML = '<option value="" disabled selected>— Section —</option>';
+}
+function aoFilterSection() {
+    const course = document.getElementById('ao-ca-course').value;
+    const year   = parseInt(document.getElementById('ao-ca-year').value);
+    const sections = curriculums.filter(c => c.courseCode === course && c.yearLevel === year)
+                                .map(c => c.section).filter(Boolean).sort();
+    const sel = document.getElementById('ao-ca-section');
+    sel.innerHTML = '<option value="" disabled selected>— Section —</option>' +
+        sections.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
+}
+
+async function submitAssignOrg() {
+    const errEl = document.getElementById('ao-error');
+    errEl.style.display = 'none';
+
+    if (!aoSelectedUser) { errEl.textContent = 'Please select a user.'; errEl.style.display = ''; return; }
+
+    const posSelect = document.getElementById('ao-pos').value;
+    if (!posSelect)   { errEl.textContent = 'Please select a position.'; errEl.style.display = ''; return; }
+
+    const posTitle = posSelect === '__custom__'
+        ? document.getElementById('ao-custom').value.trim()
+        : posSelect;
+    if (!posTitle) { errEl.textContent = 'Please enter a custom position title.'; errEl.style.display = ''; return; }
+
+    const btn = document.getElementById('ao-submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving…';
+
+    try {
+        let res, data;
+        if (posTitle === 'Class Adviser') {
+            const course   = document.getElementById('ao-ca-course').value;
+            const yearLevel= parseInt(document.getElementById('ao-ca-year').value);
+            const section  = document.getElementById('ao-ca-section').value;
+            if (!course || !yearLevel || !section) {
+                errEl.textContent = 'Please select course, year level, and section for Class Adviser.';
+                errEl.style.display = ''; btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>Assign'; return;
+            }
+            const cur = curriculums.find(c => c.courseCode === course && c.yearLevel === yearLevel && c.section === section);
+            if (!cur) {
+                errEl.textContent = 'Section not found in curriculum. Please add the curriculum first.';
+                errEl.style.display = ''; btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>Assign'; return;
+            }
+            res  = await fetch('/api/admin/org-signatories', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: aoSelectedUser.id, pos: 'Class Adviser', curriculumId: cur.id })
+            });
+            data = await res.json();
+        } else if (aoSelectedUser.role === 'Student') {
+            // Student non-adviser positions → user_signatures (self-approval)
+            res  = await fetch('/api/admin/student-signatories', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: aoSelectedUser.id, position: posTitle })
+            });
+            data = await res.json();
+        } else {
+            // Instructor / Staff / Admin → organizations
+            res  = await fetch('/api/admin/org-signatories', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: aoSelectedUser.id, pos: posTitle })
+            });
+            data = await res.json();
+        }
+
+        if (data.success) {
+            closeAssignOrgModal();
+            await loadAllOrgPositions();
+            await loadStuSignatories();
+            await loadOrgSignatories();
+            renderOrgOfficers();
+        } else {
+            errEl.textContent = data.error || 'Failed to assign.';
+            errEl.style.display = '';
+        }
+    } catch (e) {
+        errEl.textContent = 'Error: ' + e.message;
+        errEl.style.display = '';
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check me-1"></i>Assign';
+}
+
+// ── VIEW CLEARANCE REQUESTS MODAL ───────────────────────────────────────────
+async function openViewOrgModal(posTitle, personName, sectionLabel) {
+    viewOrgCurrentPos = posTitle;
+    viewOrgCurrentPid = 0;
+
+    document.getElementById('view-org-title').textContent = `${posTitle} — ${personName}`;
+    document.getElementById('view-org-overlay').style.display = 'block';
+    document.getElementById('view-org-modal').style.display   = 'block';
+
+    // Build period filter pills
+    const pillBox = document.getElementById('view-period-pills');
+    pillBox.innerHTML = '';
+    const allPill = document.createElement('button');
+    allPill.textContent = 'All Periods';
+    allPill.dataset.pid = '0';
+    allPill.className   = 'period-pill active';
+    allPill.onclick = () => selectViewPeriod(0, posTitle);
+    pillBox.appendChild(allPill);
+
+    allPeriodsList.forEach(p => {
+        const btn     = document.createElement('button');
+        btn.textContent = `A.Y. ${p.ay}, ${p.sem}`;
+        btn.dataset.pid = p.id;
+        btn.className   = 'period-pill' + (p.status === 'Active' ? ' pill-active' : '');
+        btn.onclick = () => selectViewPeriod(p.id, posTitle);
+        pillBox.appendChild(btn);
+    });
+
+    await loadOrgClearanceData(posTitle, 0);
+}
+function closeViewOrgModal() {
+    document.getElementById('view-org-overlay').style.display = 'none';
+    document.getElementById('view-org-modal').style.display   = 'none';
+}
+
+function selectViewPeriod(pid, posTitle) {
+    viewOrgCurrentPid = pid;
+    document.querySelectorAll('.period-pill').forEach(b =>
+        b.classList.toggle('active', parseInt(b.dataset.pid) === pid));
+    loadOrgClearanceData(posTitle || viewOrgCurrentPos, pid);
+}
+
+async function loadOrgClearanceData(posTitle, pid) {
+    const body = document.getElementById('view-org-body');
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;"><i class="fas fa-spinner fa-spin" style="font-size:20px;display:block;margin-bottom:10px;"></i>Loading…</div>';
+
+    try {
+        const url = `/api/admin/org-clearance?position=${encodeURIComponent(posTitle)}&periodId=${pid}`;
+        const r   = await fetch(url);
+        const data = await r.json();
+
+        if (!Array.isArray(data) || !data.length) {
+            body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">
+                <i class="fas fa-inbox" style="font-size:28px;opacity:0.3;display:block;margin-bottom:10px;"></i>
+                No clearance requests found for this period.</div>`;
+            return;
+        }
+
+        const statusColor = { Pending:'#f6ad55', Cleared:'#68d391', Declined:'#fc8181' };
+        body.innerHTML = `
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead><tr>
+                        <th>#</th>
+                        <th>Student Name</th>
+                        <th>Student No.</th>
+                        <th>Period</th>
+                        <th style="text-align:center;">Status</th>
+                        <th>Date Requested</th>
+                    </tr></thead>
+                    <tbody>${data.map((row, i) => {
+                        const sc = statusColor[row.status] ?? '#718096';
+                        return `<tr>
+                            <td style="color:var(--muted);">${String(i+1).padStart(2,'0')}</td>
+                            <td style="font-weight:600;">${escHtml(row.studentName)}</td>
+                            <td style="color:var(--muted);font-size:12px;">${escHtml(row.studentNumber)}</td>
+                            <td style="font-size:12px;">${escHtml(row.periodLabel)}</td>
+                            <td style="text-align:center;">
+                                <span style="${badgeStyle(sc, sc + '33')}">${escHtml(row.status)}</span>
+                            </td>
+                            <td style="font-size:12px;color:var(--muted);">${escHtml(row.createdAt)}</td>
+                        </tr>`;
+                    }).join('')}</tbody>
+                </table>
+            </div>`;
+    } catch (e) {
+        body.innerHTML = `<div style="text-align:center;padding:40px;color:#fc8181;font-size:13px;">
+            Error loading data: ${escHtml(e.message)}</div>`;
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1241,6 +1700,41 @@ function escHtml(str) {
     return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Close assign-org dropdown when clicking outside
+document.addEventListener('click', e => {
+    const dd = document.getElementById('ao-dropdown');
+    const inp = document.getElementById('ao-search');
+    if (dd && inp && !inp.contains(e.target) && !dd.contains(e.target))
+        dd.style.display = 'none';
+});
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        closeAssignOrgModal();
+        closeViewOrgModal();
+    }
+});
+
 init();
 </script>
+}
+
+@section Styles {
+<style>
+/* Period pills in view-org modal */
+.period-pill {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.period-pill:hover { background: rgba(56,161,105,0.08); border-color: #38a169; color: #68d391; }
+.period-pill.active { background: rgba(56,161,105,0.18); border-color: #38a169; color: #68d391; }
+.period-pill.pill-active::after { content: ' ●'; color: #68d391; font-size: 9px; }
+</style>
 }

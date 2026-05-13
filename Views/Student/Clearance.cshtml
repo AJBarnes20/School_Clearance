@@ -13,7 +13,7 @@
 
 @Html.AntiForgeryToken()
 
-@* ── Alerts ───────────────────────────────────────────────────────────── *@
+@* ── Alerts ── *@
 @if (TempData["OrgSuccess"] != null)
 {
     <div class="alert alert-success alert-dismissible fade show mb-3">
@@ -29,18 +29,34 @@
     </div>
 }
 
-<div class="d-flex align-items-center justify-content-between mb-3">
-    <h5 class="fw-bold mb-0" style="color:#1a1a2e;"></h5>
-    <span class="semester-badge">
-        <i class="fas fa-calendar-alt me-2"></i>
-        @(ViewData["ActivePeriod"]?.ToString() ?? "A.Y. 2025-2026, 2nd Semester")
-    </span>
+<!-- HEADER ROW -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="fw-bold mb-0" style="color:#1a1a2e;font-size:15px;"></h5>
+
+    <!-- PERIOD SELECTOR DROPDOWN -->
+    <div class="period-selector-wrap" id="period-wrap">
+        <button class="period-btn" id="period-btn" onclick="togglePeriodDd(event)" type="button">
+            <div class="period-btn-icon"><i class="fas fa-calendar-alt"></i></div>
+            <div class="period-btn-text">
+                <div class="period-btn-label">Academic Period</div>
+                <div class="period-btn-value" id="period-btn-value">
+                    @(ViewData["ActivePeriod"]?.ToString() ?? "Loading...")
+                </div>
+            </div>
+            <i class="fas fa-chevron-down period-chevron"></i>
+        </button>
+
+        <div class="period-dd" id="period-dd">
+            <div class="pd-loading" id="pd-loading">
+                <i class="fas fa-spinner fa-spin me-2"></i>Loading periods...
+            </div>
+        </div>
+    </div>
 </div>
 
 @* ══════════════════════════════════════════════════════════════════════════
    SECTION 1 — SUBJECT CLEARANCE
    ══════════════════════════════════════════════════════════════════════════ *@
- 
 
 <div class="page-card mb-4">
     <div class="page-card-hd dark">
@@ -55,6 +71,7 @@
                     <th>Description</th>
                     <th>Instructor</th>
                     <th style="text-align:center;">Status</th>
+                    <th style="text-align:center;">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -78,10 +95,21 @@
                                 }
                                 else
                                 {
-                                    <button class="btn-request"
-                                                onclick="requestOrg(this)"
-                                                data-org="@item.MisCode">
-                                            <i class="fas fa-redo me-1"></i>Re-request
+                                    <span class="status-none">—</span>
+                                }
+                            </td>
+                            <td style="text-align:center;">
+                                <button class="chat-icon-btn"
+                                        onclick="openChat('@item.MisCode', '@Html.Raw(item.InstructorName)', 'subject', '@item.SubjectCode')"
+                                        title="Message @item.InstructorName">
+                                    <i class="fas fa-comment-dots"></i>
+                                </button>
+                                @if (item.Status == "Pending")
+                                {
+                                    <button class="delete-icon-btn"
+                                            onclick="deleteClearance('subject', '@item.MisCode')"
+                                            title="Delete clearance request">
+                                        <i class="fas fa-trash-alt"></i>
                                     </button>
                                 }
                             </td>
@@ -91,7 +119,7 @@
                 else
                 {
                     <tr>
-                        <td colspan="5">
+                        <td colspan="6">
                             <div class="empty-state">
                                 <div class="empty-icon">
                                     <i class="fas fa-clipboard-list"></i>
@@ -119,11 +147,9 @@
 </div>
 
 @* ══════════════════════════════════════════════════════════════════════════
-   SECTION 2 — ORGANIZATION CLEARANCE
+   SECTION 2 — CLASS ADVISER
    ══════════════════════════════════════════════════════════════════════════ *@
- 
 
-@* ── Class Adviser Card ───────────────────────────────────────────────── *@
 @if (adviser != null)
 {
     <div class="page-card mb-3">
@@ -145,8 +171,6 @@
             </div>
 
             <div class="adviser-actions">
-
-                @* ── Status badge ── *@
                 @switch (adviser.Status)
                 {
                     case "Cleared":
@@ -159,45 +183,36 @@
                         <span class="status-pending">Pending</span>
                         break;
                     default:
-                        <span class="adviser-no-status">—</span>
+                        <button class="request-btn"
+                                onclick="requestOrg('@Html.Raw(adviser.OrgName)')">
+                            <i class="fas fa-paper-plane"></i> Request
+                        </button>
                         break;
                 }
 
-                @* ── Action ── *@
-                @switch (adviser.Status)
+                <button class="chat-icon-btn"
+                        onclick="openChat('@adviser.OrgName', '@Html.Raw(adviser.PersonName)', 'org', '@adviser.OrgRole')"
+                        title="Message @adviser.PersonName">
+                    <i class="fas fa-comment-dots"></i>
+                </button>
+
+                @if (adviser.Status == "Pending")
                 {
-                    case "Cleared":
-                        <span class="adviser-cleared-label">
-                            <i class="fas fa-check-circle me-1"></i>Cleared
-                        </span>
-                        break;
-                    case "Pending":
-                        <span class="adviser-pending-label">
-                            <i class="fas fa-clock me-1"></i>Awaiting Approval
-                        </span>
-                        break;
-                    case "Declined":
-                        <button class="btn-request"
-                                onclick="requestOrg(this)"
-                                data-org="Class Adviser">
-                            <i class="fas fa-redo me-1"></i>Re-request
-                        </button>
-                        break;
-                    default:
-                        <button class="btn-request"
-                                onclick="requestOrg(this)"
-                                data-org="Class Adviser">
-                            <i class="fas fa-paper-plane me-1"></i>Request
-                        </button>
-                        break;
+                    <button class="delete-icon-btn"
+                            onclick="deleteClearance('org', '@adviser.OrgName')"
+                            title="Delete adviser clearance request">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 }
-
             </div>
         </div>
     </div>
 }
 
-@* ── Organisation Signatories Table ──────────────────────────────────── *@
+@* ══════════════════════════════════════════════════════════════════════════
+   SECTION 3 — ORGANIZATION CLEARANCE
+   ══════════════════════════════════════════════════════════════════════════ *@
+
 <div class="page-card mb-4">
     <div class="page-card-hd dark">
         <i class="fas fa-sitemap me-2"></i>Organization Clearance
@@ -225,8 +240,6 @@
                             </td>
                             <td style="font-weight:600;">@item.OrgRole</td>
                             <td>@item.PersonName</td>
-
-                            @* ── Status badge ── *@
                             <td style="text-align:center;">
                                 @switch (item.Status)
                                 {
@@ -244,55 +257,26 @@
                                         break;
                                 }
                             </td>
-
-                            @* ── Action column ── *@
                             <td style="text-align:center;">
-                                @switch (item.Status)
+                                @if (string.IsNullOrEmpty(item.Status))
                                 {
-                                    case "Cleared":
-                                        <span style="color:#2e7d32;font-size:12px;font-weight:600;">
-                                            <i class="fas fa-check-circle me-1"></i>Cleared
-                                        </span>
-                                        break;
-
-                                    case "Pending":
-                                        @if (item.IsSelfSignatory)
-                                        {
-                                            <button class="btn-approve"
-                                                    onclick="selfApproveOrg(this, true)"
-                                                    data-org="@item.OrgName">
-                                                <i class="fas fa-check me-1"></i>Approve
-                                            </button>
-                                            <button class="btn-decline"
-                                                    onclick="selfApproveOrg(this, false)"
-                                                    data-org="@item.OrgName"
-                                                    style="margin-left:6px;">
-                                                <i class="fas fa-times me-1"></i>Decline
-                                            </button>
-                                        }
-                                        else
-                                        {
-                                            <span style="color:#e6a817;font-size:12px;font-weight:600;">
-                                                <i class="fas fa-clock me-1"></i>Awaiting Approval
-                                            </span>
-                                        }
-                                        break;
-
-                                    case "Declined":
-                                        <button class="btn-request"
-                                                onclick="requestOrg(this)"
-                                                data-org="@item.OrgName">
-                                            <i class="fas fa-redo me-1"></i>Re-request
-                                        </button>
-                                        break;
-
-                                    default:
-                                        <button class="btn-request"
-                                                onclick="requestOrg(this)"
-                                                data-org="@item.OrgName">
-                                            <i class="fas fa-paper-plane me-1"></i>Request
-                                        </button>
-                                        break;
+                                    <button class="request-btn"
+                                            onclick="requestOrg('@Html.Raw(item.OrgName)')">
+                                        <i class="fas fa-paper-plane"></i> Request
+                                    </button>
+                                }
+                                <button class="chat-icon-btn"
+                                        onclick="openChat('@item.OrgName', '@Html.Raw(item.PersonName)', 'org', '@item.OrgRole')"
+                                        title="Message @item.PersonName">
+                                    <i class="fas fa-comment-dots"></i>
+                                </button>
+                                @if (item.Status == "Pending")
+                                {
+                                    <button class="delete-icon-btn"
+                                            onclick="deleteClearance('org', '@item.OrgName')"
+                                            title="Delete clearance request">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
                                 }
                             </td>
                         </tr>
@@ -314,126 +298,201 @@
     </div>
 </div>
 
+@* ══════════════════════════════════════════════════════════════════════════
+   CHAT MODAL
+   ══════════════════════════════════════════════════════════════════════════ *@
+
+<div id="chat-overlay" onclick="closeChat()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1040;"></div>
+
+<div id="chat-modal" style="display:none;position:fixed;bottom:0;right:24px;width:360px;
+     height:520px;background:white;border-radius:16px 16px 0 0;
+     box-shadow:0 -4px 40px rgba(0,0,0,0.18);z-index:1050;
+     display:none;flex-direction:column;overflow:hidden;">
+
+    <!-- MODAL HEADER -->
+    <div id="chat-header" style="background:var(--green,#1a4731);padding:14px 16px;
+         display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <div id="chat-avatar" style="width:38px;height:38px;border-radius:50%;
+             background:rgba(255,255,255,0.2);display:flex;align-items:center;
+             justify-content:center;font-size:15px;font-weight:700;color:white;flex-shrink:0;">
+        </div>
+        <div style="flex:1;min-width:0;">
+            <div id="chat-name" style="font-size:13px;font-weight:700;color:white;
+                 white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+            <div id="chat-role" style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:1px;"></div>
+        </div>
+        <button onclick="closeChat()" style="background:none;border:none;color:rgba(255,255,255,0.7);
+                font-size:16px;cursor:pointer;padding:4px;line-height:1;">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- MESSAGES AREA -->
+    <div id="chat-messages" style="flex:1;overflow-y:auto;padding:16px;
+         display:flex;flex-direction:column;gap:10px;background:#f7f8fa;">
+        <!-- messages injected here -->
+    </div>
+
+    <!-- INPUT AREA -->
+    <div style="padding:12px 14px;border-top:1px solid #e2e8f0;background:white;
+         display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <input id="chat-input" type="text" placeholder="Type a message…"
+               style="flex:1;border:1px solid #d1d5db;border-radius:22px;
+                      padding:9px 14px;font-size:13px;outline:none;font-family:inherit;
+                      background:#f7f8fa;"
+               onkeydown="if(event.key==='Enter')sendChatMessage()" />
+        <button onclick="sendChatMessage()"
+                style="width:38px;height:38px;border-radius:50%;border:none;
+                       background:var(--green,#1a4731);color:white;font-size:14px;
+                       cursor:pointer;display:flex;align-items:center;justify-content:center;
+                       flex-shrink:0;">
+            <i class="fas fa-paper-plane"></i>
+        </button>
+    </div>
+</div>
+
 @section Styles {
 <style>
-    /* ── Section label ── */
-    .section-label {
-        font-size: 13px;
-        font-weight: 700;
-        color: #1a1a2e;
-        text-transform: uppercase;
-        letter-spacing: .07em;
-        margin-bottom: 10px;
-        padding-left: 2px;
+    /* ── PERIOD SELECTOR ── */
+    .period-selector-wrap { position:relative;display:inline-block; }
+    .period-btn {
+        display:flex;align-items:center;gap:10px;
+        background:linear-gradient(135deg,#1a4731,#2d6a4f);
+        border:none;border-radius:10px;padding:9px 16px;
+        cursor:pointer;transition:filter 0.2s;user-select:none;min-width:260px;
     }
+    .period-btn:hover { filter:brightness(1.12); }
+    .period-btn-icon {
+        width:32px;height:32px;border-radius:8px;
+        background:rgba(255,255,255,0.18);
+        display:flex;align-items:center;justify-content:center;
+        flex-shrink:0;color:white;font-size:14px;
+    }
+    .period-btn-text  { flex:1;text-align:left; }
+    .period-btn-label { font-size:10px;color:rgba(255,255,255,0.6);margin-bottom:1px; }
+    .period-btn-value { font-size:13px;font-weight:700;color:#fff;line-height:1.3; }
+    .period-chevron   { color:rgba(255,255,255,0.7);font-size:11px;transition:transform 0.2s;flex-shrink:0; }
+    .period-selector-wrap.open .period-chevron { transform:rotate(180deg); }
+
+    /* ── DROPDOWN ── */
+    .period-dd {
+        display:none;position:absolute;top:calc(100% + 8px);right:0;
+        min-width:290px;background:var(--card,#fff);
+        border:1px solid var(--border,#e2e8f0);border-radius:12px;
+        box-shadow:0 10px 36px rgba(0,0,0,0.18);z-index:999;
+        padding:8px;flex-direction:column;gap:2px;
+        max-height:320px;overflow-y:auto;
+    }
+    .period-selector-wrap.open .period-dd { display:flex; }
+    .pd-section-label {
+        font-size:10px;font-weight:700;text-transform:uppercase;
+        letter-spacing:0.9px;color:var(--muted,#888);padding:6px 10px 4px;
+    }
+    .pd-opt {
+        display:flex;align-items:center;justify-content:space-between;
+        padding:9px 12px;border-radius:8px;font-size:13px;font-weight:600;
+        color:var(--text,#1a1a2e);cursor:pointer;transition:background 0.15s;gap:8px;
+    }
+    .pd-opt:hover    { background:rgba(0,0,0,0.04); }
+    .pd-opt.selected { background:rgba(26,71,49,0.1);color:#1a4731; }
+    .pd-opt.selected .pd-check { display:block; }
+    .pd-check     { display:none;font-size:11px;color:#1a4731;flex-shrink:0; }
+    .pd-opt-status { font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0; }
+    .pd-opt-status.active    { background:rgba(72,187,120,0.15);color:#38a169; }
+    .pd-opt-status.completed { background:rgba(160,174,192,0.15);color:#718096; }
+    .pd-loading,.pd-empty    { padding:20px;text-align:center;font-size:12px;color:var(--muted,#888); }
+    .pd-divider { border:none;border-top:1px solid var(--border,#e2e8f0);margin:4px 0; }
 
     /* ── Empty state ── */
     .empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 52px 24px;
-        text-align: center;
-        gap: 12px;
+        display:flex;flex-direction:column;align-items:center;
+        justify-content:center;padding:52px 24px;text-align:center;gap:12px;
     }
     .empty-icon {
-        width: 72px; height: 72px;
-        border-radius: 50%;
-        background: #f0fdf4;
-        border: 2px solid #bbf7d0;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 28px; color: #16a34a;
-        margin-bottom: 4px;
+        width:72px;height:72px;border-radius:50%;
+        background:#f0fdf4;border:2px solid #bbf7d0;
+        display:flex;align-items:center;justify-content:center;
+        font-size:28px;color:#16a34a;margin-bottom:4px;
     }
-    .empty-title { font-size: 16px; font-weight: 700; color: #1a1a2e; }
-    .empty-desc  { font-size: 13px; color: #888; line-height: 1.7; max-width: 340px; }
+    .empty-title { font-size:16px;font-weight:700;color:#1a1a2e; }
+    .empty-desc  { font-size:13px;color:#888;line-height:1.7;max-width:340px; }
 
     /* ── Class Adviser card ── */
     .adviser-card-body {
-        padding: 20px 24px;
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        flex-wrap: wrap;
+        padding:20px 24px;display:flex;
+        align-items:center;gap:24px;flex-wrap:wrap;
     }
-    .adviser-label {
-        font-size: 11px;
-        font-weight: 700;
-        color: #888;
-        text-transform: uppercase;
-        letter-spacing: .06em;
-        margin-bottom: 4px;
-    }
-    .adviser-value    { font-weight: 700; font-size: 15px; color: #1a1a2e; }
-    .adviser-divider  { width: 1px; height: 36px; background: #e0e0e0; flex-shrink: 0; }
-    .adviser-actions  { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-    .adviser-no-status    { color: #aaa; font-size: 12px; }
-    .adviser-cleared-label { color: #2e7d32; font-size: 12px; font-weight: 600; }
-    .adviser-pending-label { color: #e6a817; font-size: 12px; font-weight: 600; }
-
-    /* ── Buttons ── */
-    .btn-request {
-        background: var(--green);
-        color: #fff;
-        border: none;
-        border-radius: 7px;
-        padding: 6px 16px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        font-family: inherit;
-        transition: opacity .2s;
-    }
-    .btn-request:hover    { opacity: .85; }
-    .btn-request:disabled { opacity: .5; cursor: not-allowed; }
-
-    .btn-approve {
-        background: #2e7d32;
-        color: #fff;
-        border: none;
-        border-radius: 7px;
-        padding: 6px 14px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        font-family: inherit;
-        transition: opacity .2s;
-    }
-    .btn-approve:hover    { opacity: .85; }
-    .btn-approve:disabled { opacity: .5; cursor: not-allowed; }
-
-    .btn-decline {
-        background: #c62828;
-        color: #fff;
-        border: none;
-        border-radius: 7px;
-        padding: 6px 14px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        font-family: inherit;
-        transition: opacity .2s;
-    }
-    .btn-decline:hover    { opacity: .85; }
-    .btn-decline:disabled { opacity: .5; cursor: not-allowed; }
+    .adviser-label { font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px; }
+    .adviser-value    { font-weight:700;font-size:15px;color:#1a1a2e; }
+    .adviser-divider  { width:1px;height:36px;background:#e0e0e0;flex-shrink:0; }
+    .adviser-actions  { margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap; }
+    .adviser-no-status    { color:#aaa;font-size:12px; }
+    .adviser-cleared-label { color:#2e7d32;font-size:12px;font-weight:600; }
+    .adviser-pending-label { color:#e6a817;font-size:12px;font-weight:600; }
 
     /* ── Status badges ── */
-    .status-pending {
-        background: #fff8e1; color: #e6a817;
-        border-radius: 20px; padding: 4px 12px;
-        font-size: 11px; font-weight: 700;
+    .status-pending  { background:#fff8e1;color:#e6a817;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700; }
+    .status-approved { background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700; }
+    .status-declined { background:#fce4ec;color:#c62828;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700; }
+    .status-none     { color:#aaa;font-size:12px; }
+
+    /* ── Chat icon button ── */
+    .chat-icon-btn {
+        width:34px;height:34px;border-radius:50%;border:none;
+        background:#e8f5e9;color:#1a4731;font-size:15px;
+        cursor:pointer;display:inline-flex;align-items:center;
+        justify-content:center;transition:background 0.2s,transform 0.15s;
     }
-    .status-approved {
-        background: #e8f5e9; color: #2e7d32;
-        border-radius: 20px; padding: 4px 12px;
-        font-size: 11px; font-weight: 700;
+    .chat-icon-btn:hover { background:#c8e6c9;transform:scale(1.1); }
+
+    /* ── Delete icon button ── */
+    .delete-icon-btn {
+        width:34px;height:34px;border-radius:50%;border:none;
+        background:#fce4ec;color:#c62828;font-size:14px;
+        cursor:pointer;display:inline-flex;align-items:center;
+        justify-content:center;transition:background 0.2s,transform 0.15s;
     }
-    .status-declined {
-        background: #fce4ec; color: #c62828;
-        border-radius: 20px; padding: 4px 12px;
-        font-size: 11px; font-weight: 700;
+    .delete-icon-btn:hover { background:#f8bbd0;transform:scale(1.1); }
+
+    /* ── Request button ── */
+    .request-btn {
+        border:none;border-radius:20px;padding:5px 14px;
+        background:#e8f5e9;color:#1a4731;font-size:11px;font-weight:700;
+        cursor:pointer;display:inline-flex;align-items:center;gap:5px;
+        transition:background 0.2s;font-family:inherit;
     }
+    .request-btn:hover { background:#c8e6c9; }
+
+    /* ── Chat bubbles ── */
+    .chat-bubble-wrap {
+        display:flex;flex-direction:column;max-width:78%;
+    }
+    .chat-bubble-wrap.mine  { align-self:flex-end;align-items:flex-end; }
+    .chat-bubble-wrap.theirs { align-self:flex-start;align-items:flex-start; }
+    .chat-bubble {
+        padding:9px 13px;border-radius:18px;font-size:13px;line-height:1.5;
+        word-break:break-word;
+    }
+    .chat-bubble.mine   { background:#1a4731;color:white;border-bottom-right-radius:4px; }
+    .chat-bubble.theirs { background:white;color:#1a1a2e;border:1px solid #e2e8f0;border-bottom-left-radius:4px; }
+    .chat-time {
+        font-size:10px;color:#aaa;margin-top:3px;padding:0 4px;
+    }
+    .chat-sender-name {
+        font-size:10px;font-weight:700;color:#1a4731;margin-bottom:3px;padding:0 4px;
+    }
+
+    /* ── Chat date divider ── */
+    .chat-date-divider {
+        text-align:center;font-size:10px;color:#aaa;
+        margin:6px 0;position:relative;
+    }
+    .chat-date-divider::before,.chat-date-divider::after {
+        content:'';position:absolute;top:50%;
+        width:30%;height:1px;background:#e2e8f0;
+    }
+    .chat-date-divider::before { left:0; }
+    .chat-date-divider::after  { right:0; }
 </style>
 }
 
@@ -441,110 +500,269 @@
 <script>
     const _csrf = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
 
-    // ── Subject Clearance ─────────────────────────────────────────────────
-    function requestSubjectSignature(btn) {
-        const row     = btn.closest('tr');
-        const misCode = row.querySelector('.code-badge')?.textContent?.trim();
-        if (!misCode) return;
+    /* ══════════════════════════════════════════
+       PERIOD DROPDOWN
+    ══════════════════════════════════════════ */
+    const _serverPeriodId = @(ViewData["ActivePeriodId"] is int svPid ? svPid : 0);
+    let allPeriods = [], selectedPeriodId = _serverPeriodId;
 
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending…';
+    async function loadPeriods() {
+        const dd = document.getElementById('period-dd');
+        try {
+            const res  = await fetch('/api/student/periods');
+            allPeriods = await res.json();
+        } catch { allPeriods = []; }
 
-        fetch('/Student/RequestSubjectSignature', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
-            body:    JSON.stringify({ misCode })
-        })
-        .then(r => r.json())
-        .then(d => {
-            if (d.success) {
-                btn.parentElement.innerHTML = '<span class="status-pending">Pending</span>';
-            } else {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Request';
-                alert('Error: ' + (d.error ?? 'Unknown error'));
-            }
-        })
-        .catch(() => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Request';
-            alert('Request failed. Please try again.');
+        dd.innerHTML = '';
+        if (!allPeriods.length) {
+            dd.innerHTML = '<div class="pd-empty"><i class="fas fa-calendar-times me-2"></i>No academic periods found.</div>';
+            return;
+        }
+
+        const preselected = allPeriods.find(p => p.id === _serverPeriodId)
+                         ?? allPeriods.find(p => p.status === 'Active')
+                         ?? allPeriods[0];
+        selectedPeriodId = preselected.id;
+        updatePeriodDisplay(preselected);
+
+        allPeriods.forEach(p => {
+            const opt     = document.createElement('div');
+            opt.className = 'pd-opt' + (p.id === selectedPeriodId ? ' selected' : '');
+            opt.dataset.id = p.id;
+            opt.innerHTML = `
+                <span style="flex:1;">A.Y. ${escHtml(p.ay)}, ${escHtml(p.sem)}</span>
+                <span class="pd-opt-status ${p.status === 'Active' ? 'active' : 'completed'}">${escHtml(p.status)}</span>
+                <i class="fas fa-check pd-check"></i>`;
+            opt.onclick = (e) => { e.stopPropagation(); selectPeriod(p); };
+            dd.appendChild(opt);
         });
     }
 
-    // ── Organization Clearance ────────────────────────────────────────────
-    function requestOrg(btn) {
-        const orgName = btn.getAttribute('data-org');
-        if (!orgName) return;
+    function selectPeriod(p) {
+        // Reload page for the selected period so clearance data comes from DB
+        window.location.href = '/Student/Clearance?periodId=' + p.id;
+    }
 
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending…';
+    function updatePeriodDisplay(p) {
+        document.getElementById('period-btn-value').textContent = `A.Y. ${p.ay}, ${p.sem}`;
+    }
 
+    function togglePeriodDd(e) { e.stopPropagation(); document.getElementById('period-wrap').classList.toggle('open'); }
+    function closePeriodDd()    { document.getElementById('period-wrap').classList.remove('open'); }
+
+    document.addEventListener('click', function(e) {
+        const wrap = document.getElementById('period-wrap');
+        if (wrap && !wrap.contains(e.target)) closePeriodDd();
+    });
+
+    /* ══════════════════════════════════════════
+       REQUEST ORG CLEARANCE
+    ══════════════════════════════════════════ */
+    function requestOrg(position) {
         fetch('/Student/RequestOrgSignature', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
-            body:    JSON.stringify({ orgName })
+            body:    JSON.stringify({ orgName: position, periodId: _serverPeriodId })
         })
         .then(r => r.json())
-        .then(d => {
-            if (d.success) {
-                window.location.reload();
-            } else {
-                btn.disabled = false;
-                const isRerequest = btn.textContent.includes('Re-request');
-                btn.innerHTML = isRerequest
-                    ? '<i class="fas fa-redo me-1"></i>Re-request'
-                    : '<i class="fas fa-paper-plane me-1"></i>Request';
-                alert(d.error || 'Could not send request. Please try again.');
-            }
-        })
-        .catch(() => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Request';
-            alert('Network error. Please try again.');
-        });
+        .then(d => { if (d.success) location.reload(); else alert(d.error ?? 'Request failed'); })
+        .catch(err => console.warn('Request error:', err));
     }
 
-    function selfApproveOrg(btn, approve) {
-        const orgName = btn.getAttribute('data-org');
-        if (!orgName) return;
-
-        const allBtns = btn.closest('td').querySelectorAll('button');
-        allBtns.forEach(b => b.disabled = true);
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing…';
-
-        fetch('/Student/SelfApproveOrg', {
+    /* ══════════════════════════════════════════
+       DELETE CLEARANCE
+    ══════════════════════════════════════════ */
+    function deleteClearance(type, key) {
+        if (!confirm('Remove this pending clearance request?')) return;
+        fetch('/Student/DeleteClearanceRequest', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
-            body:    JSON.stringify({ orgName, approve })
+            body:    JSON.stringify({ type, key, periodId: _serverPeriodId })
         })
         .then(r => r.json())
-        .then(d => {
-            if (d.success) {
-                window.location.reload();
-            } else {
-                allBtns.forEach(b => b.disabled = false);
-                allBtns.forEach(b => {
-                    if (b.onclick?.toString().includes('true')) {
-                        b.innerHTML = '<i class="fas fa-check me-1"></i>Approve';
-                    } else {
-                        b.innerHTML = '<i class="fas fa-times me-1"></i>Decline';
-                    }
-                });
-                alert(d.error || 'Could not process. Please try again.');
-            }
-        })
-        .catch(() => {
-            allBtns.forEach(b => b.disabled = false);
-            allBtns.forEach(b => {
-                if (b.onclick?.toString().includes('true')) {
-                    b.innerHTML = '<i class="fas fa-check me-1"></i>Approve';
-                } else {
-                    b.innerHTML = '<i class="fas fa-times me-1"></i>Decline';
-                }
-            });
-            alert('Network error. Please try again.');
-        });
+        .then(d => { if (d.success) location.reload(); else alert(d.error ?? 'Delete failed'); })
+        .catch(err => console.warn('Delete error:', err));
     }
+
+    /* ══════════════════════════════════════════
+       CHAT  — backed by clearance_messages table
+    ══════════════════════════════════════════ */
+    let currentChatKey  = null;
+    let currentChatType = null;
+    let currentChatName = null;
+
+    function getInitials(name) {
+        return (name ?? '').split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    }
+
+    function fmtTime(d) {
+        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function openChat(key, personName, type, role) {
+        currentChatKey  = key;
+        currentChatType = type;
+        currentChatName = personName;
+
+        document.getElementById('chat-name').textContent    = personName;
+        document.getElementById('chat-role').textContent    = role;
+        document.getElementById('chat-avatar').textContent  = getInitials(personName);
+
+        const modal   = document.getElementById('chat-modal');
+        const overlay = document.getElementById('chat-overlay');
+        modal.style.display   = 'flex';
+        overlay.style.display = 'block';
+
+        // Show loading state then fetch from server
+        document.getElementById('chat-messages').innerHTML =
+            '<div style="text-align:center;margin:auto;font-size:12px;color:#aaa;">' +
+            '<i class="fas fa-spinner fa-spin me-1"></i>Loading messages...</div>';
+
+        fetchMessages();
+        setTimeout(() => document.getElementById('chat-input').focus(), 80);
+    }
+
+    function closeChat() {
+        document.getElementById('chat-modal').style.display   = 'none';
+        document.getElementById('chat-overlay').style.display = 'none';
+        currentChatKey  = null;
+        currentChatType = null;
+    }
+
+    async function fetchMessages() {
+        if (!currentChatKey) return;
+        try {
+            const res  = await fetch(
+                `/Student/GetClearanceMessages?key=${encodeURIComponent(currentChatKey)}&type=${encodeURIComponent(currentChatType)}`
+            );
+            const data = await res.json();
+            if (data.success) renderMessages(data.messages ?? []);
+        } catch (err) {
+            console.warn('Failed to load messages:', err);
+        }
+    }
+
+    function renderMessages(msgs) {
+        const box = document.getElementById('chat-messages');
+        box.innerHTML = '';
+
+        if (!msgs.length) {
+            box.innerHTML = `
+                <div style="text-align:center;margin:auto;">
+                    <div style="font-size:32px;margin-bottom:10px;">💬</div>
+                    <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px;">
+                        Start the conversation
+                    </div>
+                    <div style="font-size:12px;color:#aaa;max-width:220px;margin:0 auto;line-height:1.6;">
+                        Send a message to <strong>${escHtml(currentChatName)}</strong> about your clearance.
+                    </div>
+                </div>`;
+            return;
+        }
+
+        let lastDate = null;
+        msgs.forEach(m => {
+            const d       = new Date(m.time);
+            const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            if (dateStr !== lastDate) {
+                const div       = document.createElement('div');
+                div.className   = 'chat-date-divider';
+                div.textContent = dateStr;
+                box.appendChild(div);
+                lastDate = dateStr;
+            }
+
+            const wrap     = document.createElement('div');
+            wrap.className = 'chat-bubble-wrap ' + (m.mine ? 'mine' : 'theirs');
+
+            if (!m.mine) {
+                const sn       = document.createElement('div');
+                sn.className   = 'chat-sender-name';
+                sn.textContent = currentChatName;
+                wrap.appendChild(sn);
+            }
+
+            const bubble       = document.createElement('div');
+            bubble.className   = 'chat-bubble ' + (m.mine ? 'mine' : 'theirs');
+            bubble.textContent = m.text;
+            wrap.appendChild(bubble);
+
+            const time       = document.createElement('div');
+            time.className   = 'chat-time';
+            time.textContent = fmtTime(d);
+            wrap.appendChild(time);
+
+            box.appendChild(wrap);
+        });
+
+        box.scrollTop = box.scrollHeight;
+    }
+
+    async function sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        const text  = input.value.trim();
+        if (!text || !currentChatKey) return;
+
+        // Optimistically append the message in the UI
+        const tempMsg = { mine: true, text, time: new Date().toISOString() };
+        const existingMsgs = Array.from(document.querySelectorAll('#chat-messages .chat-bubble-wrap'))
+            .length > 0;
+
+        input.value = '';
+        if (!existingMsgs) {
+            // Was showing empty state; re-render with just this message
+            renderMessages([tempMsg]);
+        } else {
+            // Append bubble directly
+            appendBubble(tempMsg);
+            document.getElementById('chat-messages').scrollTop = 999999;
+        }
+
+        try {
+            const res  = await fetch('/Student/SendClearanceMessage', {
+                method:  'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': _csrf
+                },
+                body: JSON.stringify({
+                    clearanceType: currentChatType,
+                    clearanceKey:  currentChatKey,
+                    message:       text
+                })
+            });
+            const data = await res.json();
+            if (!data.success) console.warn('Message send failed:', data.error);
+        } catch (err) {
+            console.warn('Chat error:', err);
+        }
+    }
+
+    function appendBubble(m) {
+        const box  = document.getElementById('chat-messages');
+        const wrap = document.createElement('div');
+        wrap.className = 'chat-bubble-wrap ' + (m.mine ? 'mine' : 'theirs');
+
+        const bubble       = document.createElement('div');
+        bubble.className   = 'chat-bubble ' + (m.mine ? 'mine' : 'theirs');
+        bubble.textContent = m.text;
+        wrap.appendChild(bubble);
+
+        const time       = document.createElement('div');
+        time.className   = 'chat-time';
+        time.textContent = fmtTime(new Date(m.time));
+        wrap.appendChild(time);
+
+        box.appendChild(wrap);
+    }
+
+    function escHtml(str) {
+        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeChat(); });
+
+    loadPeriods();
 </script>
 }

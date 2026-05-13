@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace OnlineClearanceSystem.Models
 {
@@ -45,23 +46,20 @@ namespace OnlineClearanceSystem.Models
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Please confirm your password.")]
-        [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
-        [DataType(DataType.Password)]
-        [Display(Name = "Confirm Password")]
-        public string ConfirmPassword { get; set; } = string.Empty;
-
         // ── Student-specific (optional) ────────────────────────
         [Display(Name = "Course")]
         [MaxLength(100)]
         public string? Course { get; set; }
 
         [Display(Name = "Year Level")]
-        [Range(1, 5, ErrorMessage = "Year level must be between 1 and 5.")]
+        [Range(1, 5, ErrorMessage = "Year level must be between 1 and 4.")]
         public int? YearLevel { get; set; }
 
         [Display(Name = "Section")]
         [MaxLength(50)]
         public string? Section { get; set; }
+
+        public List<SelectListItem> CourseOptions { get; set; } = new();
+        public List<SelectListItem> SectionOptions { get; set; } = new();
     }
 }

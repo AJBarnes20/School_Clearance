@@ -3,11 +3,8 @@
     ViewData["ActivePage"] = "Subjects";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
 }
-
-<div class="page-title">Subject &amp; Course Management</div>
-
 <div class="row g-3 mb-4">
-    <div class="col-md-3">
+    <div class="col-md-4">
         <div class="stat-card">
             <div>
                 <div class="stat-num" id="stat-subjects">0</div>
@@ -16,7 +13,7 @@
             <div class="stat-icon-wrap si-blue"><i class="fas fa-book"></i></div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-4">
         <div class="stat-card">
             <div>
                 <div class="stat-num" id="stat-offered">0</div>
@@ -25,237 +22,82 @@
             <div class="stat-icon-wrap si-green"><i class="fas fa-check-circle"></i></div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div>
-                <div class="stat-num" id="stat-courses">0</div>
-                <div class="stat-label">Total Courses</div>
-            </div>
-            <div class="stat-icon-wrap si-teal"><i class="fas fa-graduation-cap"></i></div>
+</div>
+
+<!-- Subjects Offered Panel -->
+<div class="panel mb-4">
+    <div class="panel-hd">
+        <span style="color:#4299e1;font-weight:700;">
+            <i class="fas fa-check-circle me-2"></i>Subjects Offered
+        </span>
+        <div class="search-wrap">
+            <i class="fas fa-search"></i>
+            <input class="search-input" placeholder="Search Subject, MIS, Code, Instructor" oninput="filterTable(this,'offered-table')" />
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div>
-                <div class="stat-num" id="stat-sections">0</div>
-                <div class="stat-label">Total Sections</div>
-            </div>
-            <div class="stat-icon-wrap si-purple"><i class="fas fa-layer-group"></i></div>
+    <div class="table-responsive">
+        <table class="data-table" id="offered-table">
+            <thead>
+                <tr>
+                    <th>MIS Code</th>
+                    <th>Subject Code</th>
+                    <th>Description</th>
+                    <th>Lec Units</th>
+                    <th>Lab Units</th>
+                    <th>Assigned Instructor</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="offered-body"></tbody>
+        </table>
+    </div>
+    <div id="offered-empty" style="padding:48px 24px;text-align:center;">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(56,161,105,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <i class="fas fa-check-circle" style="font-size:26px;color:#38a169;opacity:0.7;"></i>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">No Subjects Offered Yet</div>
+        <div style="font-size:12px;color:var(--muted);max-width:360px;margin:0 auto;line-height:1.6;">
+            Click <strong style="color:var(--text);">Offer</strong> on any subject above to get started.
         </div>
     </div>
 </div>
 
-<div class="d-flex gap-2 mb-4">
-    <button class="ann-filter-btn active" id="tab-subjects" onclick="switchTab('subjects')">
-        <i class="fas fa-book me-1"></i>Subjects
-    </button>
-    <button class="ann-filter-btn" id="tab-courses" onclick="switchTab('courses')">
-        <i class="fas fa-graduation-cap me-1"></i>Courses & Sections
-    </button>
-</div>
-
-<div id="view-subjects">
-    <div class="panel mb-4">
-        <div class="panel-hd">
-            <span class="panel-hd-title"><i class="fas fa-book me-2"></i>Total Subjects</span>
-            <div class="d-flex gap-2 align-items-center">
-                <div class="search-wrap">
-                    <i class="fas fa-search"></i>
-                    <input class="search-input" placeholder="Search Subject, MIS, Code, Description" oninput="filterTable(this,'subj-table')" />
-                </div>
-                <button class="btn-green-sm" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
-                    <i class="fas fa-plus me-1"></i>Add Subject
-                </button>
-            </div>
-        </div>
-        <div class="table-responsive">
-            <table class="data-table" id="subj-table">
-                <thead>
-                    <tr>
-                        <th>MIS Code</th>
-                        <th>Subject Code</th>
-                        <th>Description</th>
-                        <th>Lec Units</th>
-                        <th>Lab Units</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="subj-body"></tbody>
-            </table>
-        </div>
-        <div id="subj-empty" style="padding:48px 24px;text-align:center;">
-            <div style="width:64px;height:64px;border-radius:50%;background:rgba(66,153,225,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-                <i class="fas fa-book-open" style="font-size:26px;color:#4299e1;opacity:0.7;"></i>
-            </div>
-            <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">No Subjects Added Yet</div>
-            <div style="font-size:12px;color:var(--muted);max-width:360px;margin:0 auto;line-height:1.6;">
-                Use the <strong style="color:var(--text);">Add Subject</strong> button above to create subjects.
-            </div>
-        </div>
-    </div>
-
-    <div class="panel">
-        <div class="panel-hd">
-            <span style="color:#4299e1;font-weight:700;">
-                <i class="fas fa-check-circle me-2"></i>Subjects Offered
-            </span>
+<!-- Total Subjects Panel -->
+<div class="panel mb-4">
+    <div class="panel-hd">
+        <span class="panel-hd-title"><i class="fas fa-book me-2"></i>All Subjects</span>
+        <div class="d-flex gap-2 align-items-center">
             <div class="search-wrap">
                 <i class="fas fa-search"></i>
-                <input class="search-input" placeholder="Search Subject, MIS, Code, Instructor" oninput="filterTable(this,'offered-table')" />
+                <input class="search-input" placeholder="Search Subject, MIS, Code, Description" oninput="filterTable(this,'subj-table')" />
             </div>
-        </div>
-        <div id="active-period-bar" style="display:none;padding:10px 18px;background:rgba(56,161,105,0.08);border-bottom:1px solid rgba(56,161,105,0.2);font-size:12px;color:#68d391;align-items:center;gap:8px;">
-            <i class="fas fa-circle" style="font-size:8px;"></i>
-            <span id="active-period-label"></span>
-            <span style="background:#38a169;color:#fff;font-size:11px;padding:2px 10px;border-radius:20px;margin-left:4px;font-weight:600;">Active</span>
-        </div>
-        <div id="no-period-bar" style="padding:10px 18px;background:rgba(246,173,85,0.08);border-bottom:1px solid rgba(246,173,85,0.2);font-size:12px;color:#f6ad55;display:flex;align-items:center;gap:8px;">
-            <i class="fas fa-exclamation-triangle"></i>
-            <span>No active academic period. Please set one in <strong style="color:var(--text);">Academic Management</strong> before offering subjects.</span>
-        </div>
-        <div class="table-responsive">
-            <table class="data-table" id="offered-table">
-                <thead>
-                    <tr>
-                        <th>MIS Code</th>
-                        <th>Subject Code</th>
-                        <th>Description</th>
-                        <th>Lec Units</th>
-                        <th>Lab Units</th>
-                        <th>Assigned Instructor</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="offered-body"></tbody>
-            </table>
-        </div>
-        <div id="offered-empty" style="padding:48px 24px;text-align:center;">
-            <div style="width:64px;height:64px;border-radius:50%;background:rgba(56,161,105,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-                <i class="fas fa-check-circle" style="font-size:26px;color:#38a169;opacity:0.7;"></i>
-            </div>
-            <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">No Subjects Offered Yet</div>
-            <div style="font-size:12px;color:var(--muted);max-width:360px;margin:0 auto;line-height:1.6;">
-                Click <strong style="color:var(--text);">Offer</strong> on any subject above to get started.
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="view-courses" style="display:none;">
-    <div class="panel mb-4">
-        <div class="panel-hd">
-            <span class="panel-hd-title" style="color:#4299e1;">
-                <i class="fas fa-graduation-cap me-2"></i>Courses / Programs
-            </span>
-            <div class="d-flex gap-2 align-items-center">
-                <div class="search-wrap">
-                    <i class="fas fa-search"></i>
-                    <input class="search-input" placeholder="Search course, code..." oninput="filterTable(this,'course-table')" />
-                </div>
-                <button class="btn-green-sm" onclick="openCourseModal()">
-                    <i class="fas fa-plus me-1"></i>Add Course
-                </button>
-            </div>
-        </div>
-        <div class="table-responsive">
-            <table class="data-table" id="course-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Course Code</th>
-                        <th>Program Name</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="course-tbody"></tbody>
-            </table>
-        </div>
-        <div id="course-empty" style="padding:48px 24px;text-align:center;">
-            <div style="width:64px;height:64px;border-radius:50%;background:rgba(66,153,225,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-                <i class="fas fa-graduation-cap" style="font-size:26px;color:#4299e1;opacity:0.7;"></i>
-            </div>
-            <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">No Courses Added Yet</div>
-            <div style="font-size:12px;color:var(--muted);max-width:360px;margin:0 auto;line-height:1.6;">
-                Use the <strong style="color:var(--text);">Add Course</strong> button above to create a program.
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- COURSE MANAGE MODAL -->
-<div id="manage-course-modal"
-     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;width:100%;max-width:560px;margin:16px;max-height:90vh;overflow-y:auto;">
-        <div style="background:var(--tbl-hd-navy);padding:14px 20px;border-radius:14px 14px 0 0;
-                    display:flex;align-items:center;justify-content:space-between;">
-            <div>
-                <div style="font-size:14px;font-weight:800;color:white;">
-                    <i class="fas fa-cog me-2" style="color:#9f7aea;"></i>
-                    Manage Course — <span id="manage-course-label" style="color:#9f7aea;"></span>
-                </div>
-                <div id="manage-course-sub" style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;"></div>
-            </div>
-            <button onclick="closeManageCourseModal()"
-                    style="background:rgba(255,255,255,0.12);border:none;color:white;border-radius:6px;
-                           padding:4px 14px;font-size:12px;cursor:pointer;">
-                <i class="fas fa-times me-1"></i>Close
+            <button class="btn-green-sm" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
+                <i class="fas fa-plus me-1"></i>Add Subject
             </button>
         </div>
-        <div style="padding:20px;">
-            <div style="background:rgba(159,122,234,0.08);border:1px solid rgba(159,122,234,0.25);
-                        border-radius:10px;padding:16px;margin-bottom:20px;">
-                <div style="font-size:13px;font-weight:700;color:#9f7aea;margin-bottom:14px;">
-                    <i class="fas fa-plus-circle me-2"></i>Add Section
-                </div>
-                <div class="row g-2 mb-3">
-                    <div class="col-12">
-                        <label class="dark-label">Year Level</label>
-                        <select class="dark-input" id="section-year"
-                                style="appearance:auto;-webkit-appearance:auto;cursor:pointer;">
-                            <option value="" disabled selected>— Select Year Level —</option>
-                            <option value="1">1st Year</option>
-                            <option value="2">2nd Year</option>
-                            <option value="3">3rd Year</option>
-                            <option value="4">4th Year</option>
-                        </select>
-                    </div>
-                    <div class="col-12">
-                        <label class="dark-label">Section Name</label>
-                        <input class="dark-input" id="section-name-input"
-                               placeholder="e.g. A, B, C or Morning, Afternoon" />
-                    </div>
-                </div>
-                <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">
-                    <i class="fas fa-info-circle me-1" style="color:#9f7aea;"></i>
-                    Section will be saved as: <span id="section-name-preview" style="color:#9f7aea;font-weight:700;">—</span>
-                </div>
-                <button onclick="addSection()"
-                        style="background:#9f7aea;color:#fff;border:none;border-radius:8px;
-                               padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;">
-                    <i class="fas fa-plus me-2"></i>Add Section
-                </button>
-            </div>
-            <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;
-                        letter-spacing:1px;margin-bottom:10px;">Sections in this Course</div>
-            <div class="table-responsive">
-                <table class="data-table" id="section-table">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Section</th>
-                            <th>Year Level</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="section-tbody"></tbody>
-                </table>
-            </div>
-            <div id="section-empty"
-                 style="padding:32px 16px;text-align:center;color:var(--muted);font-size:13px;">
-                <i class="fas fa-layer-group" style="font-size:24px;opacity:0.3;display:block;margin-bottom:10px;"></i>
-                No sections yet. Use the form above to add one.
-            </div>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table" id="subj-table">
+            <thead>
+                <tr>
+                    <th>MIS Code</th>
+                    <th>Subject Code</th>
+                    <th>Description</th>
+                    <th>Lec Units</th>
+                    <th>Lab Units</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="subj-body"></tbody>
+        </table>
+    </div>
+    <div id="subj-empty" style="padding:48px 24px;text-align:center;">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(66,153,225,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <i class="fas fa-book-open" style="font-size:26px;color:#4299e1;opacity:0.7;"></i>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">No Subjects Added Yet</div>
+        <div style="font-size:12px;color:var(--muted);max-width:360px;margin:0 auto;line-height:1.6;">
+            Use the <strong style="color:var(--text);">Add Subject</strong> button above to create subjects.
         </div>
     </div>
 </div>
@@ -269,12 +111,6 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label class="dark-label">Course</label>
-                    <select class="dark-input dark-select" id="course-sel">
-                        <option value="">Select Course</option>
-                    </select>
-                </div>
                 <div class="mb-3"><label class="dark-label">MIS Code</label><input class="dark-input" id="add-mis" placeholder="e.g. GT-60" /></div>
                 <div class="mb-3"><label class="dark-label">Subject Code</label><input class="dark-input" id="add-code" placeholder="e.g. GEC" /></div>
                 <div class="mb-3"><label class="dark-label">Description</label><input class="dark-input" id="add-desc" placeholder="e.g. History" /></div>
@@ -340,10 +176,6 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="offer-period-info" style="background:rgba(66,153,225,0.08);border:1px solid rgba(66,153,225,0.2);border-radius:8px;padding:12px 16px;margin-bottom:16px;">
-                    <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Offering under Active Period</div>
-                    <div id="offer-period-label" style="font-size:13px;font-weight:700;color:#4299e1;">No active period set.</div>
-                </div>
                 <div class="mb-3"><label class="dark-label">MIS Code</label><input class="dark-input" id="offer-mis" readonly /></div>
                 <div class="mb-3"><label class="dark-label">Subject Code</label><input class="dark-input" id="offer-code" readonly /></div>
                 <div class="mb-3"><label class="dark-label">Description</label><input class="dark-input" id="offer-desc" readonly /></div>
@@ -365,54 +197,12 @@
                     <i class="fas fa-check me-1"></i>Confirm &amp; Offer
                 </button>
             </div>
+            <input type="hidden" id="offer-subj-id" />
         </div>
     </div>
 </div>
 
-<!-- ASSIGN INSTRUCTOR MODAL -->
-<div class="modal fade modal-dark" id="assignInstructorModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-user-edit me-2" style="color:#4299e1;"></i>Assign Instructor</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" style="max-height:400px;overflow-y:auto;">
-                <div style="padding:32px 16px;text-align:center;color:var(--muted);font-size:13px;">
-                    <i class="fas fa-user-clock" style="font-size:24px;opacity:0.3;display:block;margin-bottom:10px;"></i>
-                    No registered instructors yet.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-blue-sm w-100" onclick="saveAssignedInstructor()" data-bs-dismiss="modal">
-                    <i class="fas fa-save me-1"></i>Save
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- COURSE MODAL -->
-<div id="course-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;width:100%;max-width:440px;margin:16px;">
-        <div class="d-flex align-items-center justify-content-between mb-4">
-            <div style="font-size:15px;font-weight:800;color:var(--text);" id="course-modal-title">
-                <i class="fas fa-graduation-cap me-2" style="color:#4299e1;"></i>Add Course
-            </div>
-            <button onclick="closeCourseModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="mb-3"><label class="dark-label">Course Code</label><input class="dark-input" id="course-code" placeholder="e.g. BSIT, BIT, BSCS" /></div>
-        <div class="mb-4"><label class="dark-label">Program Name</label><input class="dark-input" id="course-name" placeholder="e.g. Bachelor of Science in Information Technology" /></div>
-        <div class="d-flex gap-2">
-            <button onclick="saveCourse()" style="flex:1;background:#4299e1;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">
-                <i class="fas fa-save me-1"></i>Save Course
-            </button>
-            <button onclick="closeCourseModal()" style="flex:1;background:var(--border);color:var(--text);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
-        </div>
-    </div>
-</div>
-
-<!-- SHARED DELETE CONFIRM MODAL -->
+<!-- DELETE CONFIRM MODAL -->
 <div id="delete-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
     <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;width:100%;max-width:380px;margin:16px;text-align:center;">
         <div style="width:56px;height:56px;border-radius:50%;background:rgba(229,62,62,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
@@ -431,606 +221,301 @@
 
 @section Scripts {
 <script>
-    let subjects     = [];
-    let offered      = [];
-    let courses      = [];
-    let editingType  = null;
-    let editingIdx   = null;
-    let activePeriod = null;
-    let deleteTarget = null;
-    let totalSections = 0;
+   let subjects     = [];
+let offered      = [];
+let courses      = [];
+let deleteTarget = null;
 
-    async function init() {
-        try {
-            const [sRes, oRes, cRes, pRes, iRes] = await Promise.all([
-                fetch('/api/admin/subjects'),
-                fetch('/api/admin/subject-offerings'),
-                fetch('/api/admin/courses'),
-                fetch('/api/admin/active-period'),
-                fetch('/api/admin/instructors')
-            ]);
-            subjects     = await sRes.json();
-            offered      = await oRes.json();
-            activePeriod = await pRes.json();
-            courses      = await cRes.json();
-            const instList = await iRes.json();
-            populateInstructors(instList);
-            if (!activePeriod.ay) activePeriod = null;
-        } catch (e) {
-            console.error('Init error:', e);
-        }
-        await loadAllSections();
-        updatePeriodBars();
-        renderSubjects();
-        renderOffered();
-        renderCourses();
+async function init() {
+    try {
+        const [sRes, oRes, iRes] = await Promise.all([
+            fetch('/api/admin/subjects'),
+            fetch('/api/admin/subject-offerings'),
+            fetch('/api/admin/instructors')
+        ]);
+        subjects = await sRes.json();
+        offered  = await oRes.json();
+        const instList = await iRes.json();
+        populateInstructors(instList);
+    } catch (e) {
+        console.error('Init error:', e);
     }
+    renderSubjects();
+    renderOffered();
+    updateStats();
+}
 
-    function populateInstructors(instList) {
+function populateInstructors(instList) {
     const sel = document.getElementById('offer-inst');
     sel.innerHTML = '<option value="">-- Select Instructor --</option>';
     instList.forEach(i => {
         const opt = document.createElement('option');
-        opt.value = i.id;   // ← use user ID (integer)
+        opt.value = i.id;
         opt.textContent = i.name + (i.employeeId !== '—' ? ` (${i.employeeId})` : '');
         sel.appendChild(opt);
     });
 }
 
-    function switchTab(tab) {
-        document.getElementById('view-subjects').style.display = tab === 'subjects' ? '' : 'none';
-        document.getElementById('view-courses').style.display  = tab === 'courses'  ? '' : 'none';
-        document.getElementById('tab-subjects').classList.toggle('active', tab === 'subjects');
-        document.getElementById('tab-courses').classList.toggle('active', tab === 'courses');
-    }
+function updateStats() {
+    document.getElementById('stat-subjects').textContent = subjects.length;
+    document.getElementById('stat-offered').textContent  = offered.length;
+}
 
-    function updateStats() {
-        document.getElementById('stat-subjects').textContent = subjects.length;
-        document.getElementById('stat-offered').textContent  = offered.length;
-        document.getElementById('stat-courses').textContent  = courses.length;
-        document.getElementById('stat-sections').textContent = totalSections;
-    }
+function renderSubjects() {
+    const tbody = document.getElementById('subj-body');
+    const empty = document.getElementById('subj-empty');
+    tbody.innerHTML = '';
+    if (!subjects.length) { empty.style.display = 'block'; updateStats(); return; }
+    empty.style.display = 'none';
+    subjects.forEach((s, i) => {
+        const isOffered = offered.some(o => o.code === s.code && o.mis === s.mis && o.active);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="color:var(--muted);">${escHtml(s.mis)}</td>
+            <td style="font-weight:600;">${escHtml(s.code)}</td>
+            <td>${escHtml(s.desc)}</td>
+            <td style="text-align:center;">${s.lec}</td>
+            <td style="text-align:center;">${s.lab}</td>
+            <td>
+                <div class="d-flex gap-2 align-items-center">
+                    <button style="background:#4299e1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;"
+                        onclick="openEditSubject(${i})">
+                        <i class="fas fa-edit me-1"></i>Edit
+                    </button>
+                    ${isOffered
+                        ? `<span style="background:rgba(56,161,105,0.12);color:#38a169;border:1px solid rgba(56,161,105,0.3);border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+                               <i class="fas fa-check-circle"></i> Offered
+                           </span>`
+                        : `<button style="background:#38a169;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;"
+                               data-bs-toggle="modal" data-bs-target="#offerSubjectModal"
+                               onclick="setOfferSubject(${i})">
+                               <i class="fas fa-plus me-1"></i>Offer
+                           </button>`
+                    }
+                    <button onclick="openDeleteModal('subject',${i})"
+                        style="background:rgba(229,62,62,0.12);color:#fc8181;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>`;
+        tbody.appendChild(tr);
+    });
+    updateStats();
+}
 
-    function updatePeriodBars() {
-        const bar      = document.getElementById('active-period-bar');
-        const noBar    = document.getElementById('no-period-bar');
-        const offerLbl = document.getElementById('offer-period-label');
-        if (activePeriod) {
-            bar.style.display   = 'flex';
-            noBar.style.display = 'none';
-            document.getElementById('active-period-label').textContent = `A.Y. ${activePeriod.ay} — ${activePeriod.sem}`;
-            offerLbl.textContent = `A.Y. ${activePeriod.ay} — ${activePeriod.sem}`;
-        } else {
-            bar.style.display   = 'none';
-            noBar.style.display = 'flex';
-            offerLbl.textContent = 'No active period set.';
-        }
-    }
-
-    /* ══ SUBJECTS ══ */
-    function renderSubjects() {
-        const tbody = document.getElementById('subj-body');
-        const empty = document.getElementById('subj-empty');
-        tbody.innerHTML = '';
-        if (!subjects.length) { empty.style.display = 'block'; updateStats(); return; }
-        empty.style.display = 'none';
-        subjects.forEach((s, i) => {
-            // Check if this subject is already offered (match by both mis and code)
-            const isOffered = offered.some(o => o.code === s.code && o.mis === s.mis && o.active);
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="color:var(--muted);">${escHtml(s.mis)}</td>
-                <td style="font-weight:600;">${escHtml(s.code)}</td>
-                <td>${escHtml(s.desc)}</td>
-                <td style="text-align:center;">${s.lec}</td>
-                <td style="text-align:center;">${s.lab}</td>
-                <td>
-                    <div class="d-flex gap-2 align-items-center">
-                        <button style="background:#4299e1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;"
-                            onclick="openEditSubject(${i})">
-                            <i class="fas fa-edit me-1"></i>Edit
-                        </button>
-                        ${isOffered
-                            ? `<span style="background:rgba(56,161,105,0.12);color:#38a169;border:1px solid rgba(56,161,105,0.3);border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
-                                   <i class="fas fa-check-circle"></i> Offered
-                               </span>`
-                            : `<button style="background:#38a169;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;"
-                                   data-bs-toggle="modal" data-bs-target="#offerSubjectModal"
-                                   onclick="setOfferSubject(${i})">
-                                   <i class="fas fa-plus me-1"></i>Offer
-                               </button>`
-                        }
-                    </div>
-                </td>`;
-            tbody.appendChild(tr);
-        });
-        updateStats();
-    }
-
-    async function addSubject() {
-        const mis  = document.getElementById('add-mis').value.trim();
-        const code = document.getElementById('add-code').value.trim();
-        const desc = document.getElementById('add-desc').value.trim();
-        const lec  = parseInt(document.getElementById('add-lec').value);
-        const lab  = parseInt(document.getElementById('add-lab').value);
-        if (!mis || !code || !desc) { alert('Please fill in MIS Code, Subject Code, and Description.'); return; }
-
-        const res  = await fetch('/api/admin/subjects', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mis, code, desc, lec, lab })
-        });
-        const data = await res.json();
-        if (data.success) {
-            subjects.push({ id: data.id, mis, code, desc, lec, lab });
-            renderSubjects();
-            document.getElementById('add-mis').value  = '';
-            document.getElementById('add-code').value = '';
-            document.getElementById('add-desc').value = '';
-            bootstrap.Modal.getInstance(document.getElementById('addSubjectModal')).hide();
-        } else {
-            alert('Error saving subject: ' + (data.error || 'Unknown error'));
-        }
-    }
-
-    function openEditSubject(idx) {
-        const s = subjects[idx];
-        document.getElementById('edit-subj-idx').value = idx;
-        document.getElementById('edit-mis').value  = s.mis;
-        document.getElementById('edit-code').value = s.code;
-        document.getElementById('edit-desc').value = s.desc;
-        document.getElementById('edit-lec').value  = s.lec;
-        document.getElementById('edit-lab').value  = s.lab;
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('editSubjectModal')).show();
-    }
-
-    async function saveEditSubject() {
-        const idx  = parseInt(document.getElementById('edit-subj-idx').value);
-        const mis  = document.getElementById('edit-mis').value.trim();
-        const code = document.getElementById('edit-code').value.trim();
-        const desc = document.getElementById('edit-desc').value.trim();
-        const lec  = parseInt(document.getElementById('edit-lec').value);
-        const lab  = parseInt(document.getElementById('edit-lab').value);
-        if (!mis || !code || !desc) { alert('Please fill in MIS Code, Subject Code, and Description.'); return; }
-
-        const id  = subjects[idx].id;
-        const res = await fetch(`/api/admin/subjects/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mis, code, desc, lec, lab })
-        });
-        const data = await res.json();
-        if (data.success) {
-            subjects[idx] = { ...subjects[idx], mis, code, desc, lec, lab };
-            renderSubjects();
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('editSubjectModal')).hide();
-        } else {
-            alert('Error updating subject: ' + (data.error || 'Unknown error'));
-        }
-    }
-
-    /* ══ OFFERED ══ */
-    function renderOffered() {
-        const tbody = document.getElementById('offered-body');
-        const empty = document.getElementById('offered-empty');
-        tbody.innerHTML = '';
-
-        const activeOffered = offered.filter(o => o.active);
-        if (!activeOffered.length) { empty.style.display = 'block'; updateStats(); return; }
-        empty.style.display = 'none';
-        activeOffered.forEach((s, i) => {
-            const instName = (s.inst && s.inst !== '—' && s.inst.trim() !== '')
-                ? s.inst
-                : '<span style="color:var(--muted);font-style:italic;">Not assigned</span>';
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="color:var(--muted);">${escHtml(s.mis)}</td>
-                <td style="font-weight:600;">${escHtml(s.code)}</td>
-                <td>${escHtml(s.desc)}</td>
-                <td style="text-align:center;">${s.lec}</td>
-                <td style="text-align:center;">${s.lab}</td>
-                <td>
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="user-avatar-sm" style="background:#4299e1;font-size:11px;">${escHtml((s.inst && s.inst !== '—' ? s.inst : '?').charAt(0))}</div>
-                        ${instName}
-                    </div>
-                </td>
-                <td>${statusBadge(s.active)}</td>
-                <td>
-                    <div class="d-flex gap-2">
-                        ${toggleBtn(s.active, i)}
-                    </div>
-                </td>`;
-            tbody.appendChild(tr);
-        });
-        updateStats();
-    }
-
-    function setOfferSubject(idx) {
-        const s = subjects[idx];
-        document.getElementById('offer-mis').value  = s.mis;
-        document.getElementById('offer-code').value = s.code;
-        document.getElementById('offer-desc').value = s.desc;
-        document.getElementById('offer-lec').value  = s.lec;
-        document.getElementById('offer-lab').value  = s.lab;
-        document.getElementById('offer-inst').value = '';
-    }
-
-    async function addToOffered() {
-        if (!activePeriod) { alert('No active academic period. Please set one in Academic Management first.'); return; }
-        const inst = document.getElementById('offer-inst').value;
-        if (!inst) { alert('Please assign an instructor first.'); return; }
-        const payload = {
-    mis:  document.getElementById('offer-mis').value,
-    code: document.getElementById('offer-code').value,
-    inst: parseInt(document.getElementById('offer-inst').value)  // ← integer user ID
-};
-        const res  = await fetch('/api/admin/subject-offerings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (data.success) {
-            const oRes = await fetch('/api/admin/subject-offerings');
-            offered    = await oRes.json();
-            renderOffered();
-            renderSubjects(); // refresh to show "Offered" badge
-            bootstrap.Modal.getInstance(document.getElementById('offerSubjectModal')).hide();
-        } else {
-            alert('Error: ' + (data.error || 'Could not offer subject'));
-        }
-    }
-
-    async function toggleStatus(index, action) {
-    if (!confirm(`Are you sure you want to ${action} this subject?`)) return;
-    const id = offered[index].id;
-
-    if (action === 'deactivate') {
-        // SET inactive instead of DELETE (avoids FK constraint from clearance_subjects)
-        const res  = await fetch(`/api/admin/subject-offerings/${id}`, {
-            method:  'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ active: false })
-        });
-        const data = await res.json();
-        if (data.success) {
-            offered.splice(index, 1);  // remove from local array so UI hides it
-            renderOffered();
-            renderSubjects();          // brings back the Offer button
-        } else {
-            alert('Error: ' + (data.error || 'Unknown error'));
-        }
+async function addSubject() {
+    const mis  = document.getElementById('add-mis').value.trim();
+    const code = document.getElementById('add-code').value.trim();
+    const desc = document.getElementById('add-desc').value.trim();
+    const lec  = parseInt(document.getElementById('add-lec').value);
+    const lab  = parseInt(document.getElementById('add-lab').value);
+    if (!mis || !code || !desc) { alert('Please fill in MIS Code, Subject Code, and Description.'); return; }
+    const res  = await fetch('/api/admin/subjects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mis, code, desc, lec, lab })
+    });
+    const data = await res.json();
+    if (data.success) {
+        subjects.push({ id: data.id, mis, code, desc, lec, lab });
+        renderSubjects();
+        document.getElementById('add-mis').value  = '';
+        document.getElementById('add-code').value = '';
+        document.getElementById('add-desc').value = '';
+        bootstrap.Modal.getInstance(document.getElementById('addSubjectModal')).hide();
     } else {
-        const res  = await fetch(`/api/admin/subject-offerings/${id}`, {
-            method:  'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ active: true })
-        });
-        const data = await res.json();
-        if (data.success) {
-            offered[index].active = true;
-            renderOffered();
-            renderSubjects();
-        } else {
-            alert('Error updating status: ' + (data.error || 'Unknown error'));
-        }
+        alert('Error saving subject: ' + (data.error || 'Unknown error'));
     }
 }
 
-    function statusBadge(active) {
-        return active
-            ? `<span style="background:rgba(56,161,105,0.15);color:#38a169;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">Active</span>`
-            : `<span style="background:rgba(229,62,62,0.15);color:#e53e3e;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">Inactive</span>`;
+function openEditSubject(idx) {
+    const s = subjects[idx];
+    document.getElementById('edit-subj-idx').value = idx;
+    document.getElementById('edit-mis').value  = s.mis;
+    document.getElementById('edit-code').value = s.code;
+    document.getElementById('edit-desc').value = s.desc;
+    document.getElementById('edit-lec').value  = s.lec;
+    document.getElementById('edit-lab').value  = s.lab;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('editSubjectModal')).show();
+}
+
+async function saveEditSubject() {
+    const idx  = parseInt(document.getElementById('edit-subj-idx').value);
+    const mis  = document.getElementById('edit-mis').value.trim();
+    const code = document.getElementById('edit-code').value.trim();
+    const desc = document.getElementById('edit-desc').value.trim();
+    const lec  = parseInt(document.getElementById('edit-lec').value);
+    const lab  = parseInt(document.getElementById('edit-lab').value);
+    if (!mis || !code || !desc) { alert('Please fill in MIS Code, Subject Code, and Description.'); return; }
+    const id  = subjects[idx].id;
+    const res = await fetch(`/api/admin/subjects/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mis, code, desc, lec, lab })
+    });
+    const data = await res.json();
+    if (data.success) {
+        subjects[idx] = { ...subjects[idx], mis, code, desc, lec, lab };
+        renderSubjects();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('editSubjectModal')).hide();
+    } else {
+        alert('Error updating subject: ' + (data.error || 'Unknown error'));
     }
+}
 
-    function toggleBtn(active, index) {
-        return active
-            ? `<button style="background:#e53e3e;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="toggleStatus(${index},'deactivate')"><i class="fas fa-ban me-1"></i>Deactivate</button>`
-            : `<button style="background:#38a169;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="toggleStatus(${index},'activate')"><i class="fas fa-check me-1"></i>Activate</button>`;
+function renderOffered() {
+    const tbody = document.getElementById('offered-body');
+    const empty = document.getElementById('offered-empty');
+    tbody.innerHTML = '';
+    if (!offered.length) { empty.style.display = 'block'; updateStats(); return; }
+    empty.style.display = 'none';
+    offered.forEach((s, i) => {
+        const instName = (s.inst && s.inst !== '—' && s.inst.trim() !== '')
+            ? s.inst
+            : '<span style="color:var(--muted);font-style:italic;">Not assigned</span>';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="color:var(--muted);">${escHtml(s.mis)}</td>
+            <td style="font-weight:600;">${escHtml(s.code)}</td>
+            <td>${escHtml(s.desc)}</td>
+            <td style="text-align:center;">${s.lec}</td>
+            <td style="text-align:center;">${s.lab}</td>
+            <td>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="user-avatar-sm" style="background:#4299e1;font-size:11px;">${escHtml((s.inst && s.inst !== '—' ? s.inst : '?').charAt(0))}</div>
+                    ${instName}
+                </div>
+            </td>
+            <td>
+                <div class="d-flex gap-2">${toggleBtn(s.active, i)}</div>
+            </td>`;
+        tbody.appendChild(tr);
+    });
+    updateStats();
+}
+
+function setOfferSubject(idx) {
+    const s = subjects[idx];
+    document.getElementById('offer-mis').value  = s.mis;
+    document.getElementById('offer-code').value = s.code;
+    document.getElementById('offer-desc').value = s.desc;
+    document.getElementById('offer-lec').value  = s.lec;
+    document.getElementById('offer-lab').value  = s.lab;
+    document.getElementById('offer-inst').value = '';
+    document.getElementById('offer-subj-id').value = s.id;
+}
+
+async function addToOffered() {
+    const instVal = document.getElementById('offer-inst').value;
+    if (!instVal) { alert('Please assign an instructor first.'); return; }
+    const payload = {
+        subjId: parseInt(document.getElementById('offer-subj-id').value),
+        mis:  document.getElementById('offer-mis').value,
+        inst: parseInt(instVal)
+    };
+    console.log('Sending payload:', payload);
+    const res  = await fetch('/api/admin/subject-offerings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    console.log('API response:', data);
+    if (data.success) {
+        const oRes = await fetch('/api/admin/subject-offerings');
+        offered    = await oRes.json();
+        renderOffered();
+        renderSubjects();
+        bootstrap.Modal.getInstance(document.getElementById('offerSubjectModal')).hide();
+    } else {
+        alert('Error: ' + (data.error || 'Could not offer subject'));
     }
+}
 
-    /* ══ COURSES ══ */
-    function renderCourses() {
-        const tbody = document.getElementById('course-tbody');
-        const empty = document.getElementById('course-empty');
-        tbody.innerHTML = '';
-        if (!courses.length) { empty.style.display = 'block'; updateStats(); syncCourseDropdown(); return; }
-        empty.style.display = 'none';
-        courses.forEach((c, i) => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="color:var(--muted);">${String(i + 1).padStart(2,'0')}</td>
-                <td><span style="background:rgba(66,153,225,0.15);color:#4299e1;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;">${escHtml(c.code)}</span></td>
-                <td style="font-weight:600;">${escHtml(c.name)}</td>
-                <td>
-                    <div class="d-flex gap-2">
-                        <button onclick="openEditCourse(${i})" style="background:#4299e1;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;">
-                            <i class="fas fa-edit me-1"></i>Edit
-                        </button>
-                        <button onclick="openManageCourse(${i})" style="background:#9f7aea;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;">
-                            <i class="fas fa-cog me-1"></i>Manage
-                        </button>
-                        <button onclick="openDeleteModal('course',${i})" style="background:#e53e3e;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;">
-                            <i class="fas fa-trash me-1"></i>Delete
-                        </button>
-                    </div>
-                </td>`;
-            tbody.appendChild(tr);
-        });
-        updateStats();
-        syncCourseDropdown();
+async function toggleStatus(index, action) {
+    if (!confirm(`Are you sure you want to ${action} this subject?`)) return;
+    const id = offered[index].id;
+    const res  = await fetch(`/api/admin/subject-offerings/${id}`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ active: action !== 'deactivate' })
+    });
+    const data = await res.json();
+    if (data.success) {
+        if (action === 'deactivate') offered.splice(index, 1);
+        else offered[index].active = true;
+        renderOffered();
+        renderSubjects();
+    } else {
+        alert('Error: ' + (data.error || 'Unknown error'));
     }
+}
 
-    function syncCourseDropdown() {
-        const sel = document.getElementById('course-sel');
-        const cur = sel.value;
-        sel.innerHTML = '<option value="">Select Course</option>';
-        courses.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c.code;
-            opt.textContent = `${c.code} — ${c.name}`;
-            sel.appendChild(opt);
-        });
-        sel.value = cur;
-    }
+function toggleBtn(active, index) {
+    return active
+        ? `<button style="background:#e53e3e;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="toggleStatus(${index},'deactivate')"><i class="fas fa-ban me-1"></i>Deactivate</button>`
+        : `<button style="background:#38a169;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="toggleStatus(${index},'activate')"><i class="fas fa-check me-1"></i>Activate</button>`;
+}
 
-    function openCourseModal() {
-        editingType = 'course'; editingIdx = null;
-        document.getElementById('course-modal-title').innerHTML = '<i class="fas fa-graduation-cap me-2" style="color:#4299e1;"></i>Add Course';
-        document.getElementById('course-code').value = '';
-        document.getElementById('course-name').value = '';
-        document.getElementById('course-modal').style.display = 'flex';
-    }
+function openDeleteModal(type, idx) {
+    deleteTarget = { type, idx };
+    document.getElementById('delete-modal-title').textContent = 'Delete Subject?';
+    document.getElementById('delete-modal-body').textContent  = 'This subject will be permanently removed. This cannot be undone.';
+    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('padding-right');
+    document.getElementById('delete-modal').style.display = 'flex';
+}
+function closeDeleteModal() {
+    document.getElementById('delete-modal').style.display = 'none';
+    deleteTarget = null;
+}
 
-    function openEditCourse(idx) {
-        editingType = 'course'; editingIdx = idx;
-        const c = courses[idx];
-        document.getElementById('course-modal-title').innerHTML = '<i class="fas fa-edit me-2" style="color:#4299e1;"></i>Edit Course';
-        document.getElementById('course-code').value = c.code;
-        document.getElementById('course-name').value = c.name;
-        document.getElementById('course-modal').style.display = 'flex';
-    }
-
-    function closeCourseModal() { document.getElementById('course-modal').style.display = 'none'; }
-
-    async function saveCourse() {
-        const code = document.getElementById('course-code').value.trim();
-        const name = document.getElementById('course-name').value.trim();
-        if (!code || !name) { alert('Please fill in both Course Code and Program Name.'); return; }
-
-        if (editingIdx !== null) {
-            const id  = courses[editingIdx].id;
-            const res = await fetch(`/api/admin/courses/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, name })
-            });
-            const data = await res.json();
-            if (data.success) {
-                courses[editingIdx].code = code;
-                courses[editingIdx].name = name;
-            }
+async function confirmDelete() {
+    const { type, idx } = deleteTarget;
+    if (type === 'subject') {
+        const id       = subjects[idx].id;
+        const subjCode = subjects[idx].code;
+        const hasActive = offered.some(o => o.code === subjCode && (o.active === true || o.active === 1));
+        if (hasActive) {
+            closeDeleteModal();
+            alert('Cannot delete this subject while it is still Active in Subjects Offered. Please deactivate it first.');
+            return;
+        }
+        const toRemove = offered.filter(o => o.code === subjCode);
+        for (const o of toRemove) {
+            await fetch(`/api/admin/subject-offerings/${o.id}`, { method: 'DELETE' });
+        }
+        const res  = await fetch(`/api/admin/subjects/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            subjects.splice(idx, 1);
+            offered = offered.filter(o => o.code !== subjCode);
+            renderSubjects();
+            renderOffered();
         } else {
-            const res  = await fetch('/api/admin/courses', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, name })
-            });
-            const data = await res.json();
-            if (data.success) courses.push({ id: data.id, code, name });
-        }
-        closeCourseModal();
-        renderCourses();
-    }
-
-    /* ══ SECTIONS ══ */
-    let managingCourseIdx = null;
-
-    function openManageCourse(idx) {
-        managingCourseIdx = idx;
-        const c = courses[idx];
-        document.getElementById('manage-course-label').textContent = c.code;
-        document.getElementById('manage-course-sub').textContent   = c.name;
-        document.getElementById('section-year').value              = '';
-        document.getElementById('section-name-input').value        = '';
-        document.getElementById('section-name-preview').textContent = '—';
-
-        const yearSel   = document.getElementById('section-year');
-        const nameInput = document.getElementById('section-name-input');
-        const preview   = document.getElementById('section-name-preview');
-        const updatePreview = () => {
-            const n = nameInput.value.trim();
-            preview.textContent = n ? n : '—';
-        };
-        yearSel.onchange  = updatePreview;
-        nameInput.oninput = updatePreview;
-
-        document.getElementById('manage-course-modal').style.display = 'flex';
-        loadSections(c.id);
-    }
-
-    function closeManageCourseModal() {
-        document.getElementById('manage-course-modal').style.display = 'none';
-        managingCourseIdx = null;
-    }
-
-    async function loadSections(courseId) {
-        const tbody = document.getElementById('section-tbody');
-        const empty = document.getElementById('section-empty');
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;font-size:12px;">
-            <i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>`;
-        empty.style.display = 'none';
-
-        try {
-            const res  = await fetch(`/api/admin/sections?courseId=${courseId}`);
-            const data = await res.json();
-            renderSections(Array.isArray(data) ? data : []);
-        } catch {
-            tbody.innerHTML = '';
-            empty.style.display = 'block';
+            alert('Error: ' + (data.error || 'Could not delete subject'));
         }
     }
+    closeDeleteModal();
+}
 
-    function renderSections(list) {
-        const tbody = document.getElementById('section-tbody');
-        const empty = document.getElementById('section-empty');
-        tbody.innerHTML = '';
-        if (!list.length) { empty.style.display = 'block'; return; }
-        empty.style.display = 'none';
-        list.forEach((s, i) => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="color:var(--muted);">${String(i+1).padStart(2,'0')}</td>
-                <td style="font-weight:700;color:var(--text);">${escHtml(s.name)}</td>
-                <td style="color:var(--muted);">Year ${escHtml(String(s.year ?? '—'))}</td>
-                <td>
-                    <button onclick="deleteSection(${s.id})"
-                            style="background:rgba(229,62,62,0.12);border:none;color:#e53e3e;
-                                   border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">
-                        <i class="fas fa-trash-alt me-1"></i>Remove
-                    </button>
-                </td>`;
-            tbody.appendChild(tr);
-        });
-    }
+document.getElementById('delete-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteModal();
+});
 
-    async function loadAllSections() {
-        try {
-            const res  = await fetch('/api/admin/sections/count');
-            const data = await res.json();
-            totalSections = data.count ?? 0;
-        } catch {
-            totalSections = 0;
-        }
-        updateStats();
-    }
+function filterTable(input, id) {
+    const q = input.value.toLowerCase();
+    document.querySelectorAll('#' + id + ' tbody tr').forEach(r =>
+        r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none'
+    );
+}
 
-    async function addSection() {
-        const year    = document.getElementById('section-year').value;
-        const nameVal = document.getElementById('section-name-input').value.trim();
-        if (!year)    { alert('Please select a year level.'); return; }
-        if (!nameVal) { alert('Please enter a section name.'); return; }
+function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-        const c    = courses[managingCourseIdx];
-        const name = nameVal;
-
-        try {
-            const res  = await fetch('/api/admin/sections', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ courseId: c.id, name: name, year: year })
-            });
-            const data = await res.json();
-            if (data.success) {
-                document.getElementById('section-year').value              = '';
-                document.getElementById('section-name-input').value        = '';
-                document.getElementById('section-name-preview').textContent = '—';
-                loadSections(c.id);
-            } else { alert('Error: ' + (data.error ?? 'Unknown error')); }
-        } catch (e) { alert('Error: ' + e.message); }
-    }
-
-    async function deleteSection(id) {
-        if (!confirm('Remove this section?')) return;
-        try {
-            await fetch(`/api/admin/sections/${id}`, { method: 'DELETE' });
-            loadSections(courses[managingCourseIdx].id);
-        } catch (e) { alert('Error: ' + e.message); }
-    }
-
-    document.getElementById('manage-course-modal').addEventListener('click', function(e) {
-        if (e.target === this) closeManageCourseModal();
-    });
-
-    /* ══ DELETE ══ */
-    function openDeleteModal(type, idx) {
-        deleteTarget = { type, idx };
-        const titles = { course: 'Delete Course?', subject: 'Delete Subject?' };
-        const bodies = {
-            course:  'This course will be permanently removed. This cannot be undone.',
-            subject: 'This subject will be permanently removed. This cannot be undone.'
-        };
-        document.getElementById('delete-modal-title').textContent = titles[type];
-        document.getElementById('delete-modal-body').textContent  = bodies[type];
-
-        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-        document.body.classList.remove('modal-open');
-        document.body.style.removeProperty('overflow');
-        document.body.style.removeProperty('padding-right');
-
-        document.getElementById('delete-modal').style.display = 'flex';
-    }
-
-    function closeDeleteModal() {
-        document.getElementById('delete-modal').style.display = 'none';
-        deleteTarget = null;
-    }
-
-    async function confirmDelete() {
-        const { type, idx } = deleteTarget;
-
-        if (type === 'subject') {
-            const id       = subjects[idx].id;
-            const subjCode = subjects[idx].code;
-
-            const hasActive = offered.some(o => o.code === subjCode && (o.active === true || o.active === 1));
-            if (hasActive) {
-                closeDeleteModal();
-                alert('Cannot delete this subject while it is still Active in Subjects Offered. Please deactivate it first.');
-                return;
-            }
-
-            const toRemove = offered.filter(o => o.code === subjCode);
-            for (const o of toRemove) {
-                await fetch(`/api/admin/subject-offerings/${o.id}`, { method: 'DELETE' });
-            }
-
-            const res  = await fetch(`/api/admin/subjects/${id}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (data.success) {
-                subjects.splice(idx, 1);
-                offered = offered.filter(o => o.code !== subjCode);
-                renderSubjects();
-                renderOffered();
-            } else {
-                alert('Error: ' + (data.error || 'Could not delete subject'));
-            }
-
-        } else if (type === 'course') {
-            const id  = courses[idx].id;
-            const res = await fetch(`/api/admin/courses/${id}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (data.success) {
-                courses.splice(idx, 1);
-                renderCourses();
-            } else {
-                alert('Error: ' + (data.error || 'Could not delete course'));
-            }
-        }
-
-        closeDeleteModal();
-    }
-
-    document.getElementById('course-modal').addEventListener('click', function(e) {
-        if (e.target === this) closeCourseModal();
-    });
-
-    document.getElementById('delete-modal').addEventListener('click', function(e) {
-        if (e.target === this) closeDeleteModal();
-    });
-
-    function filterTable(input, id) {
-        const q = input.value.toLowerCase();
-        document.querySelectorAll('#' + id + ' tbody tr').forEach(r =>
-            r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none'
-        );
-    }
-
-    function escHtml(str) {
-        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    init();
+init();
 </script>
 }

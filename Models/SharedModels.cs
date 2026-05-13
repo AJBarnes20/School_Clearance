@@ -38,7 +38,22 @@ namespace OnlineClearanceSystem.Models
 
     public class RequestOrgDto
     {
-        public string? OrgName { get; set; }
+        public string? OrgName   { get; set; }
+        public int     PeriodId  { get; set; }  // 0 = use active period
+    }
+
+    public class DeleteClearanceDto
+    {
+        public string? Type     { get; set; }  // "subject", "org", "adviser"
+        public string? Key      { get; set; }  // mis_code or position name
+        public int     PeriodId { get; set; }  // 0 = active period
+    }
+
+    public class SendClearanceMessageDto
+    {
+        public string? ClearanceType { get; set; }  // "subject" or "org"
+        public string? ClearanceKey  { get; set; }  // mis_code or position name
+        public string? Message       { get; set; }
     }
 
     public class SubjectOfferingDto

@@ -50,165 +50,98 @@
         flex-shrink: 0;
     }
 
-    /* ── PERIOD CARD ── */
-    .period-card {
-        flex: 1 1 0;
-        background: linear-gradient(135deg, #1a3a5c, #2b5282);
-        border: none;
-        border-radius: 12px;
-        padding: 18px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        cursor: pointer;
-        position: relative;
-        min-width: 0;
-        min-height: 100px;
-        transition: filter 0.2s;
-        user-select: none;
-        justify-content: space-between;
-    }
-    .period-card:hover { filter: brightness(1.1); }
-    .period-card-inner { display: flex; align-items: center; gap: 12px; min-width: 0; }
-    .period-icon {
-        width: 48px; height: 48px;
-        border-radius: 12px;
-        background: rgba(255,255,255,0.2);
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0;
-    }
-    .period-icon i { color: white; font-size: 20px; }
-    .period-card-label { font-size: 11px; color: rgba(255,255,255,0.65); margin-bottom: 2px; }
-    .period-card-value { font-size: 13px; font-weight: 700; color: #ffffff; line-height: 1.4; }
-    .period-chevron {
-        color: rgba(255,255,255,0.7);
-        font-size: 12px;
-        transition: transform 0.2s;
-        flex-shrink: 0;
-    }
-    .period-card.open .period-chevron { transform: rotate(180deg); }
-
-    /* active badge override for colored bg */
-    .period-card .active-badge {
-        background: rgba(255,255,255,0.2);
-        color: #ffffff;
-        border: 1px solid rgba(255,255,255,0.35);
-        margin-top: 5px;
-        display: inline-block;
-    }
-
-    /* ── DROPDOWN ── */
-    .period-dropdown {
-        display: none;
-        position: absolute;
-        top: calc(100% + 8px);
-        right: 0;
-        min-width: 260px;
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-        z-index: 999;
-        padding: 10px;
-        flex-direction: column;
-        gap: 4px;
-    }
-    .period-dropdown.open { display: flex; }
-    .pd-section-label {
-        font-size: 10px; font-weight: 700;
-        text-transform: uppercase; letter-spacing: 0.9px;
-        color: var(--muted); padding: 4px 8px 6px;
-    }
-    .pd-option {
-        padding: 9px 12px;
-        border-radius: 8px;
-        font-size: 12.5px;
-        font-weight: 600;
-        color: var(--text);
-        cursor: pointer;
-        transition: background 0.15s;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .pd-option:hover { background: rgba(255,255,255,0.06); }
-    .pd-option.selected { background: rgba(66,153,225,0.15); color: #63b3ed; }
-    .pd-option.selected::after {
-        content: '\f00c';
-        font-family: 'Font Awesome 6 Free';
-        font-weight: 900;
+    /* ── ANNOUNCEMENT TABS ── */
+    .ann-tab {
+        padding: 6px 14px;
+        border-radius: 20px;
         font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.18s, color 0.18s;
+        letter-spacing: 0.4px;
+        background: #ffffff;
+        color: #111;
+        border: 2px solid transparent;
     }
-    .pd-divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+
+    /* Default (unselected) — white bg, black text, colored border */
+    .ann-tab.tab-all     { border-color: #28a745; }
+    .ann-tab.tab-urgent  { border-color: #dc3545; }
+    .ann-tab.tab-pinned  { border-color: #0d6efd; }
+    .ann-tab.tab-events  { border-color: #1a4731; }
+    .ann-tab.tab-general { border-color: #d4a017; }
+
+    /* Active (selected) — filled bg, white text */
+    .ann-tab.tab-all.active     { background: #28a745; color: #fff; border-color: #28a745; }
+    .ann-tab.tab-urgent.active  { background: #dc3545; color: #fff; border-color: #dc3545; }
+    .ann-tab.tab-pinned.active  { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+    .ann-tab.tab-events.active  { background: #1a4731; color: #fff; border-color: #1a4731; }
+    .ann-tab.tab-general.active { background: #d4a017; color: #fff; border-color: #d4a017; }
+
+    /* ── ANNOUNCEMENT PANEL HEADER ── */
+    .ann-panel-header {
+        background: var(--green, #28a745);
+        color: white;
+        padding: 13px 18px;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 700;
+        font-size: 14px;
+    }
+
+    /* ── ANNOUNCEMENT PANEL BODY ── */
+    .ann-panel-body {
+        background: white;
+        border-radius: 0 0 12px 12px;
+        padding: 16px 18px 18px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
 </style>
 
-<!-- ── STAT ROW ── -->
-<div class="stat-row">
+<!-- ── STAT ROW (3 cards only, period card removed) ── -->
+<div class="col-lg-8">
+    <div class="stat-row">
 
-    <!-- SUBJECT CLEARED -->
-    <div class="stat-card green-card">
-        <div>
-            <div class="stat-num">@(Model?.SubjectCleared ?? 0)</div>
-            <div class="stat-label">Subject Cleared</div>
-            <div class="stat-sub">Total Subjects</div>
-        </div>
-        <div class="stat-icon-wrap">
-            <i class="fas fa-clipboard-check"></i>
-        </div>
-    </div>
-
-    <!-- SUBJECT PENDING -->
-    <div class="stat-card orange-card">
-        <div>
-            <div class="stat-num">@(Model?.SubjectIncomplete ?? 0)</div>
-            <div class="stat-label">Subject Pending</div>
-        </div>
-        <div class="stat-icon-wrap">
-            <i class="fas fa-clock"></i>
-        </div>
-    </div>
-
-    <!-- ORGANIZATION CLEARED -->
-    <div class="stat-card blue-card">
-        <div>
-            <div class="stat-num">@(Model?.OrgCleared ?? 0)</div>
-            <div class="stat-label">Organization Cleared</div>
-        </div>
-        <div class="stat-icon-wrap">
-            <i class="fas fa-sitemap"></i>
-        </div>
-    </div>
-
-    <!-- PERIOD CARD -->
-    <div class="period-card" id="period-card" onclick="togglePeriodDropdown()">
-        <div class="period-card-inner">
-            <div class="period-icon"><i class="fas fa-calendar-alt"></i></div>
+        <!-- SUBJECT CLEARED -->
+        <div class="stat-card green-card">
             <div>
-                <div class="period-card-value" id="period-display">
-                    @(Model?.ActivePeriod ?? "A.Y. 2025–2026, 2nd Semester")
-                </div>
-                <span class="active-badge">Active</span>
+                <div class="stat-num">@(Model?.SubjectCleared ?? 0)</div>
+                <div class="stat-label">Subject Cleared</div>
+                <div class="stat-sub">Total Subjects</div>
+            </div>
+            <div class="stat-icon-wrap">
+                <i class="fas fa-clipboard-check"></i>
             </div>
         </div>
-        <i class="fas fa-chevron-down period-chevron"></i>
 
-        <div class="period-dropdown" id="period-dropdown">
-            <div class="pd-section-label">Academic Year</div>
-            <div class="pd-option" data-ay="2023-2024" onclick="selectAY(event,'2023-2024')">A.Y. 2023–2024</div>
-            <div class="pd-option" data-ay="2024-2025" onclick="selectAY(event,'2024-2025')">A.Y. 2024–2025</div>
-            <div class="pd-option selected" data-ay="2025-2026" onclick="selectAY(event,'2025-2026')">A.Y. 2025–2026</div>
-            <div class="pd-option" data-ay="2026-2027" onclick="selectAY(event,'2026-2027')">A.Y. 2026–2027</div>
-            <hr class="pd-divider"/>
-            <div class="pd-section-label">Semester</div>
-            <div class="pd-option" data-sem="1st Semester" onclick="selectSem(event,'1st Semester')">1st Semester</div>
-            <div class="pd-option selected" data-sem="2nd Semester" onclick="selectSem(event,'2nd Semester')">2nd Semester</div>
-            <div class="pd-option" data-sem="Summer" onclick="selectSem(event,'Summer')">Summer</div>
+        <!-- SUBJECT PENDING -->
+        <div class="stat-card orange-card">
+            <div>
+                <div class="stat-num">@(Model?.SubjectIncomplete ?? 0)</div>
+                <div class="stat-label">Subject Pending</div>
+            </div>
+            <div class="stat-icon-wrap">
+                <i class="fas fa-clock"></i>
+            </div>
         </div>
-    </div>
 
+        <!-- ORGANIZATION CLEARED -->
+        <div class="stat-card blue-card">
+            <div>
+                <div class="stat-num">@(Model?.OrgCleared ?? 0)</div>
+                <div class="stat-label">Organization Cleared</div>
+            </div>
+            <div class="stat-icon-wrap">
+                <i class="fas fa-sitemap"></i>
+            </div>
+        </div>
+
+    </div>
 </div>
 
-<!-- ── CHECKLIST + ANNOUNCEMENTS ── -->
+    <!-- ── CHECKLIST + ANNOUNCEMENTS ── -->
 <div class="row g-3">
 
     <!-- CHECKLIST -->
@@ -251,25 +184,23 @@
 
     <!-- ANNOUNCEMENTS -->
     <div class="col-md-7">
-        <div style="background:white;border-radius:12px;padding:18px;
-                    box-shadow:0 1px 4px rgba(0,0,0,0.07);">
+        <div class="ann-panel-header">
+            <span><i class="fas fa-bullhorn me-2"></i>Announcements</span>
+        </div>
+        <div class="ann-panel-body">
 
+            <!-- FILTER TABS -->
             <div class="d-flex gap-2 mb-3 flex-wrap">
-                <button class="ann-tab active" onclick="filterAnn('all',this)">ALL</button>
-                <button class="ann-tab" onclick="filterAnn('Pinned',this)"
-                        style="background:#1a4731;color:white;border-color:#1a4731;">
+                <button class="ann-tab tab-all active"    onclick="filterAnn('all',this)">ALL</button>
+                <button class="ann-tab tab-urgent"        onclick="filterAnn('Urgent',this)">URGENT</button>
+                <button class="ann-tab tab-pinned"        onclick="filterAnn('Pinned',this)">
                     <i class="fas fa-thumbtack me-1"></i>PINNED
                 </button>
-                <button class="ann-tab" onclick="filterAnn('Urgent',this)"
-                        style="background:#dc3545;color:white;border-color:#dc3545;">
-                    URGENT
-                </button>
-                <button class="ann-tab" onclick="filterAnn('Event',this)"
-                        style="background:#0d6efd;color:white;border-color:#0d6efd;">
-                    EVENTS
-                </button>
+                <button class="ann-tab tab-events"        onclick="filterAnn('Event',this)">EVENTS</button>
+                <button class="ann-tab tab-general"       onclick="filterAnn('General',this)">GENERAL</button>
             </div>
 
+            <!-- ANNOUNCEMENT LIST -->
             <div id="ann-list">
                 @if (Model?.Announcements != null && Model.Announcements.Any())
                 {
@@ -322,59 +253,19 @@
                     </div>
                 }
             </div>
+
         </div>
     </div>
 </div>
 
 @section Scripts {
 <script>
-    let selectedAY  = '2025-2026';
-    let selectedSem = '2nd Semester';
-
-    function togglePeriodDropdown() {
-        const card     = document.getElementById('period-card');
-        const dropdown = document.getElementById('period-dropdown');
-        card.classList.toggle('open');
-        dropdown.classList.toggle('open');
-    }
-
-    function selectAY(e, ay) {
-        e.stopPropagation();
-        selectedAY = ay;
-        document.querySelectorAll('[data-ay]').forEach(el => el.classList.remove('selected'));
-        document.querySelector(`[data-ay="${ay}"]`).classList.add('selected');
-        updateDisplay();
-    }
-
-    function selectSem(e, sem) {
-        e.stopPropagation();
-        selectedSem = sem;
-        document.querySelectorAll('[data-sem]').forEach(el => el.classList.remove('selected'));
-        document.querySelector(`[data-sem="${sem}"]`).classList.add('selected');
-        updateDisplay();
-    }
-
-    function updateDisplay() {
-        document.getElementById('period-display').textContent =
-            `A.Y. ${selectedAY}, ${selectedSem}`;
-    }
-
-    document.addEventListener('click', function(e) {
-        const card = document.getElementById('period-card');
-        if (!card.contains(e.target)) {
-            card.classList.remove('open');
-            document.getElementById('period-dropdown').classList.remove('open');
-        }
-    });
-
     function filterAnn(tag, btn) {
-        document.querySelectorAll('.ann-tab').forEach(b => {
-            b.style.background  = '';
-            b.style.color       = '';
-            b.style.borderColor = '';
-            b.classList.remove('active');
-        });
+        // Remove active from all tabs
+        document.querySelectorAll('.ann-tab').forEach(b => b.classList.remove('active'));
+        // Set active on clicked tab
         btn.classList.add('active');
+        // Show/hide announcement cards
         document.querySelectorAll('#ann-list .ann-card').forEach(c => {
             c.style.display = tag === 'all'
                 ? ''
