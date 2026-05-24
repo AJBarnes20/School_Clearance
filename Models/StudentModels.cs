@@ -71,6 +71,7 @@ namespace OnlineClearanceSystem.Models
         public string StudentName    { get; set; } = "";
         public string StudentId      { get; set; } = "";
         public string CourseYear     { get; set; } = "";
+        public string Section        { get; set; } = "";
         public string AySemester     { get; set; } = "";
         public int    ActivePeriodId { get; set; } = 0;
         public List<PdfSubjectItem>      Subjects      { get; set; } = new();
@@ -85,6 +86,25 @@ namespace OnlineClearanceSystem.Models
         public string InstructorName  { get; set; } = "";
         public string Status          { get; set; } = "";
         public string SignatureBase64  { get; set; } = "";
+    }
+
+    // ── Student as Org Officer — Signed Clearance ─────────────────────────────
+    public class StudentSignedClearanceViewModel
+    {
+        public List<string>              MyPositions  { get; set; } = new();
+        public List<StudentOrgOfficerItem> PendingItems { get; set; } = new();
+        public List<StudentOrgOfficerItem> SignedItems  { get; set; } = new();
+        public int                       ActivePeriodId { get; set; } = 0;
+    }
+
+    public class StudentOrgOfficerItem
+    {
+        public int    Id            { get; set; }
+        public string Position      { get; set; } = "";
+        public string StudentName   { get; set; } = "";
+        public string StudentNumber { get; set; } = "";
+        public string Course        { get; set; } = "";
+        public string Status        { get; set; } = "";
     }
 
     public class PdfOrganizationItem

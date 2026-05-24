@@ -1,9 +1,14 @@
 @model IEnumerable<OnlineClearanceSystem.Models.SignatoryViewModel>
+@using OnlineClearanceSystem.Models
 @{
     ViewData["Title"]      = "Signatories";
     ViewData["ActivePage"] = "Signatories";
     Layout = "~/Views/Shared/_StaffLayout.cshtml";
+    var signedItems  = ViewBag.SignedItems as IEnumerable<StaffSignedClearance> ?? Enumerable.Empty<StaffSignedClearance>();
+    int pendingCount = Model?.Count(x => x.Status == "Pending") ?? 0;
 }
+
+@Html.AntiForgeryToken()
 
 @if (TempData["SuccessMessage"] != null)
 {
@@ -13,72 +18,285 @@
     </div>
 }
 
-<div class="d-flex align-items-center justify-content-between mb-3">
-    <h5 class="fw-bold mb-0" style="color:#1a1a2e;">Signatories</h5>
+<!-- TAB BAR -->
+<div class="d-flex gap-2 mb-3 flex-wrap">
+    <button class="cl-tab active" onclick="switchTab('requests', this)">
+        <i class="fas fa-file-signature me-1"></i>Clearance Requests
+        @if (pendingCount > 0) { <span class="tab-badge">@pendingCount</span> }
+    </button>
+    <button class="cl-tab" onclick="switchTab('signed', this)">
+        <i class="fas fa-check-circle me-1"></i>Signed Clearance
+        @if (signedItems.Any()) { <span class="tab-badge-secondary">@signedItems.Count()</span> }
+    </button>
 </div>
 
-<div class="page-card">
-    <div class="page-card-hd dark"><i class="fas fa-file-signature me-2"></i>Student Clearance Requests</div>
-    <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th style="width:80px;text-align:center;">NO.</th>
-                    <th>STUDENT</th>
-                    <th>COURSE</th>
-                    <th style="text-align:center;">STATUS</th>
-                    <th style="text-align:center;">ACTION</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model != null && Model.Any())
-                {
-                    int i = 1;
-                    @foreach (var item in Model)
+<!-- CLEARANCE REQUESTS TAB -->
+<div id="tab-requests" class="tab-panel">
+    <div class="page-card">
+        <div class="page-card-hd dark">
+            <i class="fas fa-file-signature me-2"></i> Requests
+            @if (pendingCount > 0) { <span class="badge bg-warning text-dark ms-2" style="font-size:12px;">@pendingCount pending</span> }
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:80px;text-align:center;">NO.</th>
+                        <th>STUDENT</th>
+                        <th>COURSE</th>
+                        <th style="text-align:center;">STATUS</th>
+                        <th style="text-align:center;">ACTION</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
                     {
-                        <tr>
-                            <td style="text-align:center;"><span class="code-badge">@i.ToString("D2")</span></td>
-                            <td>
-                                <div style="font-weight:600;font-size:13px;">@item.StudentName</div>
-                                <div style="font-size:11px;color:#888;">ID: @item.StudentId</div>
-                            </td>
-                            <td><span class="code-badge">@item.Course</span></td>
-                            <td style="text-align:center;">
-                                @if (item.Status == "Cleared") { <span class="status-approved">Approved</span> }
-                                else if (item.Status == "Declined") { <span class="status-declined">Declined</span> }
-                                else { <span class="status-pending">Pending</span> }
-                            </td>
-                            <td style="text-align:center;">
-                                @if (item.Status == "Cleared") { <span class="status-approved">Approved</span> }
-                                else if (item.Status == "Declined") { <span class="status-declined">Declined</span> }
-                                else
-                                {
-                                    <div class="d-flex gap-2 justify-content-center">
-                                        <form asp-action="Approve" asp-controller="Staff" method="post" style="display:inline;">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="id" value="@item.Id" />
-                                            <button type="submit" class="btn-approve"><i class="fas fa-check me-1"></i>Approve</button>
-                                        </form>
-                                        <form asp-action="Decline" asp-controller="Staff" method="post" style="display:inline;">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="id" value="@item.Id" />
-                                            <button type="submit" class="btn-decline"><i class="fas fa-times me-1"></i>Decline</button>
-                                        </form>
+                        int i = 1;
+                        foreach (var item in Model)
+                        {
+                            <tr>
+                                <td style="text-align:center;">@i.ToString("D2")</td>
+                                <td>
+                                    <div style="font-weight:600;font-size:13px;">@item.StudentName</div>
+                                    <div style="font-size:11px;color:#888;">ID: @item.StudentId</div>
+                                </td>
+                                <td>@item.Course</td>
+                                <td style="text-align:center;">
+                                    @if (item.Status == "Cleared")      { <span class="status-approved">Approved</span> }
+                                    else if (item.Status == "Declined") { <span class="status-declined">Declined</span> }
+                                    else                                 { <span class="status-pending-sm">Pending</span> }
+                                </td>
+                                <td style="text-align:center;">
+                                    <div class="d-flex gap-2 justify-content-center align-items-center">
+                                        @if (item.Status != "Cleared" && item.Status != "Declined")
+                                        {
+                                            <form asp-action="Approve" asp-controller="Staff" method="post" style="display:inline;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@item.Id" />
+                                                <button type="submit" class="btn-approve"><i class="fas fa-check me-1"></i>Approve</button>
+                                            </form>
+                                            <form asp-action="Decline" asp-controller="Staff" method="post" style="display:inline;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@item.Id" />
+                                                <button type="submit" class="btn-decline"><i class="fas fa-times me-1"></i>Decline</button>
+                                            </form>
+                                        }
+                                        <div class="chat-btn-wrap" data-sn="@item.StudentId" data-key="@item.Position" data-type="org">
+                                            <button class="chat-icon-btn"
+                                                    onclick="openChat('@Html.Raw(item.StudentId)','@Html.Raw(item.StudentName)','@Html.Raw(item.Position)','org','@Html.Raw(item.Course)')"
+                                                    title="Message @item.StudentName">
+                                                <i class="fas fa-comment-dots"></i>
+                                            </button>
+                                            <span class="unread-dot" style="display:none;"></span>
+                                        </div>
                                     </div>
-                                }
-                            </td>
-                        </tr>
-                        i++;
+                                </td>
+                            </tr>
+                            i++;
+                        }
                     }
-                }
-                else
-                {
-                    <tr><td colspan="5" style="padding:40px;text-align:center;color:#888;">
-                        <i class="fas fa-file-signature" style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
-                        No clearance requests yet.
-                    </td></tr>
-                }
-            </tbody>
-        </table>
+                    else
+                    {
+                        <tr><td colspan="5" style="padding:40px;text-align:center;color:#888;">
+                            <i class="fas fa-file-signature" style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
+                            No clearance requests yet.
+                        </td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+<!-- SIGNED CLEARANCE TAB -->
+<div id="tab-signed" class="tab-panel" style="display:none;">
+    <div class="page-card">
+        <div class="page-card-hd dark">
+            <i class="fas fa-check-circle me-2"></i>Signed Clearance
+            @if (signedItems.Any()) { <span class="badge bg-secondary ms-2" style="font-size:12px;">@signedItems.Count() record(s)</span> }
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>STUDENT ID</th>
+                        <th>STUDENT</th>
+                        <th>COURSE</th>
+                        <th>DEPARTMENT</th>
+                        <th style="text-align:center;">STATUS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (signedItems.Any())
+                    {
+                        foreach (var item in signedItems)
+                        {
+                            <tr>
+                                <td>@item.StudentId</td>
+                                <td>
+                                    <div style="font-weight:600;">@item.StudentName</div>
+                                    <div style="font-size:11px;color:#888;">@item.StudentCourse</div>
+                                </td>
+                                <td style="font-weight:600;">@item.StudentCourse</td>
+                                <td>@item.Description</td>
+                                <td style="text-align:center;">
+                                    @if (item.Status == "Approved") { <span class="status-approved">Approved</span> }
+                                    else                             { <span class="status-declined">Declined</span> }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="5" style="padding:40px;text-align:center;color:#888;">
+                            <i class="fas fa-check-circle" style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
+                            No signed clearances found.
+                        </td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- CHAT OVERLAY + MODAL -->
+<div id="chat-overlay" onclick="closeChat()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1040;"></div>
+<div id="chat-modal" style="display:none;position:fixed;bottom:0;right:24px;width:360px;height:520px;background:white;border-radius:16px 16px 0 0;box-shadow:0 -4px 40px rgba(0,0,0,0.18);z-index:1050;flex-direction:column;overflow:hidden;">
+    <div style="background:#1a4731;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <div id="chat-avatar" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:white;flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+            <div id="chat-name" style="font-size:13px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+            <div id="chat-sub" style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:1px;"></div>
+        </div>
+        <button onclick="closeChat()" style="background:none;border:none;color:rgba(255,255,255,0.7);font-size:16px;cursor:pointer;padding:4px;line-height:1;"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="chat-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f7f8fa;"></div>
+    <div style="padding:12px 14px;border-top:1px solid #e2e8f0;background:white;display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <input id="chat-input" type="text" placeholder="Type a message…" style="flex:1;border:1px solid #d1d5db;border-radius:22px;padding:9px 14px;font-size:13px;outline:none;font-family:inherit;background:#f7f8fa;" onkeydown="if(event.key==='Enter')sendChatMessage()" />
+        <button onclick="sendChatMessage()" style="width:38px;height:38px;border-radius:50%;border:none;background:#1a4731;color:white;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas fa-paper-plane"></i></button>
+    </div>
+</div>
+
+@section Styles {
+<style>
+    .cl-tab{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;border:1.5px solid #dee2e6;background:white;color:#555;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;font-family:inherit;}
+    .cl-tab:hover{border-color:#1a4731;color:#1a4731;}
+    .cl-tab.active{background:#1a4731;color:white;border-color:#1a4731;}
+    .tab-badge{background:#dc3545;color:white;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;}
+    .tab-badge-secondary{background:#6c757d;color:white;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;}
+    .cl-tab.active .tab-badge,.cl-tab.active .tab-badge-secondary{background:rgba(255,255,255,0.3);}
+    .status-pending-sm{background:#fff8e1;color:#e6a817;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;}
+    .btn-approve{background:#2e7d32;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s}
+    .btn-approve:hover{opacity:.85}
+    .btn-decline{background:#c62828;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s}
+    .btn-decline:hover{opacity:.85}
+    .chat-btn-wrap{position:relative;display:inline-flex;}
+    .chat-icon-btn{width:34px;height:34px;border-radius:50%;border:none;background:#e8f5e9;color:#1a4731;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .2s,transform .15s;}
+    .chat-icon-btn:hover{background:#c8e6c9;transform:scale(1.1);}
+    .unread-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;background:#dc3545;border-radius:50%;border:1.5px solid white;}
+    .chat-bubble-wrap{display:flex;flex-direction:column;max-width:78%;}
+    .chat-bubble-wrap.mine{align-self:flex-end;align-items:flex-end;}
+    .chat-bubble-wrap.theirs{align-self:flex-start;align-items:flex-start;}
+    .chat-bubble{padding:9px 13px;border-radius:18px;font-size:13px;line-height:1.5;word-break:break-word;}
+    .chat-bubble.mine{background:#1a4731;color:white;border-bottom-right-radius:4px;}
+    .chat-bubble.theirs{background:white;color:#1a1a2e;border:1px solid #e2e8f0;border-bottom-left-radius:4px;}
+    .chat-time{font-size:10px;color:#aaa;margin-top:3px;padding:0 4px;}
+    .chat-sender-name{font-size:10px;font-weight:700;color:#1a4731;margin-bottom:3px;padding:0 4px;}
+</style>
+}
+
+@section Scripts {
+<script>
+const _csrf = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+
+function switchTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.cl-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).style.display = '';
+    btn.classList.add('active');
+}
+
+let _chatSN = null, _chatName = null, _chatKey = null, _chatType = null;
+function getInitials(n) { return (n??'').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function fmtTime(d) { return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }
+function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function openChat(sn, name, key, type, course) {
+    _chatSN = sn; _chatName = name; _chatKey = key; _chatType = type;
+    document.getElementById('chat-name').textContent    = name;
+    document.getElementById('chat-sub').textContent     = course || key;
+    document.getElementById('chat-avatar').textContent  = getInitials(name);
+    document.getElementById('chat-modal').style.display   = 'flex';
+    document.getElementById('chat-overlay').style.display = 'block';
+    document.getElementById('chat-messages').innerHTML = '<div style="text-align:center;margin:auto;font-size:12px;color:#aaa;"><i class="fas fa-spinner fa-spin me-1"></i>Loading…</div>';
+    await markRead(sn, key, type);
+    clearUnreadDot(sn, key, type);
+    await fetchMessages();
+    setTimeout(() => document.getElementById('chat-input').focus(), 80);
+}
+function closeChat() {
+    document.getElementById('chat-modal').style.display   = 'none';
+    document.getElementById('chat-overlay').style.display = 'none';
+    _chatSN = null;
+}
+async function markRead(sn, key, type) {
+    try { await fetch('/Staff/MarkMessagesRead', { method:'POST', headers:{'Content-Type':'application/json','RequestVerificationToken':_csrf}, body:JSON.stringify({studentNumber:sn,clearanceKey:key,clearanceType:type,message:''}) }); } catch {}
+}
+async function fetchMessages() {
+    if (!_chatSN) return;
+    try {
+        const d = await (await fetch(`/Staff/GetClearanceMessages?studentNumber=${encodeURIComponent(_chatSN)}&key=${encodeURIComponent(_chatKey)}&type=${encodeURIComponent(_chatType)}`)).json();
+        if (d.success) renderMessages(d.messages ?? []);
+    } catch {}
+}
+function renderMessages(msgs) {
+    const box = document.getElementById('chat-messages'); box.innerHTML = '';
+    if (!msgs.length) { box.innerHTML=`<div style="text-align:center;margin:auto;"><div style="font-size:32px;margin-bottom:10px;">💬</div><div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px;">Start the conversation</div><div style="font-size:12px;color:#aaa;max-width:220px;margin:0 auto;line-height:1.6;">Send a message to <strong>${esc(_chatName)}</strong>.</div></div>`; return; }
+    let lastDate = null;
+    msgs.forEach(m => {
+        const d=new Date(m.time), ds=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+        if (ds!==lastDate) { const div=document.createElement('div'); div.style.cssText='text-align:center;font-size:10px;color:#aaa;margin:6px 0;'; div.textContent=ds; box.appendChild(div); lastDate=ds; }
+        const wrap=document.createElement('div'); wrap.className='chat-bubble-wrap '+(m.mine?'mine':'theirs');
+        if (!m.mine) { const sn=document.createElement('div'); sn.className='chat-sender-name'; sn.textContent=_chatName; wrap.appendChild(sn); }
+        const bubble=document.createElement('div'); bubble.className='chat-bubble '+(m.mine?'mine':'theirs'); bubble.textContent=m.text; wrap.appendChild(bubble);
+        const time=document.createElement('div'); time.className='chat-time'; time.textContent=fmtTime(d); wrap.appendChild(time);
+        box.appendChild(wrap);
+    });
+    box.scrollTop=box.scrollHeight;
+}
+async function sendChatMessage() {
+    const input=document.getElementById('chat-input'), text=input.value.trim();
+    if (!text||!_chatSN) return; input.value='';
+    const wrap=document.createElement('div'); wrap.className='chat-bubble-wrap mine';
+    const b=document.createElement('div'); b.className='chat-bubble mine'; b.textContent=text;
+    const t=document.createElement('div'); t.className='chat-time'; t.textContent=fmtTime(new Date());
+    wrap.appendChild(b); wrap.appendChild(t);
+    const box=document.getElementById('chat-messages'); box.appendChild(wrap); box.scrollTop=box.scrollHeight;
+    try { await fetch('/Staff/SendClearanceMessage',{method:'POST',headers:{'Content-Type':'application/json','RequestVerificationToken':_csrf},body:JSON.stringify({studentNumber:_chatSN,clearanceType:_chatType,clearanceKey:_chatKey,message:text})}); } catch {}
+}
+function clearUnreadDot(sn,key,type) {
+    document.querySelectorAll('.chat-btn-wrap').forEach(w=>{
+        if(w.dataset.sn===sn&&w.dataset.key===key&&w.dataset.type===type){const d=w.querySelector('.unread-dot');if(d)d.style.display='none';}
+    });
+}
+async function loadUnreadBadges() {
+    try {
+        const unreads = await(await fetch('/Staff/GetUnreadCounts')).json();
+        // Reset all dots first
+        document.querySelectorAll('.chat-btn-wrap .unread-dot').forEach(d => d.style.display = 'none');
+        // Show dots for unread messages
+        unreads.forEach(u => {
+            document.querySelectorAll('.chat-btn-wrap').forEach(w => {
+                if (w.dataset.sn===u.studentNumber && w.dataset.key===u.clearanceKey && w.dataset.type===u.clearanceType) {
+                    const d = w.querySelector('.unread-dot');
+                    if (d) d.style.display = 'block';
+                }
+            });
+        });
+    } catch {}
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeChat(); });
+loadUnreadBadges();
+setInterval(loadUnreadBadges, 30000);
+</script>
+}

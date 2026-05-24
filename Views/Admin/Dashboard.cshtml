@@ -39,8 +39,8 @@
         <div class="stat-card">
             <div>
                 <div class="stat-num" id="stat-signatories">0</div>
-                <div class="stat-label">Total Signatories</div>
-                <div style="font-size:11px;color:var(--muted);">Assigned by admin</div>
+                <div class="stat-label">Assigned Positions</div>
+                <div style="font-size:11px;color:var(--muted);">Total org positions</div>
             </div>
             <div class="stat-icon-wrap si-teal"><i class="fas fa-signature"></i></div>
         </div>
@@ -256,8 +256,8 @@
             const data = await res.json();
             if (data.ay) {
                 activePeriod = data;
-                document.getElementById('period-ay').textContent      = `A.Y. ${data.ay},`;
-                document.getElementById('period-sem').textContent     = data.sem;
+                document.getElementById('period-ay').textContent      = `${data.sem},`;
+                document.getElementById('period-sem').textContent     = `A.Y. ${data.ay}`;
                 document.getElementById('period-badge').style.display = '';
             } else {
                 document.getElementById('period-ay').textContent      = 'No Active Period';

@@ -164,6 +164,40 @@
         font-weight: 700;
         color: white;
     }
+
+    /* ── ANNOUNCEMENT PANEL ── */
+    .ann-panel-header {
+        background: var(--green, #1a4731);
+        color: white;
+        padding: 13px 18px;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 700;
+        font-size: 14px;
+    }
+    .ann-panel-body {
+        background: white;
+        border-radius: 0 0 12px 12px;
+        padding: 16px 18px 18px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+    .ann-tab {
+        border-radius: 20px; padding: 5px 15px; font-size: 12px; font-weight: 700;
+        border: 2px solid transparent; background: #fff; color: #111;
+        cursor: pointer; transition: background 0.18s, color 0.18s; letter-spacing: 0.4px;
+    }
+    .ann-tab.tab-all     { border-color: #28a745; }
+    .ann-tab.tab-urgent  { border-color: #dc3545; }
+    .ann-tab.tab-pinned  { border-color: #0d6efd; }
+    .ann-tab.tab-events  { border-color: #1a4731; }
+    .ann-tab.tab-general { border-color: #d4a017; }
+    .ann-tab.tab-all.active     { background: #28a745; color: #fff; border-color: #28a745; }
+    .ann-tab.tab-urgent.active  { background: #dc3545; color: #fff; border-color: #dc3545; }
+    .ann-tab.tab-pinned.active  { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+    .ann-tab.tab-events.active  { background: #1a4731; color: #fff; border-color: #1a4731; }
+    .ann-tab.tab-general.active { background: #d4a017; color: #fff; border-color: #d4a017; }
 </style>
 
 <!-- WELCOME BANNER -->
@@ -227,36 +261,6 @@
         </div>
     </div>
 
-    <!-- Period Card -->
-    <div class="period-card" id="period-card" onclick="togglePeriodDropdown()">
-        <div class="period-card-inner">
-            <div class="period-icon"><i class="fas fa-calendar-alt"></i></div>
-            <div>
-                <div class="period-card-label">Active Academic Period</div>
-                <div class="period-card-value" id="period-display">
-                    @(Model?.ActivePeriod ?? "A.Y. 2025–2026, 2nd Semester")
-                </div>
-                <span class="active-badge">Active</span>
-            </div>
-        </div>
-        <i class="fas fa-chevron-down period-chevron"></i>
-
-        <div class="period-dropdown" id="period-dropdown">
-            <div class="pd-section-label">Academic Year</div>
-            <div class="pd-option" data-ay="2023-2024" onclick="selectAY(event,'2023-2024')">A.Y. 2023–2024</div>
-            <div class="pd-option" data-ay="2024-2025" onclick="selectAY(event,'2024-2025')">A.Y. 2024–2025</div>
-            <div class="pd-option selected" data-ay="2025-2026" onclick="selectAY(event,'2025-2026')">A.Y. 2025–2026</div>
-            <div class="pd-option" data-ay="2026-2027" onclick="selectAY(event,'2026-2027')">A.Y. 2026–2027</div>
-            <hr class="pd-divider" />
-            <div class="pd-section-label">Semester</div>
-            <div class="pd-option" data-sem="1st Semester" onclick="selectSem(event,'1st Semester')">1st Semester</div>
-            <div class="pd-option selected" data-sem="2nd Semester" onclick="selectSem(event,'2nd Semester')">2nd Semester</div>
-            <div class="pd-option" data-sem="Summer" onclick="selectSem(event,'Summer')">Summer</div>
-        </div>
-    </div>
-
-</div>
-
 <!-- BOTTOM ROW: CHECKLIST + ANNOUNCEMENTS -->
 <div class="row g-3">
 
@@ -291,23 +295,20 @@
 
     <!-- ANNOUNCEMENTS -->
     <div class="col-md-7">
-        <div style="background:white;border-radius:12px;padding:18px;
-                    box-shadow:0 1px 4px rgba(0,0,0,0.07);">
+        <div class="ann-panel-header">
+            <span><i class="fas fa-bullhorn me-2"></i>Announcements</span>
+        </div>
+        <div class="ann-panel-body">
 
+            <!-- FILTER TABS -->
             <div class="d-flex gap-2 mb-3 flex-wrap">
-                <button class="ann-tab active" onclick="filterAnn('all', this)">ALL</button>
-                <button class="ann-tab" onclick="filterAnn('Pinned', this)"
-                        style="background:#1a4731;color:white;border-color:#1a4731;">
+                <button class="ann-tab tab-all active"  onclick="filterAnn('all',this)">ALL</button>
+                <button class="ann-tab tab-urgent"      onclick="filterAnn('Urgent',this)">URGENT</button>
+                <button class="ann-tab tab-pinned"      onclick="filterAnn('Pinned',this)">
                     <i class="fas fa-thumbtack me-1"></i>PINNED
                 </button>
-                <button class="ann-tab" onclick="filterAnn('Urgent', this)"
-                        style="background:#dc3545;color:white;border-color:#dc3545;">
-                    URGENT
-                </button>
-                <button class="ann-tab" onclick="filterAnn('Event', this)"
-                        style="background:#0d6efd;color:white;border-color:#0d6efd;">
-                    EVENTS
-                </button>
+                <button class="ann-tab tab-events"      onclick="filterAnn('Event',this)">EVENTS</button>
+                <button class="ann-tab tab-general"     onclick="filterAnn('General',this)">GENERAL</button>
             </div>
 
             <div id="ann-list">
@@ -316,39 +317,25 @@
                     @foreach (var ann in Model.Announcements)
                     {
                         <div class="ann-card" data-tag="@ann.Type.ToLower()">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                                 <div class="d-flex align-items-center gap-2">
-                                    <div class="ann-avatar">SA</div>
+                                    <div class="ann-avatar">A</div>
                                     <div>
-                                        <div style="font-weight:700;font-size:12px;">System Administrator</div>
-                                        <div style="font-size:11px;color:#888;">@ann.Date</div>
+                                        <div style="font-weight:700;font-size:13px;color:#1a1a2e;">Admin</div>
+                                        <div style="font-size:11px;color:#888;">System Administrator</div>
                                     </div>
                                 </div>
-                                <div class="d-flex gap-1">
-                                    @if (ann.Type == "Pinned")
-                                    {
-                                        <span class="ann-tag tag-pinned">
-                                            <i class="fas fa-thumbtack me-1"></i>Pinned
-                                        </span>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    @{ var t = (ann.Type ?? "General").ToLower(); }
+                                    @if (t == "pinned") {
+                                        <span class="ann-tag tag-pinned"><i class="fas fa-thumbtack me-1"></i>Pinned</span>
                                     }
-                                    @if (ann.Type == "Urgent")
-                                    {
-                                        <span class="ann-tag tag-urgent">Urgent</span>
-                                    }
-                                    @if (ann.Type == "Event")
-                                    {
-                                        <span class="ann-tag tag-event">Event</span>
-                                    }
-                                    @if (ann.Type == "General" || ann.Type == "Reminder" || string.IsNullOrEmpty(ann.Type))
-                                    {
-                                        <span class="ann-tag" style="background:#f3f4f6;color:#555;">
-                                            @(string.IsNullOrEmpty(ann.Type) ? "General" : ann.Type)
-                                        </span>
-                                    }
+                                    <span class="ann-tag tag-@t">@(string.IsNullOrEmpty(ann.Type) ? "GENERAL" : ann.Type.ToUpper())</span>
+                                    <span style="font-size:11px;color:#888;">@ann.Date</span>
                                 </div>
                             </div>
-                            <div style="font-weight:700;font-size:13px;margin-bottom:6px;">@ann.Title</div>
-                            <div style="font-size:12px;color:#555;line-height:1.6;">@ann.Content</div>
+                            <div style="font-weight:700;font-size:15px;color:#1a1a2e;margin-bottom:8px;">@ann.Title</div>
+                            <div style="font-size:13px;color:#555;line-height:1.7;white-space:pre-wrap;">@ann.Content</div>
                         </div>
                     }
                 }
@@ -400,7 +387,7 @@
 
     function updateDisplay() {
         document.getElementById('period-display').textContent =
-            `A.Y. ${selectedAY}, ${selectedSem}`;
+            `${selectedSem}, A.Y. ${selectedAY}`;
     }
 
     document.addEventListener('click', function (e) {
@@ -424,12 +411,7 @@
 
     /* ── Announcement filter ── */
     function filterAnn(tag, btn) {
-        document.querySelectorAll('.ann-tab').forEach(b => {
-            b.style.background  = '';
-            b.style.color       = '';
-            b.style.borderColor = '';
-            b.classList.remove('active');
-        });
+        document.querySelectorAll('.ann-tab').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
         document.querySelectorAll('#ann-list .ann-card').forEach(c => {

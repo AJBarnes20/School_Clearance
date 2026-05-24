@@ -270,10 +270,14 @@
                     <label class="form-label-sm">M.I.</label>
                     <input asp-for="MiddleInitial" class="form-input" placeholder="M.I." maxlength="3"/>
                 </div>
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <label class="form-label-sm">Last Name <span class="req">*</span></label>
                     <input asp-for="LastName" class="form-input" placeholder="Last name"/>
                     <span asp-validation-for="LastName" class="field-error"></span>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label-sm">Suffix</label>
+                    <input asp-for="Suffix" class="form-input" placeholder="Jr." maxlength="10"/>
                 </div>
 
                 <!-- ── 3. EMAIL ── -->

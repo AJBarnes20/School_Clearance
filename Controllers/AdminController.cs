@@ -12,10 +12,12 @@ namespace OnlineClearanceSystem.Controllers
     public class AdminController : Controller
     {
         private readonly IConfiguration _config;
+        private readonly EmailService   _email;
 
-        public AdminController(IConfiguration config)
+        public AdminController(IConfiguration config, EmailService email)
         {
             _config = config;
+            _email  = email;
         }
 
         // ── Views ─────────────────────────────────────────────────────────
@@ -51,7 +53,7 @@ namespace OnlineClearanceSystem.Controllers
                     students    = GetCount(conn, "SELECT COUNT(*) FROM users WHERE role='Student' AND is_active=1"),
                     instructors = GetCount(conn, "SELECT COUNT(*) FROM users WHERE role='Instructor' AND is_active=1"),
                     staff       = GetCount(conn, "SELECT COUNT(*) FROM users WHERE role='Admin' AND is_active=1"),
-                    signatories = GetCount(conn, "SELECT COUNT(DISTINCT user_id) FROM organizations WHERE user_id IS NOT NULL")
+                    signatories = GetCount(conn, "SELECT COUNT(*) FROM organizations")
                 });
             }
             catch { return Ok(new { students = 0, instructors = 0, staff = 0, signatories = 0 }); }
@@ -86,7 +88,7 @@ namespace OnlineClearanceSystem.Controllers
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
                 var cmd = new MySqlCommand(
-                    "SELECT id, year_label, semester FROM academic_periods WHERE is_active=1 LIMIT 1", conn);
+                    "SELECT id, year_label, semester FROM academic_periods ORDER BY id DESC LIMIT 1", conn);
                 using var r = cmd.ExecuteReader();
                 if (r.Read())
                     return Ok(new { id = r.GetInt32("id"), ay = r.GetString("year_label"), sem = r.GetString("semester") });
@@ -126,6 +128,20 @@ namespace OnlineClearanceSystem.Controllers
                 var cmd = new MySqlCommand("UPDATE users SET role=@r, is_active=1 WHERE id=@id", conn);
                 cmd.Parameters.AddWithValue("@r", role); cmd.Parameters.AddWithValue("@id", id);
                 cmd.ExecuteNonQuery();
+
+                // Send approval email
+                var infoCmd = new MySqlCommand(
+                    "SELECT CONCAT(first_name,' ',last_name) AS name, email FROM users WHERE id=@id LIMIT 1", conn);
+                infoCmd.Parameters.AddWithValue("@id", id);
+                using var r = infoCmd.ExecuteReader();
+                if (r.Read())
+                {
+                    var name  = r.IsDBNull(0) ? "" : r.GetString(0);
+                    var email = r.IsDBNull(1) ? "" : r.GetString(1);
+                    if (!string.IsNullOrEmpty(email))
+                        _ = _email.SendApprovalAsync(email, name, role);
+                }
+
                 return Ok(new { success = true });
             }
             catch (Exception ex) { return Ok(new { success = false, error = ex.Message }); }
@@ -258,9 +274,9 @@ namespace OnlineClearanceSystem.Controllers
         {
             try
             {
-                var ay     = body.GetProperty("ay").GetString()     ?? "";
-                var sem    = body.GetProperty("sem").GetString()    ?? "";
-                var active = (body.GetProperty("status").GetString() ?? "") == "Active" ? 1 : 0;
+                var ay     = body.GetProperty("ay").GetString()  ?? "";
+                var sem    = body.GetProperty("sem").GetString() ?? "";
+                var active = body.TryGetProperty("status", out var sp) && sp.GetString() == "Active" ? 1 : 0;
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
                 if (active == 1) new MySqlCommand("UPDATE academic_periods SET is_active=0", conn).ExecuteNonQuery();
@@ -279,9 +295,9 @@ namespace OnlineClearanceSystem.Controllers
         {
             try
             {
-                var ay     = body.GetProperty("ay").GetString()     ?? "";
-                var sem    = body.GetProperty("sem").GetString()    ?? "";
-                var active = (body.GetProperty("status").GetString() ?? "") == "Active" ? 1 : 0;
+                var ay     = body.GetProperty("ay").GetString()  ?? "";
+                var sem    = body.GetProperty("sem").GetString() ?? "";
+                var active = body.TryGetProperty("status", out var sp) && sp.GetString() == "Active" ? 1 : 0;
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
                 if (active == 1)
@@ -344,6 +360,40 @@ namespace OnlineClearanceSystem.Controllers
                 var cmd = new MySqlCommand("INSERT INTO subjects (mis_code, subject_code, description, lec_units, lab_units) VALUES (@mis, @code, @desc, @lec, @lab); SELECT LAST_INSERT_ID();", conn);
                 cmd.Parameters.AddWithValue("@mis", mis); cmd.Parameters.AddWithValue("@code", code); cmd.Parameters.AddWithValue("@desc", desc); cmd.Parameters.AddWithValue("@lec", lec); cmd.Parameters.AddWithValue("@lab", lab);
                 return Ok(new { success = true, id = Convert.ToInt32(cmd.ExecuteScalar()) });
+            }
+            catch (Exception ex) { return Ok(new { success = false, error = ex.Message }); }
+        }
+
+        [HttpPost("/api/admin/subjects/import")]
+        public IActionResult ImportSubjects([FromBody] JsonElement body)
+        {
+            try
+            {
+                var rows = body.GetProperty("rows");
+                int inserted = 0, skipped = 0;
+                using var conn = DbHelper.GetConnection(_config);
+                conn.Open();
+                using var tx = conn.BeginTransaction();
+                foreach (var row in rows.EnumerateArray())
+                {
+                    var mis  = row.GetProperty("mis").GetString()?.Trim()  ?? "";
+                    var code = row.GetProperty("code").GetString()?.Trim() ?? "";
+                    var desc = row.GetProperty("desc").GetString()?.Trim() ?? "";
+                    if (string.IsNullOrEmpty(mis) || string.IsNullOrEmpty(code)) { skipped++; continue; }
+                    int lec = row.TryGetProperty("lec", out var lp) && lp.TryGetInt32(out var lv) ? lv : 0;
+                    int lab = row.TryGetProperty("lab", out var bp) && bp.TryGetInt32(out var bv) ? bv : 0;
+                    var exists = new MySqlCommand("SELECT COUNT(*) FROM subjects WHERE mis_code=@mis AND subject_code=@code", conn, tx);
+                    exists.Parameters.AddWithValue("@mis", mis);
+                    exists.Parameters.AddWithValue("@code", code);
+                    if (Convert.ToInt32(exists.ExecuteScalar()) > 0) { skipped++; continue; }
+                    var cmd = new MySqlCommand("INSERT INTO subjects (mis_code, subject_code, description, lec_units, lab_units) VALUES (@mis,@code,@desc,@lec,@lab)", conn, tx);
+                    cmd.Parameters.AddWithValue("@mis", mis); cmd.Parameters.AddWithValue("@code", code);
+                    cmd.Parameters.AddWithValue("@desc", desc); cmd.Parameters.AddWithValue("@lec", lec); cmd.Parameters.AddWithValue("@lab", lab);
+                    cmd.ExecuteNonQuery();
+                    inserted++;
+                }
+                tx.Commit();
+                return Ok(new { success = true, inserted, skipped });
             }
             catch (Exception ex) { return Ok(new { success = false, error = ex.Message }); }
         }
@@ -643,6 +693,105 @@ public IActionResult CreateOffering([FromBody] JsonElement body)
             return Ok(items);
         }
 
+        // ── All Users (for assign-org dropdown) ──────────────────────────
+        [HttpGet("/api/admin/all-users")]
+        public IActionResult GetAllUsers()
+        {
+            var items = new List<object>();
+            try
+            {
+                using var conn = DbHelper.GetConnection(_config);
+                conn.Open();
+                var cmd = new MySqlCommand(@"
+                    SELECT id, CONCAT(first_name,' ',last_name) AS name, role,
+                           COALESCE(student_number, id_number, '—') AS idNum
+                    FROM users WHERE is_active = 1 AND role IN ('Student','Instructor','Staff','Admin')
+                    ORDER BY first_name", conn);
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                    items.Add(new {
+                        id    = r.GetInt32("id"),
+                        name  = r.GetString("name"),
+                        role  = r.GetString("role"),
+                        idNum = r.IsDBNull(r.GetOrdinal("idNum")) ? "—" : r.GetString("idNum")
+                    });
+            }
+            catch { }
+            return Ok(items);
+        }
+
+        // ── All Org Positions (unified for Org Officers tab) ─────────────
+        [HttpGet("/api/admin/all-org-positions")]
+        public IActionResult GetAllOrgPositions()
+        {
+            var items = new List<object>();
+            try
+            {
+                using var conn = DbHelper.GetConnection(_config);
+                conn.Open();
+                // Staff/Instructor org positions
+                var cmd = new MySqlCommand(@"
+                    SELECT o.id, u.id AS userId,
+                           CONCAT(u.first_name,' ',u.last_name) AS name,
+                           u.role,
+                           COALESCE(u.id_number,'—') AS idNum,
+                           o.position_title AS posTitle,
+                           c.course_code AS courseCode,
+                           cu.year_level AS yearLevel,
+                           cu.section
+                    FROM organizations o
+                    JOIN users u ON u.id = o.user_id
+                    LEFT JOIN curriculum cu ON cu.id = o.curriculum_id
+                    LEFT JOIN courses    c  ON c.id  = cu.course_id
+                    ORDER BY u.first_name, o.id", conn);
+                using (var r = cmd.ExecuteReader())
+                {
+                    while (r.Read())
+                        items.Add(new {
+                            source    = "org",
+                            id        = r.GetInt32("id"),
+                            userId    = r.GetInt32("userId"),
+                            name      = r.GetString("name"),
+                            role      = r.GetString("role"),
+                            idNum     = r.GetString("idNum"),
+                            posTitle  = r.IsDBNull(r.GetOrdinal("posTitle"))   ? "—" : r.GetString("posTitle"),
+                            courseCode= r.IsDBNull(r.GetOrdinal("courseCode")) ? "" : r.GetString("courseCode"),
+                            yearLevel = r.IsDBNull(r.GetOrdinal("yearLevel"))  ? 0 : r.GetInt32("yearLevel"),
+                            section   = r.IsDBNull(r.GetOrdinal("section"))    ? "" : r.GetString("section")
+                        });
+                }
+                // Student signatory positions
+                var cmd2 = new MySqlCommand(@"
+                    SELECT us.id, u.id AS userId,
+                           CONCAT(u.first_name,' ',u.last_name) AS name,
+                           'Student' AS role,
+                           COALESCE(u.student_number, u.id_number,'—') AS idNum,
+                           us.position AS posTitle
+                    FROM user_signatures us
+                    JOIN users u ON u.id = us.user_id
+                    WHERE us.position IS NOT NULL AND us.position != ''
+                    ORDER BY u.first_name", conn);
+                using (var r2 = cmd2.ExecuteReader())
+                {
+                    while (r2.Read())
+                        items.Add(new {
+                            source    = "sig",
+                            id        = r2.GetInt32("id"),
+                            userId    = r2.GetInt32("userId"),
+                            name      = r2.GetString("name"),
+                            role      = "Student",
+                            idNum     = r2.GetString("idNum"),
+                            posTitle  = r2.IsDBNull(r2.GetOrdinal("posTitle")) ? "—" : r2.GetString("posTitle"),
+                            courseCode= "",
+                            yearLevel = 0,
+                            section   = ""
+                        });
+                }
+            }
+            catch { }
+            return Ok(items);
+        }
+
         // ── Instructors API ───────────────────────────────────────────────
         [HttpGet("/api/admin/instructors")]
         public IActionResult GetInstructors()
@@ -769,8 +918,15 @@ public IActionResult CreateOffering([FromBody] JsonElement body)
                 var position = body.GetProperty("position").GetString() ?? "";
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
-                var cmd = new MySqlCommand("INSERT INTO user_signatures (user_id, position) VALUES (@uid, @pos); SELECT LAST_INSERT_ID();", conn);
-                cmd.Parameters.AddWithValue("@uid", userId); cmd.Parameters.AddWithValue("@pos", position);
+                // ON DUPLICATE KEY UPDATE: if student already saved a signature,
+                // update the position on their existing row instead of failing.
+                var cmd = new MySqlCommand(@"
+                    INSERT INTO user_signatures (user_id, position)
+                    VALUES (@uid, @pos)
+                    ON DUPLICATE KEY UPDATE position = @pos;
+                    SELECT LAST_INSERT_ID();", conn);
+                cmd.Parameters.AddWithValue("@uid", userId);
+                cmd.Parameters.AddWithValue("@pos", position);
                 return Ok(new { success = true, id = Convert.ToInt32(cmd.ExecuteScalar()) });
             }
             catch (Exception ex) { return Ok(new { success = false, error = ex.Message }); }
@@ -779,7 +935,17 @@ public IActionResult CreateOffering([FromBody] JsonElement body)
         [HttpDelete("/api/admin/student-signatories/{id}")]
         public IActionResult DeleteStudentSignatory(int id)
         {
-            try { using var conn = DbHelper.GetConnection(_config); conn.Open(); new MySqlCommand("DELETE FROM user_signatures WHERE id=@id", conn).Also(c => { c.Parameters.AddWithValue("@id", id); c.ExecuteNonQuery(); }); return Ok(new { success = true }); }
+            try
+            {
+                using var conn = DbHelper.GetConnection(_config);
+                conn.Open();
+                // Clear position and signature data so nothing lingers on the student's profile
+                var cmd = new MySqlCommand(
+                    "UPDATE user_signatures SET position = NULL, signature_data = NULL WHERE id = @id", conn);
+                cmd.Parameters.AddWithValue("@id", id);
+                cmd.ExecuteNonQuery();
+                return Ok(new { success = true });
+            }
             catch (Exception ex) { return Ok(new { success = false, error = ex.Message }); }
         }
 
@@ -922,7 +1088,7 @@ public IActionResult CreateOffering([FromBody] JsonElement body)
                     if (dupCmd.ExecuteScalar() != null)
                         return Ok(new { success = false, error = "A Class Adviser is already assigned to this section." });
 
-                    var cmd = new MySqlCommand("INSERT INTO organizations (user_id, position_title, curriculum_id) VALUES (@uid, 'Class Adviser', @cid); SELECT LAST_INSERT_ID();", conn);
+                    var cmd = new MySqlCommand("INSERT INTO organizations (user_id, position_title, curriculum_id, is_active) VALUES (@uid, 'Class Adviser', @cid, 1); SELECT LAST_INSERT_ID();", conn);
                     cmd.Parameters.AddWithValue("@uid", userId); cmd.Parameters.AddWithValue("@cid", curriculumId);
                     return Ok(new { success = true, id = Convert.ToInt32(cmd.ExecuteScalar()) });
                 }
@@ -930,7 +1096,7 @@ public IActionResult CreateOffering([FromBody] JsonElement body)
                 {
                     using var conn = DbHelper.GetConnection(_config);
                     conn.Open();
-                    var cmd = new MySqlCommand("INSERT INTO organizations (user_id, position_title, curriculum_id) VALUES (@uid, @pos, NULL); SELECT LAST_INSERT_ID();", conn);
+                    var cmd = new MySqlCommand("INSERT INTO organizations (user_id, position_title, curriculum_id, is_active) VALUES (@uid, @pos, NULL, 1); SELECT LAST_INSERT_ID();", conn);
                     cmd.Parameters.AddWithValue("@uid", userId); cmd.Parameters.AddWithValue("@pos", pos);
                     return Ok(new { success = true, id = Convert.ToInt32(cmd.ExecuteScalar()) });
                 }
@@ -945,145 +1111,108 @@ public IActionResult CreateOffering([FromBody] JsonElement body)
             catch (Exception ex) { return Ok(new { success = false, error = ex.Message }); }
         }
 
-        // ── All Users API (for assign-position dropdown) ─────────────────
-        [HttpGet("/api/admin/all-users")]
-        public IActionResult GetAllUsers()
+
+
+        // ── Student Clearance Detail ───────────────────────────────────────────────
+[HttpGet("/api/admin/students/{id}/clearance")]
+public IActionResult GetStudentClearance(int id)
+{
+    try
+    {
+        using var conn = DbHelper.GetConnection(_config);
+        conn.Open();
+
+        var numCmd = new MySqlCommand(
+            "SELECT COALESCE(student_number, id_number) AS snum FROM users WHERE id=@id", conn);
+        numCmd.Parameters.AddWithValue("@id", id);
+        var snum = numCmd.ExecuteScalar()?.ToString();
+
+        var subjects = new List<object>();
+        var orgs     = new List<object>();
+
+        if (!string.IsNullOrEmpty(snum))
         {
-            var items = new List<object>();
-            try
-            {
-                using var conn = DbHelper.GetConnection(_config);
-                conn.Open();
-                var cmd = new MySqlCommand(@"
-                    SELECT u.id,
-                           CONCAT(u.first_name,' ',u.last_name) AS name,
-                           u.role,
-                           COALESCE(u.student_number, u.id_number, '—') AS id_num
-                    FROM users u
-                    WHERE u.is_active = 1
-                      AND u.role NOT IN ('Pending')
-                    ORDER BY u.role, u.first_name", conn);
-                using var r = cmd.ExecuteReader();
-                while (r.Read())
-                    items.Add(new
-                    {
-                        id     = r.GetInt32("id"),
-                        name   = r.GetString("name"),
-                        role   = r.GetString("role"),
-                        idNum  = r.IsDBNull(r.GetOrdinal("id_num")) ? "—" : r.GetString("id_num")
+            
+            
+            var subCmd = new MySqlCommand(@"
+                SELECT cs.mis_code,
+                       COALESCE(s.subject_code, cs.mis_code) AS subject_code,
+                       COALESCE(s.description, '—')           AS description,
+                       cs.status
+                FROM   clearance_subjects cs
+                LEFT JOIN subject_offerings so ON so.mis_code = cs.mis_code
+                LEFT JOIN subjects          s  ON s.id        = so.subject_id
+                WHERE  cs.student_number = @snum
+                ORDER  BY cs.mis_code", conn);
+            subCmd.Parameters.AddWithValue("@snum", snum);
+            using (var sr = subCmd.ExecuteReader())
+                while (sr.Read())
+                    subjects.Add(new {
+                        code   = sr.IsDBNull(sr.GetOrdinal("subject_code")) ? sr.GetString("mis_code") : sr.GetString("subject_code"),
+                        desc   = sr.IsDBNull(sr.GetOrdinal("description"))  ? "—"                      : sr.GetString("description"),
+                        status = sr.GetString("status")
                     });
-            }
-            catch (Exception ex) { Console.WriteLine("GetAllUsers error: " + ex.Message); }
-            return Ok(items);
+
+            var orgCmd = new MySqlCommand(@"
+                SELECT position, status
+                FROM   clearance_organization
+                WHERE  student_number = @snum
+                ORDER  BY position", conn);
+            orgCmd.Parameters.AddWithValue("@snum", snum);
+            using (var or2 = orgCmd.ExecuteReader())
+                while (or2.Read())
+                    orgs.Add(new {
+                        position = or2.GetString("position"),
+                        status   = or2.GetString("status")
+                    });
         }
 
-        // ── Org Clearance Requests (by position + period) ─────────────────
-        [HttpGet("/api/admin/org-clearance")]
-        public IActionResult GetOrgClearance([FromQuery] string position, [FromQuery] int periodId = 0)
-        {
-            var items = new List<object>();
-            try
-            {
-                using var conn = DbHelper.GetConnection(_config);
-                conn.Open();
-                var cmd = new MySqlCommand(@"
-                    SELECT
-                        co.id,
-                        co.student_number,
-                        CONCAT(u.first_name,' ',u.last_name) AS student_name,
-                        co.status,
-                        co.period_id,
-                        COALESCE(CONCAT('A.Y. ', ap.year_label, ', ', ap.semester), '—') AS period_label,
-                        co.created_at
-                    FROM clearance_organization co
-                    JOIN  users           u  ON u.student_number = co.student_number COLLATE utf8mb4_unicode_ci
-                    LEFT JOIN academic_periods ap ON ap.id = co.period_id
-                    WHERE co.position COLLATE utf8mb4_unicode_ci = @pos
-                      AND (@pid = 0 OR co.period_id = @pid)
-                    ORDER BY co.created_at DESC", conn);
-                cmd.Parameters.AddWithValue("@pos", position ?? "");
-                cmd.Parameters.AddWithValue("@pid", periodId);
-                using var r = cmd.ExecuteReader();
-                while (r.Read())
-                    items.Add(new
-                    {
-                        id            = r.GetInt32("id"),
-                        studentNumber = r.IsDBNull(r.GetOrdinal("student_number")) ? "—" : r.GetString("student_number"),
-                        studentName   = r.IsDBNull(r.GetOrdinal("student_name"))   ? "—" : r.GetString("student_name"),
-                        status        = r.IsDBNull(r.GetOrdinal("status"))         ? "—" : r.GetString("status"),
-                        periodId      = r.IsDBNull(r.GetOrdinal("period_id"))      ? 0   : r.GetInt32("period_id"),
-                        periodLabel   = r.IsDBNull(r.GetOrdinal("period_label"))   ? "—" : r.GetString("period_label"),
-                        createdAt     = r.IsDBNull(r.GetOrdinal("created_at"))     ? ""  : r.GetDateTime("created_at").ToString("MMM d, yyyy")
-                    });
-            }
-            catch (Exception ex) { Console.WriteLine("GetOrgClearance error: " + ex.Message); }
-            return Ok(items);
-        }
+        return Ok(new { subjects, orgs });
+    }
+    catch (Exception ex) { return Ok(new { error = ex.Message }); }
+}
 
-        // ── All Org Positions unified (user_signatures + organizations) ────
-        [HttpGet("/api/admin/all-org-positions")]
-        public IActionResult GetAllOrgPositions()
-        {
-            var items = new List<object>();
-            try
-            {
-                using var conn = DbHelper.GetConnection(_config);
-                conn.Open();
-                var cmd = new MySqlCommand(@"
-                    SELECT
-                        'sig'   AS source,
-                        us.id,
-                        u.id    AS userId,
-                        CONCAT(u.first_name,' ',u.last_name) AS name,
-                        u.role,
-                        COALESCE(u.student_number, u.id_number, '—') AS id_num,
-                        us.position AS pos_title,
-                        NULL    AS course_code,
-                        NULL    AS year_level,
-                        NULL    AS section
-                    FROM user_signatures us
-                    JOIN users u ON u.id = us.user_id
-                    WHERE us.position IS NOT NULL
+// ── Instructor Subject Load ────────────────────────────────────────────────
+[HttpGet("/api/admin/instructors/{id}/subjects")]
+public IActionResult GetInstructorSubjects(int id)
+{
+    var items = new List<object>();
+    try
+    {
+        using var conn = DbHelper.GetConnection(_config);
+        conn.Open();
+        var cmd = new MySqlCommand(@"
+            SELECT COALESCE(so.mis_code,'—')                  AS mis_code,
+                   COALESCE(s.subject_code,'—')               AS code,
+                   COALESCE(s.description,'—')                AS descr,
+                   COALESCE(s.lec_units, 0)                   AS lec,
+                   COALESCE(s.lab_units, 0)                   AS lab,
+                   COALESCE(SUM(cs.status='Cleared'),0)       AS approved,
+                   COALESCE(SUM(cs.status='Pending'),0)       AS pending
+            FROM   subject_offerings so
+            JOIN   subjects s ON s.id = so.subject_id
+            LEFT JOIN clearance_subjects cs ON cs.mis_code = so.mis_code
+            WHERE  so.user_id = @id AND so.is_active = 1
+            GROUP  BY so.mis_code, s.subject_code, s.description, s.lec_units, s.lab_units
+            ORDER  BY s.subject_code", conn);
+        cmd.Parameters.AddWithValue("@id", id);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            items.Add(new {
+                mis      = r.GetString("mis_code"),
+                code     = r.GetString("code"),
+                desc     = r.GetString("descr"),
+                lec      = r.GetInt32("lec"),
+                lab      = r.GetInt32("lab"),
+                approved = Convert.ToInt32(r["approved"]),
+                pending  = Convert.ToInt32(r["pending"])
+            });
+    }
+    catch (Exception ex) { Console.WriteLine("GetInstructorSubjects error: " + ex.Message); }
+    return Ok(items);
+}
 
-                    UNION ALL
 
-                    SELECT
-                        'org'   AS source,
-                        o.id,
-                        u.id    AS userId,
-                        CONCAT(u.first_name,' ',u.last_name) AS name,
-                        u.role,
-                        COALESCE(u.student_number, u.id_number, '—') AS id_num,
-                        o.position_title AS pos_title,
-                        c.course_code,
-                        cu.year_level,
-                        cu.section
-                    FROM organizations o
-                    JOIN users      u  ON u.id  = o.user_id
-                    LEFT JOIN curriculum cu ON cu.id = o.curriculum_id
-                    LEFT JOIN courses    c  ON c.id  = cu.course_id
-                    WHERE o.is_active = 1
-
-                    ORDER BY name, pos_title", conn);
-                using var r = cmd.ExecuteReader();
-                while (r.Read())
-                    items.Add(new
-                    {
-                        source     = r.GetString("source"),
-                        id         = r.GetInt32("id"),
-                        userId     = r.GetInt32("userId"),
-                        name       = r.GetString("name"),
-                        role       = r.GetString("role"),
-                        idNum      = r.IsDBNull(r.GetOrdinal("id_num"))      ? "—" : r.GetString("id_num"),
-                        posTitle   = r.IsDBNull(r.GetOrdinal("pos_title"))   ? "—" : r.GetString("pos_title"),
-                        courseCode = r.IsDBNull(r.GetOrdinal("course_code")) ? ""  : r.GetString("course_code"),
-                        yearLevel  = r.IsDBNull(r.GetOrdinal("year_level"))  ? 0   : r.GetInt32("year_level"),
-                        section    = r.IsDBNull(r.GetOrdinal("section"))     ? ""  : r.GetString("section")
-                    });
-            }
-            catch (Exception ex) { Console.WriteLine("GetAllOrgPositions error: " + ex.Message); }
-            return Ok(items);
-        }
 
         // ── Form Posts ────────────────────────────────────────────────────
         [HttpPost, ValidateAntiForgeryToken]
@@ -1096,8 +1225,29 @@ public IActionResult CreateOffering([FromBody] JsonElement body)
         [HttpPost, ValidateAntiForgeryToken]
         public IActionResult DeactivateUser(int id)
         {
-            try { using var conn = DbHelper.GetConnection(_config); conn.Open(); new MySqlCommand("UPDATE users SET is_active=0 WHERE id=@id", conn).Also(c => { c.Parameters.AddWithValue("@id", id); c.ExecuteNonQuery(); }); } catch { }
+            try
+            {
+                using var conn = DbHelper.GetConnection(_config);
+                conn.Open();
+                new MySqlCommand("UPDATE users SET is_active=0 WHERE id=@id", conn)
+                    .Also(c => { c.Parameters.AddWithValue("@id", id); c.ExecuteNonQuery(); });
+            }
+            catch { }
             return RedirectToAction(nameof(Dashboard));
+        }
+
+        [HttpDelete("/api/admin/users/{id}")]
+        public IActionResult DeleteUserApi(int id)
+        {
+            try
+            {
+                using var conn = DbHelper.GetConnection(_config);
+                conn.Open();
+                new MySqlCommand("UPDATE users SET is_active=0 WHERE id=@id", conn)
+                    .Also(c => { c.Parameters.AddWithValue("@id", id); c.ExecuteNonQuery(); });
+                return Ok(new { success = true });
+            }
+            catch (Exception ex) { return Ok(new { success = false, error = ex.Message }); }
         }
 
         [HttpPost, ValidateAntiForgeryToken]

@@ -22,15 +22,25 @@ namespace OnlineClearanceSystem.Models
         public string StudentName   { get; set; } = "";
         public string StudentCourse { get; set; } = "";
         public string StudentNumber { get; set; } = "";
+        public string Status        { get; set; } = "Pending";
     }
 
     public class OrganizationRequest
     {
-        public int    Id          { get; set; }
-        public string Position    { get; set; } = "";
-        public string StudentName { get; set; } = "";
-        public string Course      { get; set; } = "";
-        public string Status      { get; set; } = "";
+        public int    Id            { get; set; }
+        public string Position      { get; set; } = "";
+        public string StudentName   { get; set; } = "";
+        public string StudentNumber { get; set; } = "";
+        public string Course        { get; set; } = "";
+        public string Status        { get; set; } = "";
+    }
+
+    public class InstructorSendMessageDto
+    {
+        public string? StudentNumber { get; set; }
+        public string? ClearanceType { get; set; }
+        public string? ClearanceKey  { get; set; }
+        public string? Message       { get; set; }
     }
 
     public class SignedClearance

@@ -24,53 +24,18 @@
     </div>
 </div>
 
-<!-- Subjects Offered Panel -->
+<!-- All Subjects Panel -->
 <div class="panel mb-4">
     <div class="panel-hd">
-        <span style="color:#4299e1;font-weight:700;">
-            <i class="fas fa-check-circle me-2"></i>Subjects Offered
-        </span>
-        <div class="search-wrap">
-            <i class="fas fa-search"></i>
-            <input class="search-input" placeholder="Search Subject, MIS, Code, Instructor" oninput="filterTable(this,'offered-table')" />
-        </div>
-    </div>
-    <div class="table-responsive">
-        <table class="data-table" id="offered-table">
-            <thead>
-                <tr>
-                    <th>MIS Code</th>
-                    <th>Subject Code</th>
-                    <th>Description</th>
-                    <th>Lec Units</th>
-                    <th>Lab Units</th>
-                    <th>Assigned Instructor</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="offered-body"></tbody>
-        </table>
-    </div>
-    <div id="offered-empty" style="padding:48px 24px;text-align:center;">
-        <div style="width:64px;height:64px;border-radius:50%;background:rgba(56,161,105,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-            <i class="fas fa-check-circle" style="font-size:26px;color:#38a169;opacity:0.7;"></i>
-        </div>
-        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">No Subjects Offered Yet</div>
-        <div style="font-size:12px;color:var(--muted);max-width:360px;margin:0 auto;line-height:1.6;">
-            Click <strong style="color:var(--text);">Offer</strong> on any subject above to get started.
-        </div>
-    </div>
-</div>
-
-<!-- Total Subjects Panel -->
-<div class="panel mb-4">
-    <div class="panel-hd">
-        <span class="panel-hd-title"><i class="fas fa-book me-2"></i>All Subjects</span>
+        <span class="panel-hd-title"><i class="fas fa-book me-2"></i>Subjects</span>
         <div class="d-flex gap-2 align-items-center">
             <div class="search-wrap">
                 <i class="fas fa-search"></i>
-                <input class="search-input" placeholder="Search Subject, MIS, Code, Description" oninput="filterTable(this,'subj-table')" />
+                <input class="search-input" placeholder="Search Subject, MIS, Code, Instructor" oninput="filterTable(this,'subj-table')" />
             </div>
+            <button class="btn-green-sm" onclick="openCsvModal()">
+                <i class="fas fa-file-csv me-1"></i>Import CSV
+            </button>
             <button class="btn-green-sm" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
                 <i class="fas fa-plus me-1"></i>Add Subject
             </button>
@@ -85,6 +50,7 @@
                     <th>Description</th>
                     <th>Lec Units</th>
                     <th>Lab Units</th>
+                    <th>Assigned Instructor</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -219,6 +185,72 @@
     </div>
 </div>
 
+<!-- CSV IMPORT MODAL -->
+<div id="csv-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;width:100%;max-width:700px;margin:16px;max-height:90vh;display:flex;flex-direction:column;">
+        <!-- Header -->
+        <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+            <div style="font-size:15px;font-weight:800;color:var(--text);">
+                <i class="fas fa-file-csv me-2" style="color:#38a169;"></i>Import Subjects from CSV
+            </div>
+            <button onclick="closeCsvModal()" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;line-height:1;">&times;</button>
+        </div>
+        <!-- Body -->
+        <div style="padding:20px 24px;overflow-y:auto;flex:1;">
+            <!-- Format hint -->
+            <div style="background:rgba(66,153,225,0.08);border:1px solid rgba(66,153,225,0.25);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--muted);line-height:1.7;">
+                <strong style="color:var(--text);">Expected CSV format (with or without header row):</strong><br>
+                <code style="font-size:11px;color:#4299e1;">MIS Code, Subject Code, Description, Lec Units, Lab Units</code><br>
+                Rows with duplicate MIS + Subject Code will be skipped automatically.
+                <span onclick="downloadTemplate()" style="color:#38a169;cursor:pointer;font-weight:700;margin-left:8px;">
+                    <i class="fas fa-download me-1"></i>Download Template
+                </span>
+            </div>
+            <!-- File picker -->
+            <div id="csv-drop-zone"
+                 style="border:2px dashed var(--border);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:border-color 0.2s;margin-bottom:16px;"
+                 onclick="document.getElementById('csv-file-input').click()"
+                 ondragover="event.preventDefault();this.style.borderColor='#38a169';"
+                 ondragleave="this.style.borderColor='';"
+                 ondrop="handleCsvDrop(event)">
+                <i class="fas fa-cloud-upload-alt" style="font-size:28px;color:var(--muted);margin-bottom:8px;display:block;"></i>
+                <div style="font-size:13px;font-weight:600;color:var(--text);">Click to browse or drag &amp; drop a .csv file</div>
+                <div id="csv-file-name" style="font-size:11px;color:var(--muted);margin-top:4px;">No file selected</div>
+            </div>
+            <input type="file" id="csv-file-input" accept=".csv,text/csv" style="display:none" onchange="handleCsvFile(this.files[0])">
+            <!-- Preview -->
+            <div id="csv-preview-wrap" style="display:none;">
+                <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;">
+                    Preview <span id="csv-preview-count" style="color:var(--muted);font-weight:400;"></span>
+                </div>
+                <div style="overflow-x:auto;max-height:260px;border:1px solid var(--border);border-radius:8px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                        <thead>
+                            <tr style="background:var(--tbl-hd-navy, #1a2744);color:white;position:sticky;top:0;">
+                                <th style="padding:7px 10px;text-align:left;">MIS Code</th>
+                                <th style="padding:7px 10px;text-align:left;">Subject Code</th>
+                                <th style="padding:7px 10px;text-align:left;">Description</th>
+                                <th style="padding:7px 10px;text-align:center;">Lec</th>
+                                <th style="padding:7px 10px;text-align:center;">Lab</th>
+                                <th style="padding:7px 10px;text-align:center;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="csv-preview-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- Footer -->
+        <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;">
+            <button onclick="closeCsvModal()" style="background:rgba(255,255,255,0.07);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 22px;font-size:13px;cursor:pointer;">Cancel</button>
+            <button id="csv-import-btn" onclick="runCsvImport()" disabled
+                    style="background:#38a169;border:none;color:white;border-radius:8px;padding:8px 22px;font-size:13px;font-weight:700;cursor:pointer;opacity:0.5;">
+                <i class="fas fa-file-import me-1"></i>Import
+            </button>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
    let subjects     = [];
@@ -241,7 +273,6 @@ async function init() {
         console.error('Init error:', e);
     }
     renderSubjects();
-    renderOffered();
     updateStats();
 }
 
@@ -268,7 +299,27 @@ function renderSubjects() {
     if (!subjects.length) { empty.style.display = 'block'; updateStats(); return; }
     empty.style.display = 'none';
     subjects.forEach((s, i) => {
-        const isOffered = offered.some(o => o.code === s.code && o.mis === s.mis && o.active);
+        const ofr = offered.find(o => o.code === s.code && o.mis === s.mis && o.active);
+        const instInitial = (ofr && ofr.inst && ofr.inst !== '—') ? ofr.inst.charAt(0) : '?';
+        const instLabel   = (ofr && ofr.inst && ofr.inst !== '—')
+            ? escHtml(ofr.inst)
+            : '<span style="color:var(--muted);font-style:italic;">Not assigned</span>';
+        const instHtml = ofr
+            ? `<div class="d-flex align-items-center gap-2">
+                   <div class="user-avatar-sm" style="background:#4299e1;font-size:11px;">${escHtml(instInitial)}</div>
+                   ${instLabel}
+               </div>`
+            : `<span style="color:var(--muted);">—</span>`;
+        const offerActionHtml = ofr
+            ? `<button style="background:#e53e3e;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;"
+                   onclick="toggleStatus(${ofr.id},'deactivate')">
+                   <i class="fas fa-ban me-1"></i>Deactivate
+               </button>`
+            : `<button style="background:#38a169;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;"
+                   data-bs-toggle="modal" data-bs-target="#offerSubjectModal"
+                   onclick="setOfferSubject(${i})">
+                   <i class="fas fa-plus me-1"></i>Offer
+               </button>`;
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td style="color:var(--muted);">${escHtml(s.mis)}</td>
@@ -276,22 +327,14 @@ function renderSubjects() {
             <td>${escHtml(s.desc)}</td>
             <td style="text-align:center;">${s.lec}</td>
             <td style="text-align:center;">${s.lab}</td>
+            <td>${instHtml}</td>
             <td>
                 <div class="d-flex gap-2 align-items-center">
                     <button style="background:#4299e1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;"
                         onclick="openEditSubject(${i})">
                         <i class="fas fa-edit me-1"></i>Edit
                     </button>
-                    ${isOffered
-                        ? `<span style="background:rgba(56,161,105,0.12);color:#38a169;border:1px solid rgba(56,161,105,0.3);border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
-                               <i class="fas fa-check-circle"></i> Offered
-                           </span>`
-                        : `<button style="background:#38a169;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;"
-                               data-bs-toggle="modal" data-bs-target="#offerSubjectModal"
-                               onclick="setOfferSubject(${i})">
-                               <i class="fas fa-plus me-1"></i>Offer
-                           </button>`
-                    }
+                    ${offerActionHtml}
                     <button onclick="openDeleteModal('subject',${i})"
                         style="background:rgba(229,62,62,0.12);color:#fc8181;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
                         <i class="fas fa-trash"></i>
@@ -363,36 +406,6 @@ async function saveEditSubject() {
     }
 }
 
-function renderOffered() {
-    const tbody = document.getElementById('offered-body');
-    const empty = document.getElementById('offered-empty');
-    tbody.innerHTML = '';
-    if (!offered.length) { empty.style.display = 'block'; updateStats(); return; }
-    empty.style.display = 'none';
-    offered.forEach((s, i) => {
-        const instName = (s.inst && s.inst !== '—' && s.inst.trim() !== '')
-            ? s.inst
-            : '<span style="color:var(--muted);font-style:italic;">Not assigned</span>';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td style="color:var(--muted);">${escHtml(s.mis)}</td>
-            <td style="font-weight:600;">${escHtml(s.code)}</td>
-            <td>${escHtml(s.desc)}</td>
-            <td style="text-align:center;">${s.lec}</td>
-            <td style="text-align:center;">${s.lab}</td>
-            <td>
-                <div class="d-flex align-items-center gap-2">
-                    <div class="user-avatar-sm" style="background:#4299e1;font-size:11px;">${escHtml((s.inst && s.inst !== '—' ? s.inst : '?').charAt(0))}</div>
-                    ${instName}
-                </div>
-            </td>
-            <td>
-                <div class="d-flex gap-2">${toggleBtn(s.active, i)}</div>
-            </td>`;
-        tbody.appendChild(tr);
-    });
-    updateStats();
-}
 
 function setOfferSubject(idx) {
     const s = subjects[idx];
@@ -424,37 +437,29 @@ async function addToOffered() {
     if (data.success) {
         const oRes = await fetch('/api/admin/subject-offerings');
         offered    = await oRes.json();
-        renderOffered();
         renderSubjects();
+        updateStats();
         bootstrap.Modal.getInstance(document.getElementById('offerSubjectModal')).hide();
     } else {
         alert('Error: ' + (data.error || 'Could not offer subject'));
     }
 }
 
-async function toggleStatus(index, action) {
-    if (!confirm(`Are you sure you want to ${action} this subject?`)) return;
-    const id = offered[index].id;
-    const res  = await fetch(`/api/admin/subject-offerings/${id}`, {
+async function toggleStatus(offeringId, action) {
+    if (!confirm(`Are you sure you want to ${action} this subject offering?`)) return;
+    const res  = await fetch(`/api/admin/subject-offerings/${offeringId}`, {
         method:  'PUT',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ active: action !== 'deactivate' })
     });
     const data = await res.json();
     if (data.success) {
-        if (action === 'deactivate') offered.splice(index, 1);
-        else offered[index].active = true;
-        renderOffered();
+        offered = offered.filter(o => o.id !== offeringId);
         renderSubjects();
+        updateStats();
     } else {
         alert('Error: ' + (data.error || 'Unknown error'));
     }
-}
-
-function toggleBtn(active, index) {
-    return active
-        ? `<button style="background:#e53e3e;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="toggleStatus(${index},'deactivate')"><i class="fas fa-ban me-1"></i>Deactivate</button>`
-        : `<button style="background:#38a169;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="toggleStatus(${index},'activate')"><i class="fas fa-check me-1"></i>Activate</button>`;
 }
 
 function openDeleteModal(type, idx) {
@@ -493,7 +498,7 @@ async function confirmDelete() {
             subjects.splice(idx, 1);
             offered = offered.filter(o => o.code !== subjCode);
             renderSubjects();
-            renderOffered();
+            updateStats();
         } else {
             alert('Error: ' + (data.error || 'Could not delete subject'));
         }
@@ -504,6 +509,145 @@ async function confirmDelete() {
 document.getElementById('delete-modal').addEventListener('click', function(e) {
     if (e.target === this) closeDeleteModal();
 });
+
+// ── CSV IMPORT ──────────────────────────────────────────────────────────────
+let csvRows = [];
+
+function openCsvModal() {
+    csvRows = [];
+    document.getElementById('csv-file-input').value = '';
+    document.getElementById('csv-file-name').textContent = 'No file selected';
+    document.getElementById('csv-preview-wrap').style.display = 'none';
+    document.getElementById('csv-import-btn').disabled = true;
+    document.getElementById('csv-import-btn').style.opacity = '0.5';
+    document.getElementById('csv-modal').style.display = 'flex';
+}
+
+function closeCsvModal() {
+    document.getElementById('csv-modal').style.display = 'none';
+}
+
+document.getElementById('csv-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeCsvModal();
+});
+
+function handleCsvDrop(e) {
+    e.preventDefault();
+    document.getElementById('csv-drop-zone').style.borderColor = '';
+    const file = e.dataTransfer.files[0];
+    if (file) handleCsvFile(file);
+}
+
+function handleCsvFile(file) {
+    if (!file) return;
+    document.getElementById('csv-file-name').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = function(ev) { parseCsvText(ev.target.result); };
+    reader.readAsText(file);
+}
+
+function parseCsvText(text) {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    csvRows = [];
+    const headerKeywords = ['mis', 'subject', 'code', 'description', 'lec', 'lab'];
+    let startIdx = 0;
+    if (lines.length > 0) {
+        const firstLow = lines[0].toLowerCase();
+        if (headerKeywords.some(k => firstLow.includes(k))) startIdx = 1;
+    }
+    for (let i = startIdx; i < lines.length; i++) {
+        const cols = splitCsvLine(lines[i]);
+        const mis  = (cols[0] || '').trim();
+        const code = (cols[1] || '').trim();
+        const desc = (cols[2] || '').trim();
+        const lec  = parseInt(cols[3] || '0') || 0;
+        const lab  = parseInt(cols[4] || '0') || 0;
+        const isDup = subjects.some(s => s.mis === mis && s.code === code);
+        csvRows.push({ mis, code, desc, lec, lab, dup: isDup, valid: !!(mis && code) });
+    }
+    renderCsvPreview();
+}
+
+function splitCsvLine(line) {
+    const result = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { inQ = !inQ; }
+        else if (ch === ',' && !inQ) { result.push(cur); cur = ''; }
+        else { cur += ch; }
+    }
+    result.push(cur);
+    return result;
+}
+
+function renderCsvPreview() {
+    const tbody = document.getElementById('csv-preview-body');
+    tbody.innerHTML = '';
+    const validCount = csvRows.filter(r => r.valid && !r.dup).length;
+    document.getElementById('csv-preview-count').textContent =
+        `— ${csvRows.length} rows parsed, ${validCount} will be imported`;
+    csvRows.forEach(r => {
+        const tr = document.createElement('tr');
+        let statusHtml, rowStyle = '';
+        if (!r.valid) {
+            statusHtml = `<span style="color:#fc8181;font-weight:700;font-size:11px;">Invalid</span>`;
+            rowStyle = 'background:rgba(229,62,62,0.05);';
+        } else if (r.dup) {
+            statusHtml = `<span style="color:#f6ad55;font-weight:700;font-size:11px;">Duplicate</span>`;
+            rowStyle = 'background:rgba(246,173,85,0.07);';
+        } else {
+            statusHtml = `<span style="color:#68d391;font-weight:700;font-size:11px;">Ready</span>`;
+        }
+        tr.style.cssText = 'border-bottom:1px solid var(--border);' + rowStyle;
+        tr.innerHTML = `
+            <td style="padding:6px 10px;color:var(--muted);">${escHtml(r.mis)}</td>
+            <td style="padding:6px 10px;font-weight:600;">${escHtml(r.code)}</td>
+            <td style="padding:6px 10px;">${escHtml(r.desc)}</td>
+            <td style="padding:6px 10px;text-align:center;">${r.lec}</td>
+            <td style="padding:6px 10px;text-align:center;">${r.lab}</td>
+            <td style="padding:6px 10px;text-align:center;">${statusHtml}</td>`;
+        tbody.appendChild(tr);
+    });
+    document.getElementById('csv-preview-wrap').style.display = 'block';
+    const btn = document.getElementById('csv-import-btn');
+    btn.disabled = validCount === 0;
+    btn.style.opacity = validCount > 0 ? '1' : '0.5';
+}
+
+async function runCsvImport() {
+    const toImport = csvRows.filter(r => r.valid && !r.dup);
+    if (!toImport.length) return;
+    const btn = document.getElementById('csv-import-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Importing…';
+    const res  = await fetch('/api/admin/subjects/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: toImport })
+    });
+    const data = await res.json();
+    btn.innerHTML = '<i class="fas fa-file-import me-1"></i>Import';
+    if (data.success) {
+        closeCsvModal();
+        const sRes = await fetch('/api/admin/subjects');
+        subjects   = await sRes.json();
+        renderSubjects();
+        alert(`Import complete: ${data.inserted} subject(s) added, ${data.skipped} skipped.`);
+    } else {
+        alert('Import failed: ' + (data.error || 'Unknown error'));
+        btn.disabled = false;
+    }
+}
+
+function downloadTemplate() {
+    const csv = 'MIS Code,Subject Code,Description,Lec Units,Lab Units\nGT-60,GEC 1,Understanding the Self,3,0\nGT-61,MATH 1,Mathematics in the Modern World,3,0';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'subjects_template.csv';
+    a.click();
+}
 
 function filterTable(input, id) {
     const q = input.value.toLowerCase();

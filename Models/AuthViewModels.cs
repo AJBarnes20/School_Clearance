@@ -32,6 +32,10 @@ namespace OnlineClearanceSystem.Models
         [Display(Name = "Last Name")]
         public string LastName { get; set; } = string.Empty;
 
+        [Display(Name = "Suffix")]
+        [MaxLength(10)]
+        public string? Suffix { get; set; }
+
         [Required(ErrorMessage = "ID Number is required.")]
         [Display(Name = "ID Number")]
         public string IdNumber { get; set; } = string.Empty;

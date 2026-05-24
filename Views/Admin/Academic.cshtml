@@ -332,22 +332,26 @@ async function saveRow() {
     if (!ay) { alert('Please fill in the Academic Year.'); return; }
 
     try {
+        let res, data;
         if (editingIndex !== null) {
             const id = academics[editingIndex].id;
-            await fetch(`/api/admin/academic/${id}`, {
+            res  = await fetch(`/api/admin/academic/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ay, sem })
             });
+            data = await res.json();
         } else {
-            await fetch('/api/admin/academic', {
+            res  = await fetch('/api/admin/academic', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ay, sem })
             });
+            data = await res.json();
         }
+        if (data && !data.success && data.error) { alert('Error: ' + data.error); return; }
         await loadAcademics();
-    } catch { }
+    } catch (e) { alert('Error: ' + e.message); return; }
     closeModal();
 }
 
@@ -379,10 +383,16 @@ function renderTable() {
                 <td>${escHtml(a.ay)}</td>
                 <td>${escHtml(a.sem)}</td>
                 <td>
-                    <button onclick="openDeleteModal('academic',${i})"
-                        style="background:rgba(229,62,62,0.12);color:#fc8181;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button onclick="openModal(${i})"
+                            style="background:rgba(66,153,225,0.12);color:#4299e1;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="openDeleteModal('academic',${i})"
+                            style="background:rgba(229,62,62,0.12);color:#fc8181;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>`;
     });

@@ -7,6 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews()
     .AddJsonOptions(o => o.JsonSerializerOptions.MaxDepth = 64);
 
+builder.Services.AddSingleton<OnlineClearanceSystem.Data.EmailService>();
+
 builder.WebHost.ConfigureKestrel(k =>
     k.Limits.MaxRequestBodySize = 10 * 1024 * 1024);
 

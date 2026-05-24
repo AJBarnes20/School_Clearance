@@ -2,12 +2,14 @@
    Views/Student/Clearance.cshtml  — Unified Subject + Organization Clearance
    ═══════════════════════════════════════════════════════════════════════════ *@
 @model OnlineClearanceSystem.Models.StudentClearanceViewModel
+@using OnlineClearanceSystem.Models
 @{
     ViewData["Title"]      = "Clearance";
     ViewData["ActivePage"] = "Clearance";
     Layout = "~/Views/Shared/_StudentLayout.cshtml";
 
     bool hasSubjects = Model?.SubjectItems != null && Model.SubjectItems.Any();
+    var availableSubjects = ViewBag.AvailableSubjects as IEnumerable<SubjectItem> ?? Enumerable.Empty<SubjectItem>();
     var  adviser     = Model?.ClassAdviser;
 }
 
@@ -58,9 +60,53 @@
    SECTION 1 — SUBJECT CLEARANCE
    ══════════════════════════════════════════════════════════════════════════ *@
 
+<!-- ADD SUBJECT PANEL (step 1: search & select) -->
+<div id="add-subject-panel" style="display:none;" class="page-card mb-3">
+    <div class="page-card-hd dark" style="justify-content:space-between;display:flex;align-items:center;">
+        <span><i class="fas fa-plus-circle me-2"></i>Add Subjects</span>
+        <button onclick="closeAddPanel()" style="background:rgba(255,255,255,0.15);border:none;color:white;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;"><i class="fas fa-times me-1"></i>Close</button>
+    </div>
+    <div id="add-step-select">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+            <div class="search-wrap" style="position:relative;flex:1;max-width:500px;">
+                <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;"></i>
+                <input type="text" id="subject-search"
+                       placeholder="Search by MIS code, subject or instructor…"
+                       autocomplete="off" oninput="onSearchInput(this.value)"
+                       style="width:100%;padding:9px 12px 9px 36px;border:1px solid #dee2e6;border-radius:8px;font-size:13px;font-family:inherit;outline:none;" />
+                <div id="autocomplete-list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #dee2e6;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.13);z-index:900;max-height:280px;overflow-y:auto;"></div>
+            </div>
+            <span id="sel-count-badge" style="font-size:12px;color:#2d6a4f;font-weight:700;white-space:nowrap;display:none;">
+                <i class="fas fa-check-circle me-1"></i><span id="sel-count-num">0</span> selected
+            </span>
+        </div>
+        <div id="selected-area">
+            <div id="empty-state" style="display:flex;flex-direction:column;align-items:center;padding:36px 24px;gap:10px;text-align:center;">
+                <div style="width:60px;height:60px;border-radius:50%;background:#f0fdf4;border:2px solid #bbf7d0;display:flex;align-items:center;justify-content:center;font-size:24px;color:#16a34a;">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <div style="font-size:14px;font-weight:700;color:#1a1a2e;">No subjects added yet</div>
+                <div style="font-size:12px;color:#888;">Use the search box above to find and add your enrolled subjects.</div>
+            </div>
+            <div id="selected-list" style="display:flex;flex-direction:column;gap:0;"></div>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--border);text-align:right;">
+            <form asp-action="ConfirmSubjects" asp-controller="Student" method="post" id="confirm-form" style="display:inline;">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="selectedSubjects" id="selected-hidden" />
+                <input type="hidden" name="periodId" value="@(ViewData["ActivePeriodId"] ?? 0)" />
+                <button type="submit" class="btn-green" onclick="return prepareSubmit()"><i class="fas fa-check me-2"></i>Confirm</button>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="page-card mb-4">
-    <div class="page-card-hd dark">
-        <i class="fas fa-clipboard-list me-2"></i>Subjects Clearance
+    <div class="page-card-hd dark" style="display:flex;align-items:center;justify-content:space-between;">
+        <span><i class="fas fa-clipboard-list me-2"></i>Subjects Clearance</span>
+        <button onclick="toggleAddPanel()" id="add-subj-btn" style="background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;border-radius:7px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">
+            <i class="fas fa-plus me-1"></i>Add Subject
+        </button>
     </div>
     <div class="table-responsive">
         <table class="data-table">
@@ -80,7 +126,7 @@
                     foreach (var item in Model!.SubjectItems!)
                     {
                         <tr>
-                            <td><span class="code-badge">@item.MisCode</span></td>
+                            <td>@item.MisCode</td>
                             <td style="font-weight:600;">@item.SubjectCode</td>
                             <td>@item.Description</td>
                             <td>@item.InstructorName</td>
@@ -99,11 +145,14 @@
                                 }
                             </td>
                             <td style="text-align:center;">
-                                <button class="chat-icon-btn"
-                                        onclick="openChat('@item.MisCode', '@Html.Raw(item.InstructorName)', 'subject', '@item.SubjectCode')"
-                                        title="Message @item.InstructorName">
-                                    <i class="fas fa-comment-dots"></i>
-                                </button>
+                                <div class="chat-btn-wrap" data-key="@item.MisCode" data-type="subject">
+                                    <button class="chat-icon-btn"
+                                            onclick="openChat('@item.MisCode', '@Html.Raw(item.InstructorName)', 'subject', '@item.SubjectCode')"
+                                            title="Message @item.InstructorName">
+                                        <i class="fas fa-comment-dots"></i>
+                                    </button>
+                                    <span class="unread-dot" style="display:none;"></span>
+                                </div>
                                 @if (item.Status == "Pending")
                                 {
                                     <button class="delete-icon-btn"
@@ -127,16 +176,12 @@
                                 <div class="empty-title">No selected subjects yet</div>
                                 <div class="empty-desc">
                                     You haven't confirmed your subjects yet.<br />
-                                    Go to <strong>Subjects Offered</strong> to select
-                                    and confirm your enrolled subjects first.
+                                    Click <strong>Add Subject</strong> above to select and confirm your enrolled subjects.
                                 </div>
-                                <a href="/Student/SubjectsOffered" class="btn-green"
-                                   style="display:inline-flex;align-items:center;
-                                          gap:8px;padding:10px 28px;
-                                          text-decoration:none;margin-top:4px;">
-                                    <i class="fas fa-book-open"></i>
-                                    Go to Subjects Offered
-                                </a>
+                                <button onclick="toggleAddPanel()" class="btn-green"
+                                        style="display:inline-flex;align-items:center;gap:8px;padding:10px 28px;margin-top:4px;border:none;cursor:pointer;">
+                                    <i class="fas fa-plus"></i>Add Subject
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -145,69 +190,6 @@
         </table>
     </div>
 </div>
-
-@* ══════════════════════════════════════════════════════════════════════════
-   SECTION 2 — CLASS ADVISER
-   ══════════════════════════════════════════════════════════════════════════ *@
-
-@if (adviser != null)
-{
-    <div class="page-card mb-3">
-        <div class="page-card-hd dark">
-            <i class="fas fa-chalkboard-teacher me-2"></i>Class Adviser
-        </div>
-        <div class="adviser-card-body">
-
-            <div class="adviser-meta-col">
-                <div class="adviser-label">Advisory</div>
-                <div class="adviser-value">@adviser.OrgRole</div>
-            </div>
-
-            <div class="adviser-divider"></div>
-
-            <div class="adviser-meta-col">
-                <div class="adviser-label">Adviser</div>
-                <div class="adviser-value">@adviser.PersonName</div>
-            </div>
-
-            <div class="adviser-actions">
-                @switch (adviser.Status)
-                {
-                    case "Cleared":
-                        <span class="status-approved">Cleared</span>
-                        break;
-                    case "Declined":
-                        <span class="status-declined">Declined</span>
-                        break;
-                    case "Pending":
-                        <span class="status-pending">Pending</span>
-                        break;
-                    default:
-                        <button class="request-btn"
-                                onclick="requestOrg('@Html.Raw(adviser.OrgName)')">
-                            <i class="fas fa-paper-plane"></i> Request
-                        </button>
-                        break;
-                }
-
-                <button class="chat-icon-btn"
-                        onclick="openChat('@adviser.OrgName', '@Html.Raw(adviser.PersonName)', 'org', '@adviser.OrgRole')"
-                        title="Message @adviser.PersonName">
-                    <i class="fas fa-comment-dots"></i>
-                </button>
-
-                @if (adviser.Status == "Pending")
-                {
-                    <button class="delete-icon-btn"
-                            onclick="deleteClearance('org', '@adviser.OrgName')"
-                            title="Delete adviser clearance request">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                }
-            </div>
-        </div>
-    </div>
-}
 
 @* ══════════════════════════════════════════════════════════════════════════
    SECTION 3 — ORGANIZATION CLEARANCE
@@ -221,7 +203,6 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width:60px;text-align:center;">No.</th>
                     <th>Position</th>
                     <th>Signatory</th>
                     <th style="text-align:center;">Status</th>
@@ -229,15 +210,68 @@
                 </tr>
             </thead>
             <tbody>
-                @if (Model?.OrgItems != null && Model.OrgItems.Any())
+                @{
+                    bool hasOrgRows = (adviser != null) || (Model?.OrgItems != null && Model.OrgItems.Any());
+                }
+                @if (hasOrgRows)
                 {
-                    int i = 1;
+                    @* Class Adviser row (only if assigned to the student's course/year/section) *@
+                    @if (adviser != null)
+                    {
+                        <tr>
+                            <td style="font-weight:600;">
+                                Class Adviser
+                                <div style="font-size:11px;color:#888;font-weight:400;">@adviser.OrgRole</div>
+                            </td>
+                            <td>@adviser.PersonName</td>
+                            <td style="text-align:center;">
+                                @switch (adviser.Status)
+                                {
+                                    case "Cleared":
+                                        <span class="status-approved">Cleared</span>
+                                        break;
+                                    case "Declined":
+                                        <span class="status-declined">Declined</span>
+                                        break;
+                                    case "Pending":
+                                        <span class="status-pending">Pending</span>
+                                        break;
+                                    default:
+                                        <span style="color:#aaa;font-size:12px;">—</span>
+                                        break;
+                                }
+                            </td>
+                            <td style="text-align:center;">
+                                @if (string.IsNullOrEmpty(adviser.Status))
+                                {
+                                    <button class="request-btn" onclick="requestOrg('@Html.Raw(adviser.OrgName)')">
+                                        <i class="fas fa-paper-plane"></i> Request
+                                    </button>
+                                }
+                                <div class="chat-btn-wrap" data-key="@adviser.OrgName" data-type="org">
+                                    <button class="chat-icon-btn"
+                                            onclick="openChat('@adviser.OrgName', '@Html.Raw(adviser.PersonName)', 'org', 'Class Adviser')"
+                                            title="Message @adviser.PersonName">
+                                        <i class="fas fa-comment-dots"></i>
+                                    </button>
+                                    <span class="unread-dot" style="display:none;"></span>
+                                </div>
+                                @if (adviser.Status == "Pending")
+                                {
+                                    <button class="delete-icon-btn" onclick="deleteClearance('org', '@adviser.OrgName')" title="Delete">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+
+                    @* Other org position rows *@
+                    @if (Model?.OrgItems != null)
+                    {
                     foreach (var item in Model.OrgItems)
                     {
                         <tr>
-                            <td style="text-align:center;">
-                                <span class="code-badge">@i.ToString("D2")</span>
-                            </td>
                             <td style="font-weight:600;">@item.OrgRole</td>
                             <td>@item.PersonName</td>
                             <td style="text-align:center;">
@@ -265,11 +299,14 @@
                                         <i class="fas fa-paper-plane"></i> Request
                                     </button>
                                 }
-                                <button class="chat-icon-btn"
-                                        onclick="openChat('@item.OrgName', '@Html.Raw(item.PersonName)', 'org', '@item.OrgRole')"
-                                        title="Message @item.PersonName">
-                                    <i class="fas fa-comment-dots"></i>
-                                </button>
+                                <div class="chat-btn-wrap" data-key="@item.OrgName" data-type="org">
+                                    <button class="chat-icon-btn"
+                                            onclick="openChat('@item.OrgName', '@Html.Raw(item.PersonName)', 'org', '@item.OrgRole')"
+                                            title="Message @item.PersonName">
+                                        <i class="fas fa-comment-dots"></i>
+                                    </button>
+                                    <span class="unread-dot" style="display:none;"></span>
+                                </div>
                                 @if (item.Status == "Pending")
                                 {
                                     <button class="delete-icon-btn"
@@ -280,13 +317,13 @@
                                 }
                             </td>
                         </tr>
-                        i++;
+                    }
                     }
                 }
                 else
                 {
                     <tr>
-                        <td colspan="5" style="padding:40px;text-align:center;color:#888;">
+                        <td colspan="4" style="padding:40px;text-align:center;color:#888;">
                             <i class="fas fa-sitemap"
                                style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
                             No organization signatories assigned to your curriculum yet.
@@ -437,6 +474,8 @@
     .status-none     { color:#aaa;font-size:12px; }
 
     /* ── Chat icon button ── */
+    .chat-btn-wrap { position:relative; display:inline-flex; }
+    .unread-dot { position:absolute;top:-3px;right:-3px;width:10px;height:10px;background:#dc3545;border-radius:50%;border:1.5px solid white; }
     .chat-icon-btn {
         width:34px;height:34px;border-radius:50%;border:none;
         background:#e8f5e9;color:#1a4731;font-size:15px;
@@ -498,6 +537,107 @@
 
 @section Scripts {
 <script>
+/* ── ADD SUBJECT DATA ── */
+const ALL_SUBJECTS = [
+@foreach (var s in availableSubjects)
+{
+    <text>{ mis:@Html.Raw(Json.Serialize(s.MisCode)), subj:@Html.Raw(Json.Serialize(s.SubjectCode)), desc:@Html.Raw(Json.Serialize(s.Description)), inst:@Html.Raw(Json.Serialize(s.InstructorName)), enrolled:@Html.Raw(s.AlreadyEnrolled?"true":"false"), status:@Html.Raw(Json.Serialize(s.EnrolledStatus)) },</text>
+}
+];
+const ALREADY_ENROLLED = new Set(ALL_SUBJECTS.filter(s=>s.enrolled).map(s=>s.mis));
+let selectedMisCodes = [];
+
+function toggleAddPanel() {
+    const p = document.getElementById('add-subject-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+function closeAddPanel() { document.getElementById('add-subject-panel').style.display = 'none'; }
+
+function onSearchInput(val) {
+    const list = document.getElementById('autocomplete-list');
+    const q = val.trim().toLowerCase();
+    if (!q) { list.style.display = 'none'; return; }
+    const matches = ALL_SUBJECTS.filter(s =>
+        s.mis.toLowerCase().includes(q) || s.subj.toLowerCase().includes(q) ||
+        s.desc.toLowerCase().includes(q) || s.inst.toLowerCase().includes(q)
+    ).slice(0, 20);
+    if (!matches.length) { list.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:#aaa;">No results found.</div>'; list.style.display='block'; return; }
+    list.innerHTML = matches.map(s => {
+        const already = ALREADY_ENROLLED.has(s.mis);
+        const picked  = selectedMisCodes.includes(s.mis);
+        const disabled = already || picked;
+        const badge = already ? `<span style="font-size:10px;font-weight:700;color:#38a169;background:rgba(72,187,120,.15);padding:2px 8px;border-radius:20px;flex-shrink:0;">Added</span>`
+                    : picked  ? `<span style="font-size:10px;font-weight:700;color:#3182ce;background:rgba(66,153,225,.15);padding:2px 8px;border-radius:20px;flex-shrink:0;">Selected</span>` : '';
+        return `<div data-mis="${escHtml(s.mis)}" data-disabled="${disabled}"
+                     style="display:flex;align-items:center;gap:12px;padding:10px 14px;
+                            cursor:${disabled?'not-allowed':'pointer'};border-bottom:1px solid #f0f0f0;
+                            transition:background .12s;opacity:${disabled?'0.6':'1'};"
+                     onmouseover="if(!this.dataset.disabled||this.dataset.disabled==='false')this.style.background='#f0fdf4'"
+                     onmouseout="this.style.background=''">
+            <span style="font-size:11px;font-weight:700;background:#e8f5e9;color:#2d6a4f;padding:3px 8px;border-radius:6px;white-space:nowrap;flex-shrink:0;">${escHtml(s.mis)}</span>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:600;color:#1a1a2e;">${escHtml(s.subj)}</div>
+                <div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(s.desc)}</div>
+            </div>
+            <span style="font-size:11px;color:#aaa;white-space:nowrap;flex-shrink:0;">${escHtml(s.inst)}</span>
+            ${badge}
+        </div>`;
+    }).join('');
+    list.style.display = 'block';
+    // Use event delegation — safe, no inline onclick escaping issues
+    list.querySelectorAll('[data-mis]').forEach(el => {
+        if (el.dataset.disabled === 'true') return;
+        el.addEventListener('click', () => addSubject(el.dataset.mis));
+    });
+}
+function addSubject(mis) {
+    if (ALREADY_ENROLLED.has(mis) || selectedMisCodes.includes(mis)) return;
+    selectedMisCodes.push(mis);
+    document.getElementById('subject-search').value = '';
+    document.getElementById('autocomplete-list').style.display = 'none';
+    renderSelected();
+}
+function removeSelected(mis) {
+    selectedMisCodes = selectedMisCodes.filter(m => m !== mis);
+    renderSelected();
+}
+function renderSelected() {
+    const list  = document.getElementById('selected-list');
+    const empty = document.getElementById('empty-state');
+    const badge = document.getElementById('sel-count-badge');
+    const num   = document.getElementById('sel-count-num');
+    if (!selectedMisCodes.length) { list.innerHTML=''; empty.style.display='flex'; badge.style.display='none'; return; }
+    empty.style.display = 'none';
+    badge.style.display = '';
+    num.textContent = selectedMisCodes.length;
+    list.innerHTML = selectedMisCodes.map(mis => {
+        const s = ALL_SUBJECTS.find(x => x.mis === mis);
+        if (!s) return '';
+        return `<div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border,#e2e8f0);">
+            <span style="font-size:11px;font-weight:700;background:#e8f5e9;color:#2d6a4f;padding:3px 8px;border-radius:6px;white-space:nowrap;">${escHtml(s.mis)}</span>
+            <span style="font-size:13px;font-weight:600;color:#1a1a2e;flex:1;">${escHtml(s.subj)}</span>
+            <span style="font-size:12px;color:#666;flex:2;">${escHtml(s.desc)}</span>
+            <span style="font-size:12px;color:#aaa;flex-shrink:0;">${escHtml(s.inst)}</span>
+            <button onclick="removeSelected('${mis}')" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:17px;padding:0 2px;transition:color .15s;" onmouseover="this.style.color='#dc3545'" onmouseout="this.style.color='#ccc'">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>`;
+    }).join('');
+}
+function prepareSubmit() {
+    if (!selectedMisCodes.length) { alert('No subjects selected.'); return false; }
+    document.getElementById('selected-hidden').value = selectedMisCodes.join(',');
+    return true;
+}
+document.addEventListener('click', e => {
+    const list = document.getElementById('autocomplete-list');
+    const inp  = document.getElementById('subject-search');
+    if (list && inp && !inp.contains(e.target) && !list.contains(e.target))
+        list.style.display = 'none';
+});
+function escHtml(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ── CLEARANCE PAGE ── */
     const _csrf = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
 
     /* ══════════════════════════════════════════
@@ -519,9 +659,7 @@
             return;
         }
 
-        const preselected = allPeriods.find(p => p.id === _serverPeriodId)
-                         ?? allPeriods.find(p => p.status === 'Active')
-                         ?? allPeriods[0];
+        const preselected = allPeriods.find(p => p.id === _serverPeriodId) ?? allPeriods[0];
         selectedPeriodId = preselected.id;
         updatePeriodDisplay(preselected);
 
@@ -530,8 +668,7 @@
             opt.className = 'pd-opt' + (p.id === selectedPeriodId ? ' selected' : '');
             opt.dataset.id = p.id;
             opt.innerHTML = `
-                <span style="flex:1;">A.Y. ${escHtml(p.ay)}, ${escHtml(p.sem)}</span>
-                <span class="pd-opt-status ${p.status === 'Active' ? 'active' : 'completed'}">${escHtml(p.status)}</span>
+                <span style="flex:1;">${escHtml(p.sem)}, A.Y. ${escHtml(p.ay)}</span>
                 <i class="fas fa-check pd-check"></i>`;
             opt.onclick = (e) => { e.stopPropagation(); selectPeriod(p); };
             dd.appendChild(opt);
@@ -544,7 +681,7 @@
     }
 
     function updatePeriodDisplay(p) {
-        document.getElementById('period-btn-value').textContent = `A.Y. ${p.ay}, ${p.sem}`;
+        document.getElementById('period-btn-value').textContent = `${p.sem}, A.Y. ${p.ay}`;
     }
 
     function togglePeriodDd(e) { e.stopPropagation(); document.getElementById('period-wrap').classList.toggle('open'); }
@@ -554,6 +691,43 @@
         const wrap = document.getElementById('period-wrap');
         if (wrap && !wrap.contains(e.target)) closePeriodDd();
     });
+
+    /* ══════════════════════════════════════════
+       UNREAD NOTIFICATION BADGES
+    ══════════════════════════════════════════ */
+    async function loadUnreadBadges() {
+        try {
+            const unreads = await (await fetch('/Student/GetUnreadCounts')).json();
+            // Reset all dots first
+            document.querySelectorAll('.chat-btn-wrap .unread-dot').forEach(d => d.style.display = 'none');
+            // Show dots for unread messages
+            unreads.forEach(u => {
+                document.querySelectorAll('.chat-btn-wrap').forEach(w => {
+                    if (w.dataset.key === u.clearanceKey && w.dataset.type === u.clearanceType) {
+                        const dot = w.querySelector('.unread-dot');
+                        if (dot) dot.style.display = 'block';
+                    }
+                });
+            });
+        } catch {}
+    }
+    async function markRead(key, type) {
+        try {
+            await fetch('/Student/MarkMessagesRead', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
+                body: JSON.stringify({ clearanceKey: key, clearanceType: type, message: '' })
+            });
+        } catch {}
+    }
+    function clearUnreadDot(key, type) {
+        document.querySelectorAll('.chat-btn-wrap').forEach(w => {
+            if (w.dataset.key === key && w.dataset.type === type) {
+                const dot = w.querySelector('.unread-dot');
+                if (dot) dot.style.display = 'none';
+            }
+        });
+    }
 
     /* ══════════════════════════════════════════
        REQUEST ORG CLEARANCE
@@ -599,7 +773,7 @@
         return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     }
 
-    function openChat(key, personName, type, role) {
+    async function openChat(key, personName, type, role) {
         currentChatKey  = key;
         currentChatType = type;
         currentChatName = personName;
@@ -618,6 +792,8 @@
             '<div style="text-align:center;margin:auto;font-size:12px;color:#aaa;">' +
             '<i class="fas fa-spinner fa-spin me-1"></i>Loading messages...</div>';
 
+        await markRead(key, type);
+        clearUnreadDot(key, type);
         fetchMessages();
         setTimeout(() => document.getElementById('chat-input').focus(), 80);
     }
@@ -764,5 +940,7 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeChat(); });
 
     loadPeriods();
+    loadUnreadBadges();
+    setInterval(loadUnreadBadges, 30000);
 </script>
 }

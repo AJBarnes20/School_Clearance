@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(del \"Views\\\\Instructor\\\\Organization.cshtml\" \"Views\\\\Instructor\\\\SignedClearance.cshtml\" \"Views\\\\Instructor\\\\SubjectOfferings.cshtml\" \"Views\\\\Staff\\\\SignedClearance.cshtml\" \"Views\\\\Student\\\\SubjectsOffered.cshtml\")",
+      "Bash(Remove-Item \"Views\\\\Instructor\\\\Organization.cshtml\",\"Views\\\\Instructor\\\\SignedClearance.cshtml\",\"Views\\\\Instructor\\\\SubjectOfferings.cshtml\",\"Views\\\\Staff\\\\SignedClearance.cshtml\",\"Views\\\\Student\\\\SubjectsOffered.cshtml\")",
+      "Bash(dotnet add *)"
+    ]
+  }
+}
