@@ -6,6 +6,7 @@
     Layout = "~/Views/Shared/_StaffLayout.cshtml";
     var signedItems  = ViewBag.SignedItems as IEnumerable<StaffSignedClearance> ?? Enumerable.Empty<StaffSignedClearance>();
     int pendingCount = Model?.Count(x => x.Status == "Pending") ?? 0;
+    int serverPid    = ViewData["ActivePeriodId"] is int sp ? sp : 0;
 }
 
 @Html.AntiForgeryToken()
@@ -18,33 +19,41 @@
     </div>
 }
 
-<!-- TAB BAR -->
-<div class="d-flex gap-2 mb-3 flex-wrap">
-    <button class="cl-tab active" onclick="switchTab('requests', this)">
-        <i class="fas fa-file-signature me-1"></i>Clearance Requests
-        @if (pendingCount > 0) { <span class="tab-badge">@pendingCount</span> }
-    </button>
-    <button class="cl-tab" onclick="switchTab('signed', this)">
-        <i class="fas fa-check-circle me-1"></i>Signed Clearance
-        @if (signedItems.Any()) { <span class="tab-badge-secondary">@signedItems.Count()</span> }
-    </button>
+<!-- PAGE HEADER -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="fw-bold mb-0" style="color:#1a1a2e;">Clearance Requests</h5>
+    <div class="period-selector-wrap" id="period-wrap">
+        <button class="period-btn" onclick="togglePeriodDd(event)" type="button">
+            <div class="period-btn-icon"><i class="fas fa-calendar-alt"></i></div>
+            <div class="period-btn-text">
+                <div class="period-btn-label">Academic Period</div>
+                <div class="period-btn-value" id="period-btn-value">@(ViewData["ActivePeriod"]?.ToString() ?? "Loading...")</div>
+            </div>
+            <i class="fas fa-chevron-down period-chevron"></i>
+        </button>
+        <div class="period-dd" id="period-dd"></div>
+    </div>
 </div>
 
-<!-- CLEARANCE REQUESTS TAB -->
-<div id="tab-requests" class="tab-panel">
+<!-- SIDE-BY-SIDE PANELS -->
+<div class="row g-3">
+
+<!-- CLEARANCE REQUESTS (LEFT) -->
+<div class="col-12 col-lg-6">
     <div class="page-card">
         <div class="page-card-hd dark">
-            <i class="fas fa-file-signature me-2"></i> Requests
+            <i class="fas fa-file-signature me-2"></i>Requests
             @if (pendingCount > 0) { <span class="badge bg-warning text-dark ms-2" style="font-size:12px;">@pendingCount pending</span> }
         </div>
         <div class="table-responsive">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="width:80px;text-align:center;">NO.</th>
+                        <th style="width:50px;text-align:center;">NO.</th>
                         <th>STUDENT</th>
                         <th>COURSE</th>
                         <th style="text-align:center;">STATUS</th>
+                        <th style="text-align:center;">REQUESTED</th>
                         <th style="text-align:center;">ACTION</th>
                     </tr>
                 </thead>
@@ -60,27 +69,39 @@
                                     <div style="font-weight:600;font-size:13px;">@item.StudentName</div>
                                     <div style="font-size:11px;color:#888;">ID: @item.StudentId</div>
                                 </td>
-                                <td>@item.Course</td>
+                                <td style="font-size:13px;">@item.Course</td>
                                 <td style="text-align:center;">
-                                    @if (item.Status == "Cleared")      { <span class="status-approved">Approved</span> }
-                                    else if (item.Status == "Declined") { <span class="status-declined">Declined</span> }
-                                    else                                 { <span class="status-pending-sm">Pending</span> }
+                                    <span class="status-pending-sm">Pending</span>
+                                </td>
+                                <td style="text-align:center;">
+                                    @if (item.RequestedAt.HasValue)
+                                    {
+                                        <span class="date-stamp">
+                                            <i class="fas fa-paper-plane date-icon"></i>
+                                            @item.RequestedAt.Value.ToString("MMM d, yyyy")
+                                            <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
+                                        </span>
+                                    }
+                                    else { <span class="date-none">—</span> }
                                 </td>
                                 <td style="text-align:center;">
                                     <div class="d-flex gap-2 justify-content-center align-items-center">
-                                        @if (item.Status != "Cleared" && item.Status != "Declined")
-                                        {
-                                            <form asp-action="Approve" asp-controller="Staff" method="post" style="display:inline;">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@item.Id" />
-                                                <button type="submit" class="btn-approve"><i class="fas fa-check me-1"></i>Approve</button>
-                                            </form>
-                                            <form asp-action="Decline" asp-controller="Staff" method="post" style="display:inline;">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@item.Id" />
-                                                <button type="submit" class="btn-decline"><i class="fas fa-times me-1"></i>Decline</button>
-                                            </form>
-                                        }
+                                        <form asp-action="Approve" asp-controller="Staff" method="post" style="display:inline;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@item.Id" />
+                                            <button type="submit" class="btn-approve"
+                                                    onclick="return confirm('Approve clearance for @item.StudentName?')">
+                                                <i class="fas fa-check me-1"></i>Approve
+                                            </button>
+                                        </form>
+                                        <form asp-action="Decline" asp-controller="Staff" method="post" style="display:inline;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@item.Id" />
+                                            <button type="submit" class="btn-decline"
+                                                    onclick="return confirm('Decline clearance for @item.StudentName?')">
+                                                <i class="fas fa-times me-1"></i>Decline
+                                            </button>
+                                        </form>
                                         <div class="chat-btn-wrap" data-sn="@item.StudentId" data-key="@item.Position" data-type="org">
                                             <button class="chat-icon-btn"
                                                     onclick="openChat('@Html.Raw(item.StudentId)','@Html.Raw(item.StudentName)','@Html.Raw(item.Position)','org','@Html.Raw(item.Course)')"
@@ -97,9 +118,9 @@
                     }
                     else
                     {
-                        <tr><td colspan="5" style="padding:40px;text-align:center;color:#888;">
+                        <tr><td colspan="6" style="padding:40px;text-align:center;color:#888;">
                             <i class="fas fa-file-signature" style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
-                            No clearance requests yet.
+                            No pending clearance requests.
                         </td></tr>
                     }
                 </tbody>
@@ -108,22 +129,22 @@
     </div>
 </div>
 
-<!-- SIGNED CLEARANCE TAB -->
-<div id="tab-signed" class="tab-panel" style="display:none;">
+<!-- SIGNED HISTORY (RIGHT) -->
+<div class="col-12 col-lg-6">
     <div class="page-card">
         <div class="page-card-hd dark">
-            <i class="fas fa-check-circle me-2"></i>Signed Clearance
+            <i class="fas fa-check-circle me-2"></i>Signed History
             @if (signedItems.Any()) { <span class="badge bg-secondary ms-2" style="font-size:12px;">@signedItems.Count() record(s)</span> }
         </div>
         <div class="table-responsive">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>STUDENT ID</th>
+                        <th>POSITION</th>
                         <th>STUDENT</th>
-                        <th>COURSE</th>
-                        <th>DEPARTMENT</th>
                         <th style="text-align:center;">STATUS</th>
+                        <th style="text-align:center;">REQUESTED</th>
+                        <th style="text-align:center;">SIGNED</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -132,16 +153,36 @@
                         foreach (var item in signedItems)
                         {
                             <tr>
-                                <td>@item.StudentId</td>
+                                <td style="font-weight:600;">@item.Description</td>
                                 <td>
                                     <div style="font-weight:600;">@item.StudentName</div>
-                                    <div style="font-size:11px;color:#888;">@item.StudentCourse</div>
+                                    <div style="font-size:11px;color:#888;">@item.StudentId · @item.StudentCourse</div>
                                 </td>
-                                <td style="font-weight:600;">@item.StudentCourse</td>
-                                <td>@item.Description</td>
                                 <td style="text-align:center;">
                                     @if (item.Status == "Approved") { <span class="status-approved">Approved</span> }
                                     else                             { <span class="status-declined">Declined</span> }
+                                </td>
+                                <td style="text-align:center;">
+                                    @if (item.RequestedAt.HasValue)
+                                    {
+                                        <span class="date-stamp">
+                                            <i class="fas fa-paper-plane date-icon"></i>
+                                            @item.RequestedAt.Value.ToString("MMM d, yyyy")
+                                            <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
+                                        </span>
+                                    }
+                                    else { <span class="date-none">—</span> }
+                                </td>
+                                <td style="text-align:center;">
+                                    @if (item.SignedAt != DateTime.MinValue)
+                                    {
+                                        <span class="date-stamp date-stamp-signed">
+                                            <i class="fas fa-check-circle date-icon"></i>
+                                            @item.SignedAt.ToString("MMM d, yyyy")
+                                            <span class="date-time">@item.SignedAt.ToString("h:mm tt")</span>
+                                        </span>
+                                    }
+                                    else { <span class="date-none">—</span> }
                                 </td>
                             </tr>
                         }
@@ -159,6 +200,8 @@
     </div>
 </div>
 
+</div>
+
 <!-- CHAT OVERLAY + MODAL -->
 <div id="chat-overlay" onclick="closeChat()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1040;"></div>
 <div id="chat-modal" style="display:none;position:fixed;bottom:0;right:24px;width:360px;height:520px;background:white;border-radius:16px 16px 0 0;box-shadow:0 -4px 40px rgba(0,0,0,0.18);z-index:1050;flex-direction:column;overflow:hidden;">
@@ -166,7 +209,7 @@
         <div id="chat-avatar" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:white;flex-shrink:0;"></div>
         <div style="flex:1;min-width:0;">
             <div id="chat-name" style="font-size:13px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
-            <div id="chat-sub" style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:1px;"></div>
+            <div id="chat-sub"  style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:1px;"></div>
         </div>
         <button onclick="closeChat()" style="background:none;border:none;color:rgba(255,255,255,0.7);font-size:16px;cursor:pointer;padding:4px;line-height:1;"><i class="fas fa-times"></i></button>
     </div>
@@ -179,17 +222,42 @@
 
 @section Styles {
 <style>
-    .cl-tab{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;border:1.5px solid #dee2e6;background:white;color:#555;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;font-family:inherit;}
-    .cl-tab:hover{border-color:#1a4731;color:#1a4731;}
-    .cl-tab.active{background:#1a4731;color:white;border-color:#1a4731;}
-    .tab-badge{background:#dc3545;color:white;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;}
-    .tab-badge-secondary{background:#6c757d;color:white;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;}
-    .cl-tab.active .tab-badge,.cl-tab.active .tab-badge-secondary{background:rgba(255,255,255,0.3);}
+    /* ── DATE STAMP ── */
+    .date-stamp {
+        display:inline-flex;flex-direction:column;align-items:center;gap:1px;
+        font-size:11px;font-weight:600;color:#555;line-height:1.3;
+    }
+    .date-stamp-signed { color:#2e7d32; }
+    .date-icon  { font-size:10px;margin-bottom:1px;color:inherit;opacity:0.7; }
+    .date-time  { font-size:10px;font-weight:400;color:#888; }
+    .date-stamp-signed .date-time { color:#66bb6a; }
+    .date-none  { color:#ccc;font-size:13px; }
+
+    /* Period dropdown */
+    .period-selector-wrap{position:relative;display:inline-block}
+    .period-btn{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#1a4731,#2d6a4f);border:none;border-radius:10px;padding:9px 16px;cursor:pointer;transition:filter .2s;user-select:none;min-width:270px}
+    .period-btn:hover{filter:brightness(1.12)}
+    .period-btn-icon{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:14px}
+    .period-btn-text{flex:1;text-align:left}.period-btn-label{font-size:10px;color:rgba(255,255,255,.6);margin-bottom:1px}
+    .period-btn-value{font-size:13px;font-weight:700;color:#fff;line-height:1.3}
+    .period-chevron{color:rgba(255,255,255,.7);font-size:11px;transition:transform .2s;flex-shrink:0}
+    .period-selector-wrap.open .period-chevron{transform:rotate(180deg)}
+    .period-dd{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:290px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 36px rgba(0,0,0,.18);z-index:999;padding:8px;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto}
+    .period-selector-wrap.open .period-dd{display:flex}
+    .pd-opt{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#1a1a2e;cursor:pointer;transition:background .15s;gap:8px}
+    .pd-opt:hover{background:rgba(0,0,0,.04)}.pd-opt.selected{background:rgba(26,71,49,.1);color:#1a4731}
+    .pd-opt.selected .pd-check{display:block}.pd-check{display:none;font-size:11px;color:#1a4731;flex-shrink:0}
+    /* Status badges */
     .status-pending-sm{background:#fff8e1;color:#e6a817;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;}
+    .status-approved{background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;}
+    .status-declined{background:#fce4ec;color:#c62828;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;}
+    /* Buttons */
     .btn-approve{background:#2e7d32;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s}
-    .btn-approve:hover{opacity:.85}
+    .btn-approve:hover:not(:disabled){opacity:.85}
     .btn-decline{background:#c62828;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s}
-    .btn-decline:hover{opacity:.85}
+    .btn-decline:hover:not(:disabled){opacity:.85}
+    .btn-approve:disabled,.btn-decline:disabled{opacity:0.4;cursor:not-allowed;pointer-events:none;}
+    /* Chat */
     .chat-btn-wrap{position:relative;display:inline-flex;}
     .chat-icon-btn{width:34px;height:34px;border-radius:50%;border:none;background:#e8f5e9;color:#1a4731;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .2s,transform .15s;}
     .chat-icon-btn:hover{background:#c8e6c9;transform:scale(1.1);}
@@ -207,15 +275,30 @@
 
 @section Scripts {
 <script>
-const _csrf = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+const _csrf      = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+const _serverPid = @serverPid;
 
-function switchTab(name, btn) {
-    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
-    document.querySelectorAll('.cl-tab').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + name).style.display = '';
-    btn.classList.add('active');
+/* ── PERIOD DROPDOWN ── */
+let _allPeriods = [];
+async function loadPeriods() {
+    const dd = document.getElementById('period-dd');
+    try { const r = await fetch('/api/staff/periods'); _allPeriods = await r.json(); } catch { _allPeriods = []; }
+    dd.innerHTML = '';
+    if (!_allPeriods.length) { dd.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:#888;">No periods found.</div>'; return; }
+    const pre = _allPeriods.find(p => p.id === _serverPid) ?? _allPeriods[0];
+    document.getElementById('period-btn-value').textContent = `${pre.sem}, A.Y. ${pre.ay}`;
+    _allPeriods.forEach(p => {
+        const opt = document.createElement('div');
+        opt.className = 'pd-opt' + (p.id === pre.id ? ' selected' : '');
+        opt.innerHTML = `<span style="flex:1">${esc(p.sem)}, A.Y. ${esc(p.ay)}</span><i class="fas fa-check pd-check"></i>`;
+        opt.onclick = e => { e.stopPropagation(); window.location.href = '/Staff/Signatories?periodId=' + p.id; };
+        dd.appendChild(opt);
+    });
 }
+function togglePeriodDd(e) { e.stopPropagation(); document.getElementById('period-wrap').classList.toggle('open'); }
+document.addEventListener('click', e => { const w = document.getElementById('period-wrap'); if (w && !w.contains(e.target)) w.classList.remove('open'); });
 
+/* ── CHAT ── */
 let _chatSN = null, _chatName = null, _chatKey = null, _chatType = null;
 function getInitials(n) { return (n??'').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 function fmtTime(d) { return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }
@@ -228,7 +311,8 @@ async function openChat(sn, name, key, type, course) {
     document.getElementById('chat-avatar').textContent  = getInitials(name);
     document.getElementById('chat-modal').style.display   = 'flex';
     document.getElementById('chat-overlay').style.display = 'block';
-    document.getElementById('chat-messages').innerHTML = '<div style="text-align:center;margin:auto;font-size:12px;color:#aaa;"><i class="fas fa-spinner fa-spin me-1"></i>Loading…</div>';
+    document.getElementById('chat-messages').innerHTML =
+        '<div style="text-align:center;margin:auto;font-size:12px;color:#aaa;"><i class="fas fa-spinner fa-spin me-1"></i>Loading…</div>';
     await markRead(sn, key, type);
     clearUnreadDot(sn, key, type);
     await fetchMessages();
@@ -251,7 +335,10 @@ async function fetchMessages() {
 }
 function renderMessages(msgs) {
     const box = document.getElementById('chat-messages'); box.innerHTML = '';
-    if (!msgs.length) { box.innerHTML=`<div style="text-align:center;margin:auto;"><div style="font-size:32px;margin-bottom:10px;">💬</div><div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px;">Start the conversation</div><div style="font-size:12px;color:#aaa;max-width:220px;margin:0 auto;line-height:1.6;">Send a message to <strong>${esc(_chatName)}</strong>.</div></div>`; return; }
+    if (!msgs.length) {
+        box.innerHTML = `<div style="text-align:center;margin:auto;"><div style="font-size:32px;margin-bottom:10px;">💬</div><div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px;">Start the conversation</div><div style="font-size:12px;color:#aaa;max-width:220px;margin:0 auto;line-height:1.6;">Send a message to <strong>${esc(_chatName)}</strong>.</div></div>`;
+        return;
+    }
     let lastDate = null;
     msgs.forEach(m => {
         const d=new Date(m.time), ds=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
@@ -282,9 +369,7 @@ function clearUnreadDot(sn,key,type) {
 async function loadUnreadBadges() {
     try {
         const unreads = await(await fetch('/Staff/GetUnreadCounts')).json();
-        // Reset all dots first
         document.querySelectorAll('.chat-btn-wrap .unread-dot').forEach(d => d.style.display = 'none');
-        // Show dots for unread messages
         unreads.forEach(u => {
             document.querySelectorAll('.chat-btn-wrap').forEach(w => {
                 if (w.dataset.sn===u.studentNumber && w.dataset.key===u.clearanceKey && w.dataset.type===u.clearanceType) {
@@ -293,9 +378,11 @@ async function loadUnreadBadges() {
                 }
             });
         });
-    } catch {}
+    } catch(e) { console.error('[chat-dots] error:', e); }
 }
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeChat(); });
+
+loadPeriods();
 loadUnreadBadges();
 setInterval(loadUnreadBadges, 30000);
 </script>

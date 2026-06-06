@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS academic_periods (
 CREATE TABLE IF NOT EXISTS subjects (
     id           INT          AUTO_INCREMENT PRIMARY KEY,
     mis_code     VARCHAR(50)  NOT NULL DEFAULT '',
-    subject_code VARCHAR(50)  NOT NULL UNIQUE,
+    subject_code VARCHAR(50)  NOT NULL,
     description  VARCHAR(200) NOT NULL DEFAULT '',
     lec_units    INT          NOT NULL DEFAULT 2,
     lab_units    INT          NOT NULL DEFAULT 2,

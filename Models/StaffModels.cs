@@ -19,23 +19,25 @@ namespace OnlineClearanceSystem.Models
     // ───────── SIGNATORIES LIST ─────────
     public class SignatoryViewModel
     {
-        public int    Id          { get; set; }
-        public string StudentId   { get; set; } = "";
-        public string StudentName { get; set; } = "";
-        public string Course      { get; set; } = "";
-        public string Status      { get; set; } = "Pending";
-        public string Position    { get; set; } = "";  // org position = clearance_key for chat
+        public int       Id          { get; set; }
+        public string    StudentId   { get; set; } = "";
+        public string    StudentName { get; set; } = "";
+        public string    Course      { get; set; } = "";
+        public string    Status      { get; set; } = "Pending";
+        public string    Position    { get; set; } = "";
+        public DateTime? RequestedAt { get; set; }   // ← NEW
     }
 
     // ───────── SIGNED CLEARANCE ─────────
     public class StaffSignedClearance
     {
-        public string   StudentId     { get; set; } = "";
-        public string   StudentName   { get; set; } = "";
-        public string   StudentCourse { get; set; } = "";
-        public string   Description   { get; set; } = "";  // Department
-        public string   Status        { get; set; } = "";  // "Approved" or "Rejected"
-        public DateTime SignedAt      { get; set; }
+        public string    StudentId     { get; set; } = "";
+        public string    StudentName   { get; set; } = "";
+        public string    StudentCourse { get; set; } = "";
+        public string    Description   { get; set; } = "";
+        public string    Status        { get; set; } = "";
+        public DateTime  SignedAt      { get; set; }
+        public DateTime? RequestedAt   { get; set; }   // ← NEW
     }
 
     // ───────── STAFF PROFILE ─────────

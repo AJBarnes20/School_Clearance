@@ -136,12 +136,77 @@
         .period-icon i{color:#63b3ed;font-size:15px;}
         .period-label{font-size:11px;color:var(--muted);}
         .period-value{font-size:13px;font-weight:700;color:var(--text);}
+
+        /* ── MOBILE HAMBURGER ── */
+        .mob-hamburger{display:none;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:white;font-size:16px;cursor:pointer;padding:0;border-radius:8px;width:34px;height:34px;line-height:1;flex-shrink:0;}
+        .mob-hamburger:active{background:rgba(255,255,255,0.18);}
+        .mob-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;background:rgba(0,0,0,0.55);backdrop-filter:blur(2px);}
+        .mob-overlay.active{display:block;}
+
+        @@media(max-width:768px){
+            .mob-hamburger{display:flex;align-items:center;justify-content:center;}
+            body{height:auto!important;overflow-x:hidden!important;overflow-y:auto!important;}
+            .layout{overflow:visible!important;}
+            .main{overflow-x:hidden!important;overflow-y:visible!important;padding:12px 10px!important;}
+            .sidebar{display:none!important;}
+            .sidebar.mob-open{display:flex!important;position:fixed;top:52px;left:0;bottom:0;z-index:1000;width:240px;overflow-y:auto;box-shadow:4px 0 24px rgba(0,0,0,0.5);}
+
+            .top-header{padding:0 10px;}
+            .brand{gap:8px;min-width:0;flex:1;}
+            .brand-icon{width:28px;height:28px;}
+            .brand-text{min-width:0;overflow:hidden;}
+            .brand-text .school{font-size:11px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .brand-text .system{font-size:10px;}
+            .header-right{gap:8px;flex-shrink:0;}
+            .role-badge{padding:4px 8px;font-size:10px;border-radius:14px;}
+            .role-badge .role-text{display:none;}
+            .role-badge i{margin:0!important;font-size:12px;}
+
+            .col-md-3,.col-md-4{flex:0 0 50%!important;max-width:50%!important;width:50%!important;}
+            .col-md-6,.col-lg-6{flex:0 0 100%!important;max-width:100%!important;width:100%!important;}
+            .row{--bs-gutter-x:10px;--bs-gutter-y:10px;}
+            .stat-card{padding:12px 10px;gap:8px;border-radius:10px;flex-direction:column;align-items:flex-start;}
+            .stat-num{font-size:20px;}
+            .stat-label{font-size:11px;line-height:1.2;}
+            .stat-sub{font-size:10px;}
+            .stat-icon-wrap{width:34px;height:34px;font-size:14px;border-radius:9px;align-self:flex-end;margin-top:-30px;}
+
+            .panel{border-radius:10px;}
+            .panel-hd{padding:12px 14px;gap:8px;flex-direction:column;align-items:stretch;}
+            .panel-hd-title{font-size:13px;}
+            .data-table{min-width:560px;}
+            .data-table thead th{padding:8px 10px;font-size:10px;letter-spacing:0.5px;}
+            .data-table tbody td{padding:9px 10px;font-size:12px;}
+
+            .btn-blue-sm,.btn-green-sm{padding:6px 12px;font-size:11px;}
+            .page-title{font-size:17px;margin-bottom:12px;}
+            .period-box{padding:8px 12px;gap:8px;}
+            .period-icon{width:30px;height:30px;}
+            .period-label{font-size:10px;}
+            .period-value{font-size:12px;}
+            .search-wrap{min-width:unset;width:100%;}
+            .ann-compose{padding:14px;}
+            .ann-post-card{padding:14px;}
+            .ann-filter-btn{padding:5px 12px;font-size:11px;}
+            .dark-input{padding:9px 12px;font-size:12px;}
+            .dark-label{font-size:11px;}
+            .notif-btn{font-size:15px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:rgba(255,255,255,0.06);}
+        }
+
+        @@media(max-width:380px){
+            .brand-text .school{font-size:10px;}
+            .col-md-3,.col-md-4,.col-md-6{flex:0 0 100%!important;max-width:100%!important;width:100%!important;}
+            .stat-card{flex-direction:row;}
+            .stat-icon-wrap{align-self:auto;margin-top:0;}
+        }
+
     </style>
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
     <header class="top-header">
         <div class="brand">
+            <button class="mob-hamburger" onclick="toggleSidebar()" aria-label="Menu"><i class="fas fa-bars"></i></button>
             <div class="brand-icon"><img src="/images/CTUG-logo-transparent.png" alt="Logo"/></div>
             <div class="brand-text">
                 <div class="school">CTU - Ginatilan Extension Campus</div>
@@ -149,10 +214,11 @@
             </div>
         </div>
         <div class="header-right">
-            <span class="role-badge"><i class="fas fa-shield-alt me-1"></i>Administrator</span>
+            <span class="role-badge"><i class="fas fa-shield-alt me-1"></i><span class="role-text">Administrator</span></span>
             @await Html.PartialAsync("_NotificationBell")
         </div>
     </header>
+    <div id="mob-overlay" class="mob-overlay" onclick="toggleSidebar()"></div>
 
     <div class="layout">
         <nav class="sidebar">
@@ -185,5 +251,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
+    <script>
+    function toggleSidebar() {
+        var sb = document.querySelector('.sidebar');
+        var ov = document.getElementById('mob-overlay');
+        sb.classList.toggle('mob-open');
+        if (ov) ov.classList.toggle('active');
+    }
+    </script>
 </body>
 </html>

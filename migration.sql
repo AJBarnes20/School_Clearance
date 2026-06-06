@@ -13,6 +13,7 @@ DROP PROCEDURE IF EXISTS drop_column_if_exists;
 DROP PROCEDURE IF EXISTS drop_fk_if_exists;
 DROP PROCEDURE IF EXISTS rename_column_if_exists;
 DROP PROCEDURE IF EXISTS rename_announcement_column;
+DROP PROCEDURE IF EXISTS drop_index_if_exists;
 
 DELIMITER $$
 
@@ -63,6 +64,17 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = tbl AND COLUMN_NAME = new_col
     ) THEN
         SET @sql = CONCAT('ALTER TABLE `', tbl, '` CHANGE COLUMN `', old_col, '` `', new_col, '` ', definition);
+        PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+    END IF;
+END $$
+
+CREATE PROCEDURE drop_index_if_exists(IN tbl VARCHAR(64), IN idx VARCHAR(64))
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = tbl AND INDEX_NAME = idx
+    ) THEN
+        SET @sql = CONCAT('ALTER TABLE `', tbl, '` DROP INDEX `', idx, '`');
         PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
     END IF;
 END $$
@@ -182,12 +194,38 @@ DROP TABLE IF EXISTS student_signatories;
 DROP TABLE IF EXISTS status_table;
 
 -- ─────────────────────────────────────────────────────────────
+-- 11. Make clearance_organization.uq_co period-aware
+--     Old key (student_number, position) blocks the same student from
+--     requesting the same position across two different academic periods,
+--     causing  ER_DUP_ENTRY ('724-Class Adviser' for key 'uq_co')
+--     when a student moves to a new period.
+-- ─────────────────────────────────────────────────────────────
+CALL add_column_if_missing(
+    'clearance_organization', 'period_id',
+    'INT NULL AFTER position');
+
+CALL drop_index_if_exists('clearance_organization', 'uq_co');
+
+ALTER TABLE clearance_organization
+    ADD UNIQUE KEY uq_co (student_number, position, period_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- 12. Subject offerings are global (not bound to an academic period).
+--     Make period_id nullable so admin can offer a subject without
+--     supplying one — fixes ER_NO_DEFAULT_FOR_FIELD on
+--     `period_id` doesn't have a default value
+-- ─────────────────────────────────────────────────────────────
+ALTER TABLE subject_offerings
+    MODIFY COLUMN period_id INT NULL DEFAULT NULL;
+
+-- ─────────────────────────────────────────────────────────────
 -- Cleanup helper procedures
 -- ─────────────────────────────────────────────────────────────
 DROP PROCEDURE IF EXISTS add_column_if_missing;
 DROP PROCEDURE IF EXISTS drop_column_if_exists;
 DROP PROCEDURE IF EXISTS drop_fk_if_exists;
 DROP PROCEDURE IF EXISTS rename_column_if_exists;
+DROP PROCEDURE IF EXISTS drop_index_if_exists;
 
 SET FOREIGN_KEY_CHECKS = 1;
 

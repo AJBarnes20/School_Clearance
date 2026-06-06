@@ -130,7 +130,6 @@ C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\scopedcss\Views\Shared\_Layout.
 C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\scopedcss\bundle\OnlineClearanceSystem.styles.css
 C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\scopedcss\projectbundle\OnlineClearanceSystem.bundle.scp.css
 C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\l1q79rkiwt-{0}-b9sayid5wm-b9sayid5wm.gz
-C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\lxll5s2epz-{0}-61n19gt1b8-61n19gt1b8.gz
 C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\7jhhi1wq5s-{0}-xtxxf3hu2r-xtxxf3hu2r.gz
 C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\o2h93mku5r-{0}-t1cqhe9u97-t1cqhe9u97.gz
 C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\ilvu4n9kjz-{0}-c2jlpeoesf-c2jlpeoesf.gz
@@ -206,3 +205,7 @@ C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\OnlineClearanceSystem.genruntim
 C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\ref\OnlineClearanceSystem.dll
 C:\Users\Admin\OnlineClearance\bin\Debug\net10.0\MailKit.dll
 C:\Users\Admin\OnlineClearance\bin\Debug\net10.0\MimeKit.dll
+C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\lxll5s2epz-{0}-kkhfn684xx-kkhfn684xx.gz
+C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\nriwk74ll1-{0}-61n19gt1b8-61n19gt1b8.gz
+C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\56v3ttmq8f-{0}-6wribq53vx-6wribq53vx.gz
+C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\6ogcua3vyw-{0}-9brqc2kuth-9brqc2kuth.gz

@@ -149,6 +149,66 @@
         .filter-bar { display: flex; align-items: center; gap: 8px; }
         .filter-btn { border-radius: 20px; padding: 7px 18px; font-size: 13px; font-weight: 600; border: 1.5px solid #dee2e6; background: white; color: #555; cursor: pointer; transition: all 0.2s; }
         .filter-btn.active { background: var(--green-accent); color: white; border-color: var(--green-accent); }
+
+        /* ── MOBILE HAMBURGER ── */
+        .mob-hamburger { display: none; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18); color: white; font-size: 16px; cursor: pointer; padding: 0; border-radius: 8px; width: 34px; height: 34px; line-height: 1; flex-shrink: 0; }
+        .mob-hamburger:active { background: rgba(255,255,255,0.25); }
+        .mob-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 999; background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
+        .mob-overlay.active { display: block; }
+
+        @@media (max-width: 768px) {
+            .mob-hamburger { display: flex; align-items: center; justify-content: center; }
+            body { height: auto !important; overflow-x: hidden !important; overflow-y: auto !important; }
+            .layout { overflow: visible !important; }
+            .main { overflow-x: hidden !important; overflow-y: visible !important; padding: 12px 10px !important; }
+            .sidebar { display: none !important; }
+            .sidebar.mob-open { display: flex !important; position: fixed; top: 52px; left: 0; bottom: 0; z-index: 1000; width: 240px; overflow-y: auto; box-shadow: 4px 0 24px rgba(0,0,0,0.3); }
+
+            .top-header { padding: 0 10px; }
+            .brand { gap: 8px; min-width: 0; flex: 1; }
+            .brand-icon { width: 28px; height: 28px; }
+            .brand-text { min-width: 0; overflow: hidden; }
+            .brand-text .school { font-size: 11px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .brand-text .system { font-size: 10px; }
+            .header-right { gap: 8px; flex-shrink: 0; }
+            .role-badge { padding: 4px 10px; font-size: 10px; border-radius: 14px; }
+            .notif-btn { font-size: 15px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(255,255,255,0.1); }
+
+            .welcome-card { padding: 14px 16px; flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 14px; border-radius: 10px; }
+            .welcome-card h2 { font-size: 17px; }
+            .welcome-card h4 { font-size: 11px; }
+            .period-box { width: 100%; padding: 8px 12px; gap: 10px; }
+            .period-icon { width: 30px; height: 30px; }
+            .period-label { font-size: 10px; }
+            .period-value { font-size: 12px; }
+
+            .col-md-3, .col-md-4, .col-lg-3, .col-lg-4 { flex: 0 0 50% !important; max-width: 50% !important; width: 50% !important; }
+            .col-md-6, .col-lg-6 { flex: 0 0 100% !important; max-width: 100% !important; width: 100% !important; }
+            .row { --bs-gutter-x: 10px; --bs-gutter-y: 10px; }
+            .stat-card { padding: 12px 10px; gap: 8px; border-radius: 10px; flex-direction: column; align-items: flex-start; }
+            .stat-num { font-size: 20px; }
+            .stat-label { font-size: 11px; line-height: 1.2; }
+            .stat-sub { font-size: 10px; }
+            .stat-icon { width: 34px; height: 34px; font-size: 14px; border-radius: 9px; align-self: flex-end; margin-top: -30px; }
+
+            .page-card { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 10px; }
+            .page-card-hd { font-size: 12px; padding: 10px 14px; }
+            .data-table { min-width: 520px; }
+            .data-table thead th { padding: 8px 10px; font-size: 10px; }
+            .data-table tbody td { padding: 9px 10px; font-size: 12px; }
+
+            .btn-green, .btn-dark { padding: 9px 22px; font-size: 13px; }
+            .btn-approve, .btn-decline { padding: 5px 10px; font-size: 11px; }
+            .filter-btn { padding: 6px 14px; font-size: 12px; }
+        }
+
+        @@media (max-width: 380px) {
+            .brand-text .school { font-size: 10px; }
+            .col-md-3, .col-md-4, .col-md-6, .col-lg-3, .col-lg-4 { flex: 0 0 100% !important; max-width: 100% !important; width: 100% !important; }
+            .stat-card { flex-direction: row; }
+            .stat-icon { align-self: auto; margin-top: 0; }
+        }
+
     </style>
     @await RenderSectionAsync("Styles", required: false)
 </head>
@@ -156,6 +216,7 @@
     <!-- HEADER -->
     <header class="top-header">
         <div class="brand">
+            <button class="mob-hamburger" onclick="toggleSidebar()" aria-label="Menu"><i class="fas fa-bars"></i></button>
             <div class="brand-icon">
                 <img src="/images/CTUG-logo-transparent.png" alt="CTU Logo" />
             </div>
@@ -169,6 +230,7 @@
             @await Html.PartialAsync("_NotificationBell")
         </div>
     </header>
+    <div id="mob-overlay" class="mob-overlay" onclick="toggleSidebar()"></div>
 
     <div class="layout">
         <!-- SIDEBAR -->
@@ -184,7 +246,7 @@
                     <i class="fas fa-th-large"></i><span>Dashboard</span>
                 </a>
                 <a href="/Staff/Signatories" class="nav-link-item @(activePage=="Signatories"?"active":"")">
-                    <i class="fas fa-file-signature"></i><span>Signatories</span>
+                    <i class="fas fa-file-signature"></i><span>Clearance Management</span>
                     <span id="nav-dot-signatories"
                           style="display:none;width:8px;height:8px;background:#dc3545;border-radius:50%;
                                  margin-left:auto;flex-shrink:0;box-shadow:0 0 0 2px rgba(220,53,69,0.3);"></span>
@@ -209,6 +271,14 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
+    <script>
+    function toggleSidebar() {
+        var sb = document.querySelector('.sidebar');
+        var ov = document.getElementById('mob-overlay');
+        sb.classList.toggle('mob-open');
+        if (ov) ov.classList.toggle('active');
+    }
+    </script>
 
     <!-- Global chat notification badge — runs on every staff page -->
     <script>

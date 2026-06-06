@@ -71,44 +71,41 @@
     .splash-check.ticked { background: currentColor !important; }
     .splash-check.ticked i { display: block; color: white !important; }
 
-    /* ── STAT ROW ── */
-    .stat-row {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 18px;
-        align-items: stretch;
+    /* ── SPLASH ANIMATIONS ── */
+    @@keyframes notifySlideDown {
+        from { opacity: 0; transform: translateY(-8px); }
+        to   { opacity: 1; transform: translateY(0); }
     }
-
-    /* ── STAT CARD ── */
-    .stat-card {
-        flex: 1 1 0;
-        border-radius: 12px;
-        padding: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        border: none;
-        min-width: 0;
-        min-height: 100px;
+    @@keyframes checklistGlow {
+        0%,100% { box-shadow: 0 0 0 0 rgba(224,123,42,0.5); }
+        50%      { box-shadow: 0 0 0 10px rgba(224,123,42,0); }
     }
-    .stat-card.green-card  { background: linear-gradient(135deg, #1e7a46, #28a745); }
-    .stat-card.orange-card { background: linear-gradient(135deg, #b8560a, #e07b2a); }
-    .stat-card.blue-card   { background: linear-gradient(135deg, #1a5fa8, #3182ce); }
-
-    .stat-num   { font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1; }
-    .stat-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.9); margin-top: 3px; }
-    .stat-sub   { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 2px; }
-
-    .stat-icon-wrap {
-        width: 48px; height: 48px;
-        border-radius: 12px;
-        background: rgba(255,255,255,0.2);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 20px;
-        color: white;
-        flex-shrink: 0;
+    @@keyframes bellRing {
+        0%,100% { transform: rotate(0); }
+        10%      { transform: rotate(-18deg); }
+        20%      { transform: rotate(18deg); }
+        30%      { transform: rotate(-12deg); }
+        40%      { transform: rotate(12deg); }
+        50%      { transform: rotate(0); }
     }
+    .splash-bell   { animation: bellRing 1.4s ease infinite; transform-origin: top center; }
+    .checklist-active { animation: checklistGlow 2s ease infinite; border-radius: 12px; }
+
+    /* ── MINI STATS GRID ── */
+    .mini-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .mini-stat {
+        padding: 12px 16px;
+        border-right: 1px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .mini-stat:nth-child(even) { border-right: none; }
+    .mini-stat:nth-last-child(-n+2) { border-bottom: none; }
+    .mini-stat-num   { font-size: 22px; font-weight: 800; line-height: 1; }
+    .mini-stat-label { font-size: 11px; color: #888; margin-top: 3px; }
 
     /* ── ANNOUNCEMENT TABS ── */
     .ann-tab {
@@ -154,125 +151,187 @@
     /* ── ANNOUNCEMENT PANEL BODY ── */
     .ann-panel-body {
         background: white;
-        border-radius: 0 0 12px 12px;
         padding: 16px 18px 18px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
     }
 </style>
 
-<!-- ── STAT ROW (3 cards only, period card removed) ── -->
-<div class="col-lg-8">
-    <div class="stat-row">
-
-        <!-- SUBJECT CLEARED -->
-        <div class="stat-card green-card">
-            <div>
-                <div class="stat-num">@(Model?.SubjectCleared ?? 0)</div>
-                <div class="stat-label">Subjects Cleared</div>
-                <div class="stat-sub">Total Subjects</div>
-            </div>
-            <div class="stat-icon-wrap">
-                <i class="fas fa-clipboard-check"></i>
-            </div>
+<!-- ── STEPS MODAL ── -->
+<div id="steps-modal" onclick="if(event.target===this)closeStepsModal()"
+     style="display:none;opacity:0;position:fixed;inset:0;z-index:9999;
+            background:rgba(0,0,0,0.45);backdrop-filter:blur(3px);
+            align-items:center;justify-content:center;
+            transition:opacity 0.3s ease;">
+    <div style="background:white;border-radius:16px;width:92%;max-width:460px;
+                max-height:88vh;overflow-y:auto;
+                box-shadow:0 24px 64px rgba(0,0,0,0.3);
+                transition:transform 0.3s ease;" id="steps-modal-card">
+        <div style="background:linear-gradient(135deg,#1a4731,#2d6a4f);color:white;
+                    padding:16px 20px;border-radius:16px 16px 0 0;
+                    display:flex;justify-content:space-between;align-items:center;
+                    position:sticky;top:0;z-index:1;">
+            <span style="font-weight:800;font-size:14px;letter-spacing:0.3px;">
+                <i class="fas fa-list-ol me-2"></i>Clearance Steps
+            </span>
+            <button onclick="closeStepsModal()"
+                    style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);
+                           color:white;border-radius:50%;width:30px;height:30px;
+                           display:flex;align-items:center;justify-content:center;
+                           font-size:14px;cursor:pointer;flex-shrink:0;transition:background 0.2s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.3)'"
+                    onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
-
-        <!-- SUBJECT PENDING -->
-        <div class="stat-card orange-card">
-            <div>
-                <div class="stat-num">@(Model?.SubjectIncomplete ?? 0)</div>
-                <div class="stat-label">Subject Pending</div>
-            </div>
-            <div class="stat-icon-wrap">
-                <i class="fas fa-clock"></i>
-            </div>
+        <div style="padding:4px 0 12px;">
+            @{
+                var steps = new[] {
+                    new { icon="fa-book-open",    color="#1a7a46", bg="#e6f4ea", title="Select Enrolled Subjects",  desc="Choose the subjects you are enrolled in this semester." },
+                    new { icon="fa-check-double", color="#1565c0", bg="#e3f2fd", title="Confirm Enrolled Subjects",  desc="Confirm your selection and submit to your assigned instructors." },
+                    new { icon="fa-user-check",   color="#7b1fa2", bg="#f3e5f5", title="Instructor Approval",        desc="Wait for your subject instructors to sign off on your clearance." },
+                    new { icon="fa-sitemap",      color="#e65100", bg="#fff3e0", title="Organization Approval",      desc="Secure approval from each organization signatory." },
+                    new { icon="fa-file-download",color="#c9a84c", bg="#fdf8e1", title="Download & Print",          desc="Download your clearance PDF once all signatories are complete." },
+                };
+                int stepNum = 1;
+            }
+            @foreach (var s in steps)
+            {
+                <div class="splash-step" data-step="@stepNum">
+                    <div class="splash-left">
+                        <div class="splash-circle" style="background:@s.bg;color:@s.color;">
+                            <i class="fas @s.icon"></i>
+                        </div>
+                        @if (stepNum < steps.Length)
+                        {
+                            <div class="splash-line"></div>
+                        }
+                    </div>
+                    <div class="splash-body">
+                        <div class="splash-num" style="color:@s.color;">Step @stepNum</div>
+                        <div class="splash-title">@s.title</div>
+                        <div class="splash-desc">@s.desc</div>
+                    </div>
+                </div>
+                stepNum++;
+            }
         </div>
-
-        <!-- ORGANIZATION CLEARED -->
-        <div class="stat-card blue-card">
-            <div>
-                <div class="stat-num">@(Model?.OrgCleared ?? 0)</div>
-                <div class="stat-label">Organizations Cleared</div>
-            </div>
-            <div class="stat-icon-wrap">
-                <i class="fas fa-sitemap"></i>
-            </div>
-        </div>
-
     </div>
 </div>
 
-    <!-- ── CHECKLIST + ANNOUNCEMENTS ── -->
-<div class="row g-3">
+<!-- ── CHECKLIST + ANNOUNCEMENTS ── -->
+<div style="display:flex;flex-direction:column;height:calc(100vh - 100px);gap:10px;">
 
-    <!-- CHECKLIST -->
-    <div class="col-md-5">
-        <div class="page-card" style="overflow:visible;">
+    <!-- CLEARANCE STATUS -->
+    <div>
+        <div class="page-card" style="position:relative;overflow:hidden;">
             <!-- Header -->
             <div style="background:linear-gradient(135deg,#1a4731,#2d6a4f);color:white;
-                        padding:16px 20px;display:flex;justify-content:space-between;align-items:center;
+                        padding:12px 20px;display:flex;justify-content:space-between;align-items:center;
                         border-radius:12px 12px 0 0;">
                 <span style="font-weight:800;font-size:14px;letter-spacing:0.3px;">
-                    <i class="fas fa-tasks me-2"></i>Clearance Checklist
+                    <i class="fas fa-clipboard-check me-2"></i>Clearance Status
                 </span>
-                <span id="progress-badge"
-                      style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);
-                             border-radius:20px;padding:4px 13px;font-size:11px;font-weight:700;">
-                    0 / 5 Done
-                </span>
+                <span style="font-size:11px;color:rgba(255,255,255,0.7);">@(Model?.ActivePeriod ?? "—")</span>
             </div>
 
-            <!-- Progress bar -->
-            <div style="height:4px;background:#e9ecef;">
-                <div id="progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#28a745,#34c759);
-                     transition:width 0.4s ease;border-radius:0 4px 4px 0;"></div>
-            </div>
-
-            <!-- Steps -->
-            <div style="padding:4px 0 8px;">
+            <!-- PAGE 1: Pending Notification -->
+            <div id="page-notify" style="transition:opacity 0.5s ease;">
                 @{
-                    var steps = new[] {
-                        new { icon="fa-book-open",    color="#1a7a46", bg="#e6f4ea", title="Select Enrolled Subjects",       desc="Choose the subjects you are enrolled in this semester." },
-                        new { icon="fa-check-double", color="#1565c0", bg="#e3f2fd", title="Confirm Enrolled Subjects",       desc="Confirm your selection and submit to your assigned instructors." },
-                        new { icon="fa-user-check",   color="#7b1fa2", bg="#f3e5f5", title="Instructor Approval",             desc="Wait for your subject instructors to sign off on your clearance." },
-                        new { icon="fa-sitemap",      color="#e65100", bg="#fff3e0", title="Organization Approval",           desc="Secure approval from each organization signatory." },
-                        new { icon="fa-file-download",color="#c9a84c", bg="#fdf8e1", title="Download & Print",               desc="Download your clearance PDF once all signatories are complete." },
-                    };
-                    int stepNum = 1;
+                    var subjTotal  = Model?.TotalSubjects   ?? 0;
+                    var subjDone   = Model?.SubjectCleared  ?? 0;
+                    var orgTotal   = Model?.TotalOrgs       ?? 0;
+                    var orgDone    = Model?.OrgCleared      ?? 0;
+                    var allClear   = subjTotal > 0 && subjDone == subjTotal && orgTotal > 0 && orgDone == orgTotal;
+                    var subjPct    = subjTotal > 0 ? (int)Math.Round((double)subjDone / subjTotal * 100) : 0;
+                    var orgPct     = orgTotal  > 0 ? (int)Math.Round((double)orgDone  / orgTotal  * 100) : 0;
                 }
-                @foreach (var s in steps)
-                {
-                    <div class="splash-step" data-step="@stepNum">
-                        <div class="splash-left">
-                            <div class="splash-circle" style="background:@s.bg;color:@s.color;">
-                                <i class="fas @s.icon"></i>
+                <div style="padding:8px 14px 10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+
+                    <!-- Status badge -->
+                    @if (allClear)
+                    {
+                        <span style="background:#e6f9f0;color:#1a7a46;border:1px solid rgba(26,122,70,0.2);
+                                     border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap;">
+                            <i class="fas fa-check-circle me-1"></i>ALL CLEAR
+                        </span>
+                    }
+                    else
+                    {
+                        <span style="background:#fff8f2;color:#e07b2a;border:1px solid rgba(224,123,42,0.2);
+                                     border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap;">
+                            <i class="fas fa-hourglass-half me-1"></i>IN PROGRESS
+                        </span>
+                    }
+
+                    <div style="width:1px;height:28px;background:#e9ecef;"></div>
+
+                    <!-- Subjects inline -->
+                    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:120px;">
+                        <i class="fas fa-book" style="color:#1565c0;font-size:12px;"></i>
+                        <div style="flex:1;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                                <span style="font-size:11px;font-weight:600;color:#555;">Subjects</span>
+                                <span style="font-size:11px;font-weight:700;color:#1565c0;">@subjDone/@subjTotal</span>
                             </div>
-                            @if (stepNum < steps.Length)
-                            {
-                                <div class="splash-line"></div>
-                            }
-                        </div>
-                        <div class="splash-body">
-                            <div class="splash-num" style="color:@s.color;">Step @stepNum</div>
-                            <div class="splash-title">@s.title</div>
-                            <div class="splash-desc">@s.desc</div>
-                        </div>
-                        <div class="splash-check" onclick="toggleStep(this)"
-                             style="border-color:@s.color;">
-                            <i class="fas fa-check" style="color:@s.color;"></i>
+                            <div style="height:5px;background:#dbeafe;border-radius:4px;overflow:hidden;">
+                                <div style="height:100%;width:@(subjPct)%;background:linear-gradient(90deg,#1565c0,#42a5f5);
+                                            border-radius:4px;transition:width 0.8s ease;"></div>
+                            </div>
                         </div>
                     </div>
-                    stepNum++;
-                }
+
+                    <div style="width:1px;height:28px;background:#e9ecef;"></div>
+
+                    <!-- Organizations inline -->
+                    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:120px;">
+                        <i class="fas fa-sitemap" style="color:#7b1fa2;font-size:12px;"></i>
+                        <div style="flex:1;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                                <span style="font-size:11px;font-weight:600;color:#555;">Organizations</span>
+                                <span style="font-size:11px;font-weight:700;color:#7b1fa2;">@orgDone/@orgTotal</span>
+                            </div>
+                            <div style="height:5px;background:#f3e5f5;border-radius:4px;overflow:hidden;">
+                                <div style="height:100%;width:@(orgPct)%;background:linear-gradient(90deg,#7b1fa2,#ce93d8);
+                                            border-radius:4px;transition:width 0.8s ease;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (Model?.HasOrgPosition == true)
+                    {
+                        <div style="width:1px;height:28px;background:#e9ecef;"></div>
+
+                        <!-- Org Requests (only for position holders) -->
+                        <div style="display:flex;align-items:center;gap:8px;min-width:100px;">
+                            <i class="fas fa-pen-nib" style="color:#0d7b4e;font-size:12px;"></i>
+                            <div>
+                                <div style="font-size:10px;font-weight:600;color:#555;">Org Requests</div>
+                                <div style="display:flex;align-items:baseline;gap:4px;">
+                                    <span style="font-size:17px;font-weight:800;color:#0d7b4e;line-height:1;">@Model.PendingToSign</span>
+                                    <span style="font-size:10px;color:#888;">pending</span>
+                                </div>
+                            </div>
+                            @if (Model.PendingToSign > 0)
+                            {
+                                <span style="background:#0d7b4e;color:white;border-radius:50%;
+                                             width:18px;height:18px;font-size:10px;font-weight:700;
+                                             display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    @Model.PendingToSign
+                                </span>
+                            }
+                        </div>
+                    }
+
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- ANNOUNCEMENTS -->
-    <div class="col-md-7">
+    <!-- ANNOUNCEMENTS (fills remaining height) -->
+    <div style="flex:1;min-height:0;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.07);">
         <div class="ann-panel-header">
             <span><i class="fas fa-bullhorn me-2"></i>Announcements</span>
         </div>
-        <div class="ann-panel-body">
+        <div class="ann-panel-body" style="flex:1;max-height:none;overflow-y:auto;border-radius:0 0 12px 12px;">
 
             <!-- FILTER TABS -->
             <div class="d-flex gap-2 mb-3 flex-wrap">
@@ -334,11 +393,8 @@
 @section Scripts {
 <script>
     function filterAnn(tag, btn) {
-        // Remove active from all tabs
         document.querySelectorAll('.ann-tab').forEach(b => b.classList.remove('active'));
-        // Set active on clicked tab
         btn.classList.add('active');
-        // Show/hide announcement cards
         document.querySelectorAll('#ann-list .ann-card').forEach(c => {
             c.style.display = tag === 'all'
                 ? ''
@@ -347,17 +403,23 @@
         });
     }
 
-    function toggleStep(checkEl) {
-        const step    = checkEl.closest('.splash-step');
-        const ticked  = checkEl.classList.toggle('ticked');
-        step.classList.toggle('done', ticked);
-
-        const total   = document.querySelectorAll('.splash-step').length;
-        const checked = document.querySelectorAll('.splash-check.ticked').length;
-        const pct     = Math.round(checked / total * 100);
-
-        document.getElementById('progress-badge').textContent = `${checked} / ${total} Done`;
-        document.getElementById('progress-bar').style.width   = pct + '%';
+    function closeStepsModal() {
+        var m = document.getElementById('steps-modal');
+        m.style.opacity = '0';
+        setTimeout(function() {
+            m.style.display = 'none';
+        }, 300);
     }
+
+    window.addEventListener('DOMContentLoaded', function() {
+        var SPLASH_KEY = 'splashShown_student';
+        var m = document.getElementById('steps-modal');
+
+        if (!sessionStorage.getItem(SPLASH_KEY)) {
+            sessionStorage.setItem(SPLASH_KEY, '1');
+            m.style.display = 'flex';
+            setTimeout(function() { m.style.opacity = '1'; }, 10);
+        }
+    });
 </script>
 }

@@ -35,6 +35,11 @@ namespace OnlineClearanceSystem.Data
             await client.DisconnectAsync(true);
         }
 
+        // Base URL of the running site (Cloudflare tunnel URL set by start.ps1,
+        // or falls back to local port for dev).
+        private string LoginUrl =>
+            (_config["PublicUrl"]?.TrimEnd('/') ?? "http://localhost:5183") + "/Home/Login";
+
         // ── Pre-built templates ───────────────────────────────────────────
         public Task SendApprovalAsync(string toEmail, string name, string role) =>
             SendAsync(toEmail, name, "Your Account Has Been Approved – CTUG Clearance",
@@ -49,7 +54,7 @@ namespace OnlineClearanceSystem.Data
                             You can now log in to the CTUG Online Clearance System as <strong>{role}</strong>.
                         </p>
                         <div style='margin:24px 0;text-align:center;'>
-                            <a href='http://localhost:5000/Account/Login'
+                            <a href='{LoginUrl}'
                                style='background:#1a4731;color:white;padding:12px 32px;border-radius:8px;
                                       text-decoration:none;font-weight:700;font-size:14px;'>
                                 Log In Now

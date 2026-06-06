@@ -27,13 +27,21 @@ namespace OnlineClearanceSystem.Models
         public string PersonName      { get; set; } = "";
         public string Status          { get; set; } = "";
         public bool   IsSelfSignatory { get; set; } = false;
+        public DateTime? RequestedAt { get; set; }
+        public DateTime? SignedAt    { get; set; }
     }
 
     public class StudentClearanceViewModel
     {
-        public List<StudentClearanceItem>  SubjectItems { get; set; } = new();
-        public OrganizationSignatory?      ClassAdviser { get; set; }
-        public List<OrganizationSignatory> OrgItems     { get; set; } = new();
+        public List<StudentClearanceItem>  SubjectItems     { get; set; } = new();
+        public OrganizationSignatory?      ClassAdviser     { get; set; }
+        public List<OrganizationSignatory> OrgItems         { get; set; } = new();
+
+        // Approval Requests (only populated when this student holds an org position)
+        public List<string>                MyPositions      { get; set; } = new();
+        public List<StudentOrgOfficerItem> PendingToApprove { get; set; } = new();
+        public List<StudentOrgOfficerItem> ApprovedHistory  { get; set; } = new();
+        public int                         ActivePeriodId   { get; set; } = 0;
     }
 
     public class RequestOrgDto

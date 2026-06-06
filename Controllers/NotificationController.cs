@@ -17,6 +17,30 @@ namespace OnlineClearanceSystem.Controllers
             _config = config;
         }
 
+        // POST /api/notification/mark-read
+        [HttpPost("mark-read")]
+        [Microsoft.AspNetCore.Mvc.IgnoreAntiforgeryToken]
+        public IActionResult MarkRead()
+        {
+            var userId = int.Parse(
+                User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            try
+            {
+                using var conn = DbHelper.GetConnection(_config);
+                conn.Open();
+                new MySqlCommand(@"
+                    CREATE TABLE IF NOT EXISTS user_notification_reads (
+                        user_id INT PRIMARY KEY,
+                        read_at DATETIME NOT NULL
+                    );
+                    INSERT INTO user_notification_reads (user_id, read_at) VALUES (@uid, NOW())
+                    ON DUPLICATE KEY UPDATE read_at = NOW()", conn)
+                    .Also(c => { c.Parameters.AddWithValue("@uid", userId); c.ExecuteNonQuery(); });
+            }
+            catch { }
+            return Json(new { success = true });
+        }
+
         // GET /api/notification/list
         [HttpGet("list")]
         public IActionResult List()
@@ -26,11 +50,28 @@ namespace OnlineClearanceSystem.Controllers
             var role = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
 
             var notifications = new List<object>();
+            int newCount = 0;
 
             try
             {
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
+
+                // Get when this user last read notifications
+                DateTime? lastRead = null;
+                var lrCmd = new MySqlCommand(
+                    "SELECT read_at FROM user_notification_reads WHERE user_id = @uid LIMIT 1", conn);
+                lrCmd.Parameters.AddWithValue("@uid", userId);
+                var lrResult = lrCmd.ExecuteScalar();
+                if (lrResult != null && lrResult != DBNull.Value)
+                    lastRead = Convert.ToDateTime(lrResult);
+
+                // Count announcements newer than last read
+                var ncCmd = new MySqlCommand(lastRead.HasValue
+                    ? "SELECT COUNT(*) FROM announcements WHERE posted_at > @lr"
+                    : "SELECT COUNT(*) FROM announcements", conn);
+                if (lastRead.HasValue) ncCmd.Parameters.AddWithValue("@lr", lastRead.Value);
+                newCount = Convert.ToInt32(ncCmd.ExecuteScalar() ?? 0);
 
                 // Recent announcements (all roles)
                 var annCmd = new MySqlCommand(@"
@@ -126,7 +167,7 @@ namespace OnlineClearanceSystem.Controllers
 
             return Json(new
             {
-                count = notifications.Count,
+                newCount,
                 items = notifications.Take(10)
             });
         }

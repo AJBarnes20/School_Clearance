@@ -9,7 +9,8 @@ namespace OnlineClearanceSystem.Models
         public int    SubjectAssigned { get; set; }
         public int    TotalStudents   { get; set; }
         public int    ClearedStudents { get; set; }
-        public int    PendingStudents { get; set; }
+        public int    PendingSubjects { get; set; }
+        public int    PendingOrg      { get; set; }
         public List<AnnouncementItem> Announcements { get; set; } = new();
     }
 
@@ -23,6 +24,8 @@ namespace OnlineClearanceSystem.Models
         public string StudentCourse { get; set; } = "";
         public string StudentNumber { get; set; } = "";
         public string Status        { get; set; } = "Pending";
+        public DateTime? RequestedAt   { get; set; }   // ← NEW
+        public DateTime? SignedAt      { get; set; }   // ← NEW
     }
 
     public class OrganizationRequest
@@ -33,6 +36,8 @@ namespace OnlineClearanceSystem.Models
         public string StudentNumber { get; set; } = "";
         public string Course        { get; set; } = "";
         public string Status        { get; set; } = "";
+        public DateTime? RequestedAt { get; set; }
+        public DateTime? SignedAt    { get; set; }
     }
 
     public class InstructorSendMessageDto
@@ -51,6 +56,8 @@ namespace OnlineClearanceSystem.Models
         public string StudentName   { get; set; } = "";
         public string StudentCourse { get; set; } = "";
         public string Status        { get; set; } = "";
+        public DateTime? RequestedAt   { get; set; }   // ← NEW 
+        public DateTime? SignedAt      { get; set; }   // ← NEW
     }
 
     public class InstructorProfileViewModel : ProfileViewModelBase

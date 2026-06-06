@@ -1,6 +1,3 @@
-@* ═══════════════════════════════════════════════════════════════════════════
-   Views/Student/Clearance.cshtml  — Unified Subject + Organization Clearance
-   ═══════════════════════════════════════════════════════════════════════════ *@
 @model OnlineClearanceSystem.Models.StudentClearanceViewModel
 @using OnlineClearanceSystem.Models
 @{
@@ -10,7 +7,34 @@
 
     bool hasSubjects = Model?.SubjectItems != null && Model.SubjectItems.Any();
     var availableSubjects = ViewBag.AvailableSubjects as IEnumerable<SubjectItem> ?? Enumerable.Empty<SubjectItem>();
-    var  adviser     = Model?.ClassAdviser;
+    var adviser     = Model?.ClassAdviser;
+
+    // Periods passed from server — no AJAX needed
+    var periodsJson = ViewBag.Periods as string ?? "[]";
+
+    // ── Build one unified, sorted list for the Departmental table ─────────
+    var posRank = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+    {
+        { "Computer Laboratory In-Charge", 1 },
+        { "SSG Treasurer",                 2 },
+        { "Organization Adviser",          3 },
+        { "Class Adviser",                 4 },
+        { "Department Chairperson",        5 },
+    };
+    const int defaultRank = 99;
+
+    var allSignatories = new List<OrganizationSignatory>(Model?.OrgItems ?? new List<OrganizationSignatory>());
+
+    if (adviser != null &&
+        !allSignatories.Any(x => x.OrgName.Equals("Class Adviser", StringComparison.OrdinalIgnoreCase)))
+    {
+        allSignatories.Add(adviser);
+    }
+
+    allSignatories = allSignatories
+        .OrderBy(x => posRank.TryGetValue(x.OrgName, out var r) ? r : defaultRank)
+        .ThenBy(x => x.OrgName, StringComparer.OrdinalIgnoreCase)
+        .ToList();
 }
 
 @Html.AntiForgeryToken()
@@ -42,32 +66,52 @@
             <div class="period-btn-text">
                 <div class="period-btn-label">Academic Period</div>
                 <div class="period-btn-value" id="period-btn-value">
-                    @(ViewData["ActivePeriod"]?.ToString() ?? "Loading...")
+                    @(ViewData["ActivePeriod"]?.ToString() ?? "Select Period")
                 </div>
             </div>
             <i class="fas fa-chevron-down period-chevron"></i>
         </button>
 
         <div class="period-dd" id="period-dd">
-            <div class="pd-loading" id="pd-loading">
-                <i class="fas fa-spinner fa-spin me-2"></i>Loading periods...
-            </div>
+            <!-- Populated by buildPeriodDropdown() -->
         </div>
     </div>
 </div>
+
+@{ bool hasApproval = Model?.MyPositions != null && Model.MyPositions.Any(); }
+@if (hasApproval)
+{
+<div class="clearance-tab-bar mb-3">
+    <button class="ctab ctab-clearance active" id="tab-clearance" onclick="switchTab('clearance')">
+        <i class="fas fa-clipboard-list"></i>My Clearance
+    </button>
+    <button class="ctab ctab-approval" id="tab-approval" onclick="switchTab('approval')">
+        <i class="fas fa-file-signature"></i>Approval Requests
+        @if (Model!.PendingToApprove.Any())
+        {
+            <span class="ctab-badge">@Model.PendingToApprove.Count</span>
+        }
+    </button>
+</div>
+}
+
+<div id="panel-clearance">
 
 @* ══════════════════════════════════════════════════════════════════════════
    SECTION 1 — SUBJECT CLEARANCE
    ══════════════════════════════════════════════════════════════════════════ *@
 
-<!-- ADD SUBJECT PANEL (step 1: search & select) -->
-<div id="add-subject-panel" style="display:none;" class="page-card mb-3">
-    <div class="page-card-hd dark" style="justify-content:space-between;display:flex;align-items:center;">
-        <span><i class="fas fa-plus-circle me-2"></i>Add Subjects</span>
-        <button onclick="closeAddPanel()" style="background:rgba(255,255,255,0.15);border:none;color:white;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;"><i class="fas fa-times me-1"></i>Close</button>
+<div class="page-card mb-4">
+    <div class="page-card-hd dark" style="display:flex;align-items:center;justify-content:space-between;">
+        <span><i class="fas fa-clipboard-list me-2"></i>Subjects Clearance</span>
+        <button onclick="toggleAddPanel()" id="add-subj-btn" style="background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;border-radius:7px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">
+            <i class="fas fa-plus me-1"></i>Add Subject
+        </button>
     </div>
-    <div id="add-step-select">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+
+    <!-- INLINE ADD SUBJECT -->
+    <div id="add-subject-panel" style="display:none;border-bottom:1px solid var(--border,#e2e8f0);background:#fafbfc;">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border,#e2e8f0);display:flex;align-items:center;gap:10px;">
             <div class="search-wrap" style="position:relative;flex:1;max-width:500px;">
                 <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;"></i>
                 <input type="text" id="subject-search"
@@ -79,18 +123,21 @@
             <span id="sel-count-badge" style="font-size:12px;color:#2d6a4f;font-weight:700;white-space:nowrap;display:none;">
                 <i class="fas fa-check-circle me-1"></i><span id="sel-count-num">0</span> selected
             </span>
+            <button onclick="closeAddPanel()" style="background:#eef0f3;border:1px solid #dee2e6;color:#555;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">
+                <i class="fas fa-times me-1"></i>Close
+            </button>
         </div>
         <div id="selected-area">
-            <div id="empty-state" style="display:flex;flex-direction:column;align-items:center;padding:36px 24px;gap:10px;text-align:center;">
-                <div style="width:60px;height:60px;border-radius:50%;background:#f0fdf4;border:2px solid #bbf7d0;display:flex;align-items:center;justify-content:center;font-size:24px;color:#16a34a;">
+            <div id="empty-state" style="display:flex;flex-direction:column;align-items:center;padding:28px 24px;gap:8px;text-align:center;">
+                <div style="width:52px;height:52px;border-radius:50%;background:#f0fdf4;border:2px solid #bbf7d0;display:flex;align-items:center;justify-content:center;font-size:22px;color:#16a34a;">
                     <i class="fas fa-book-open"></i>
                 </div>
-                <div style="font-size:14px;font-weight:700;color:#1a1a2e;">No subjects added yet</div>
+                <div style="font-size:13px;font-weight:700;color:#1a1a2e;">No subjects selected yet</div>
                 <div style="font-size:12px;color:#888;">Use the search box above to find and add your enrolled subjects.</div>
             </div>
             <div id="selected-list" style="display:flex;flex-direction:column;gap:0;"></div>
         </div>
-        <div style="padding:12px 16px;border-top:1px solid var(--border);text-align:right;">
+        <div style="padding:12px 16px;border-top:1px solid var(--border,#e2e8f0);text-align:right;">
             <form asp-action="ConfirmSubjects" asp-controller="Student" method="post" id="confirm-form" style="display:inline;">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="selectedSubjects" id="selected-hidden" />
@@ -99,24 +146,18 @@
             </form>
         </div>
     </div>
-</div>
 
-<div class="page-card mb-4">
-    <div class="page-card-hd dark" style="display:flex;align-items:center;justify-content:space-between;">
-        <span><i class="fas fa-clipboard-list me-2"></i>Subjects Clearance</span>
-        <button onclick="toggleAddPanel()" id="add-subj-btn" style="background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;border-radius:7px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">
-            <i class="fas fa-plus me-1"></i>Add Subject
-        </button>
-    </div>
     <div class="table-responsive">
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Code</th>
-                    <th>Subject</th>
+                    <th>MIS Code</th>
+                    <th>Subject Code</th>
                     <th>Description</th>
                     <th>Instructor</th>
                     <th style="text-align:center;">Status</th>
+                    <th style="text-align:center;">Requested</th>
+                    <th style="text-align:center;">Cleared</th>
                     <th style="text-align:center;">Action</th>
                 </tr>
             </thead>
@@ -145,20 +186,55 @@
                                 }
                             </td>
                             <td style="text-align:center;">
+                                @if (item.RequestedAt.HasValue)
+                                {
+                                    <span class="date-stamp">
+                                        <i class="fas fa-paper-plane date-icon"></i>
+                                        @item.RequestedAt.Value.ToString("MMM d, yyyy")
+                                        <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="date-none">—</span>
+                                }
+                            </td>
+                            <td style="text-align:center;">
+                                @if (item.SignedAt.HasValue)
+                                {
+                                    <span class="date-stamp date-stamp-signed">
+                                        <i class="fas fa-check-circle date-icon"></i>
+                                        @item.SignedAt.Value.ToString("MMM d, yyyy")
+                                        <span class="date-time">@item.SignedAt.Value.ToString("h:mm tt")</span>
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="date-none">—</span>
+                                }
+                            </td>
+                            <td style="text-align:center;">
                                 <div class="chat-btn-wrap" data-key="@item.MisCode" data-type="subject">
                                     <button class="chat-icon-btn"
                                             onclick="openChat('@item.MisCode', '@Html.Raw(item.InstructorName)', 'subject', '@item.SubjectCode')"
-                                            title="Message @item.InstructorName">
+                                            title="@(item.Status == "Cleared" ? "Clearance already approved" : "Message " + item.InstructorName)"
+                                            @(item.Status == "Cleared" ? "disabled" : "")>
                                         <i class="fas fa-comment-dots"></i>
                                     </button>
                                     <span class="unread-dot" style="display:none;"></span>
                                 </div>
-                                @if (item.Status == "Pending")
+                                <button class="delete-icon-btn"
+                                        onclick="deleteClearance('subject', '@item.MisCode')"
+                                        title="Delete clearance request"
+                                        @(item.Status != "Pending" ? "disabled" : "")>
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                                @if (item.Status == "Declined")
                                 {
-                                    <button class="delete-icon-btn"
-                                            onclick="deleteClearance('subject', '@item.MisCode')"
-                                            title="Delete clearance request">
-                                        <i class="fas fa-trash-alt"></i>
+                                    <button class="request-btn"
+                                            onclick="reRequestSubject('@item.MisCode')"
+                                            title="Re-request clearance">
+                                        <i class="fas fa-redo me-1"></i>Re-request
                                     </button>
                                 }
                             </td>
@@ -168,7 +244,7 @@
                 else
                 {
                     <tr>
-                        <td colspan="6">
+                        <td colspan="8">
                             <div class="empty-state">
                                 <div class="empty-icon">
                                     <i class="fas fa-clipboard-list"></i>
@@ -178,10 +254,6 @@
                                     You haven't confirmed your subjects yet.<br />
                                     Click <strong>Add Subject</strong> above to select and confirm your enrolled subjects.
                                 </div>
-                                <button onclick="toggleAddPanel()" class="btn-green"
-                                        style="display:inline-flex;align-items:center;gap:8px;padding:10px 28px;margin-top:4px;border:none;cursor:pointer;">
-                                    <i class="fas fa-plus"></i>Add Subject
-                                </button>
                             </div>
                         </td>
                     </tr>
@@ -192,12 +264,15 @@
 </div>
 
 @* ══════════════════════════════════════════════════════════════════════════
-   SECTION 3 — ORGANIZATION CLEARANCE
+   SECTION 2 — DEPARTMENTAL CLEARANCE
+   Canonical order: Computer Laboratory In-Charge (1) → SSG Treasurer (2) →
+                    Organization Adviser (3) → Class Adviser (4) →
+                    Department Chairperson (5)
    ══════════════════════════════════════════════════════════════════════════ *@
 
 <div class="page-card mb-4">
     <div class="page-card-hd dark">
-        <i class="fas fa-sitemap me-2"></i>Organization Clearance
+        <i class="fas fa-sitemap me-2"></i>Departmental Clearance
     </div>
     <div class="table-responsive">
         <table class="data-table">
@@ -206,73 +281,27 @@
                     <th>Position</th>
                     <th>Signatory</th>
                     <th style="text-align:center;">Status</th>
+                    <th style="text-align:center;">Requested</th>
+                    <th style="text-align:center;">Cleared</th>
                     <th style="text-align:center;">Action</th>
                 </tr>
             </thead>
             <tbody>
-                @{
-                    bool hasOrgRows = (adviser != null) || (Model?.OrgItems != null && Model.OrgItems.Any());
-                }
-                @if (hasOrgRows)
+                @if (allSignatories.Any())
                 {
-                    @* Class Adviser row (only if assigned to the student's course/year/section) *@
-                    @if (adviser != null)
+                    foreach (var item in allSignatories)
                     {
+                        bool isAdviser = item.OrgName.Equals("Class Adviser", StringComparison.OrdinalIgnoreCase);
                         <tr>
                             <td style="font-weight:600;">
-                                Class Adviser
-                                <div style="font-size:11px;color:#888;font-weight:400;">@adviser.OrgRole</div>
-                            </td>
-                            <td>@adviser.PersonName</td>
-                            <td style="text-align:center;">
-                                @switch (adviser.Status)
+                                @item.OrgName
+                                @* Sub-label (course / year / section) only for Class Adviser *@
+                                @if (isAdviser && !string.IsNullOrEmpty(item.OrgRole) &&
+                                     !item.OrgRole.Equals("Class Adviser", StringComparison.OrdinalIgnoreCase))
                                 {
-                                    case "Cleared":
-                                        <span class="status-approved">Cleared</span>
-                                        break;
-                                    case "Declined":
-                                        <span class="status-declined">Declined</span>
-                                        break;
-                                    case "Pending":
-                                        <span class="status-pending">Pending</span>
-                                        break;
-                                    default:
-                                        <span style="color:#aaa;font-size:12px;">—</span>
-                                        break;
+                                    <div style="font-size:11px;color:#888;font-weight:400;">@item.OrgRole</div>
                                 }
                             </td>
-                            <td style="text-align:center;">
-                                @if (string.IsNullOrEmpty(adviser.Status))
-                                {
-                                    <button class="request-btn" onclick="requestOrg('@Html.Raw(adviser.OrgName)')">
-                                        <i class="fas fa-paper-plane"></i> Request
-                                    </button>
-                                }
-                                <div class="chat-btn-wrap" data-key="@adviser.OrgName" data-type="org">
-                                    <button class="chat-icon-btn"
-                                            onclick="openChat('@adviser.OrgName', '@Html.Raw(adviser.PersonName)', 'org', 'Class Adviser')"
-                                            title="Message @adviser.PersonName">
-                                        <i class="fas fa-comment-dots"></i>
-                                    </button>
-                                    <span class="unread-dot" style="display:none;"></span>
-                                </div>
-                                @if (adviser.Status == "Pending")
-                                {
-                                    <button class="delete-icon-btn" onclick="deleteClearance('org', '@adviser.OrgName')" title="Delete">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                }
-                            </td>
-                        </tr>
-                    }
-
-                    @* Other org position rows *@
-                    @if (Model?.OrgItems != null)
-                    {
-                    foreach (var item in Model.OrgItems)
-                    {
-                        <tr>
-                            <td style="font-weight:600;">@item.OrgRole</td>
                             <td>@item.PersonName</td>
                             <td style="text-align:center;">
                                 @switch (item.Status)
@@ -292,6 +321,35 @@
                                 }
                             </td>
                             <td style="text-align:center;">
+                                @if (item.RequestedAt.HasValue)
+                                {
+                                    <span class="date-stamp">
+                                        <i class="fas fa-paper-plane date-icon"></i>
+                                        @item.RequestedAt.Value.ToString("MMM d, yyyy")
+                                        <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="date-none">—</span>
+                                }
+                            </td>
+                            <td style="text-align:center;">
+                                @if (item.SignedAt.HasValue)
+                                {
+                                    <span class="date-stamp date-stamp-signed">
+                                        <i class="fas fa-check-circle date-icon"></i>
+                                        @item.SignedAt.Value.ToString("MMM d, yyyy")
+                                        <span class="date-time">@item.SignedAt.Value.ToString("h:mm tt")</span>
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="date-none">—</span>
+                                }
+                            </td>
+                            <td style="text-align:center;">
+                                @* ── Request / Re-request ── *@
                                 @if (string.IsNullOrEmpty(item.Status))
                                 {
                                     <button class="request-btn"
@@ -299,34 +357,44 @@
                                         <i class="fas fa-paper-plane"></i> Request
                                     </button>
                                 }
+                                @if (item.Status == "Declined")
+                                {
+                                    <button class="request-btn"
+                                            onclick="requestOrg('@Html.Raw(item.OrgName)')"
+                                            title="Re-request clearance">
+                                        <i class="fas fa-redo me-1"></i>Re-request
+                                    </button>
+                                }
+
+                                @* ── Chat ── *@
                                 <div class="chat-btn-wrap" data-key="@item.OrgName" data-type="org">
                                     <button class="chat-icon-btn"
-                                            onclick="openChat('@item.OrgName', '@Html.Raw(item.PersonName)', 'org', '@item.OrgRole')"
-                                            title="Message @item.PersonName">
+                                            onclick="openChat('@item.OrgName', '@Html.Raw(item.PersonName)', 'org', '@Html.Raw(item.OrgName)')"
+                                            title="@(item.Status == "Cleared" ? "Clearance already approved" : "Message " + item.PersonName)"
+                                            @(item.Status == "Cleared" ? "disabled" : "")>
                                         <i class="fas fa-comment-dots"></i>
                                     </button>
                                     <span class="unread-dot" style="display:none;"></span>
                                 </div>
-                                @if (item.Status == "Pending")
-                                {
-                                    <button class="delete-icon-btn"
-                                            onclick="deleteClearance('org', '@item.OrgName')"
-                                            title="Delete clearance request">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                }
+
+                                @* ── Delete ── *@
+                                <button class="delete-icon-btn"
+                                        onclick="deleteClearance('@(isAdviser ? "adviser" : "org")', '@Html.Raw(item.OrgName)')"
+                                        title="Delete clearance request"
+                                        @(item.Status != "Pending" ? "disabled" : "")>
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
                             </td>
                         </tr>
-                    }
                     }
                 }
                 else
                 {
                     <tr>
-                        <td colspan="4" style="padding:40px;text-align:center;color:#888;">
+                        <td colspan="6" style="padding:40px;text-align:center;color:#888;">
                             <i class="fas fa-sitemap"
                                style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
-                            No organization signatories assigned to your curriculum yet.
+                            No department signatories assigned to your curriculum yet.
                         </td>
                     </tr>
                 }
@@ -334,6 +402,222 @@
         </table>
     </div>
 </div>
+
+</div>@* end #panel-clearance *@
+
+@* ── APPROVAL REQUESTS SECTION (only for student org officers) ── *@
+@if (hasApproval)
+{
+<div id="panel-approval" style="display:none;">
+
+    <div class="page-card mb-4">
+        <div class="page-card-hd dark">
+            <i class="fas fa-user-tag me-2"></i>Your Assigned Position(s)
+        </div>
+        <div style="padding:14px 20px;display:flex;flex-wrap:wrap;gap:8px;">
+            @foreach (var pos in Model!.MyPositions)
+            {
+                <span style="background:#e8f5e9;color:#1a4731;border:1.5px solid #a5d6a7;border-radius:20px;
+                             padding:6px 16px;font-size:12px;font-weight:700;">
+                    <i class="fas fa-check-circle me-1" style="color:#28a745;"></i>@pos
+                </span>
+            }
+        </div>
+    </div>
+
+    <div class="row g-3">
+
+        <!-- PENDING REQUESTS -->
+        <div class="col-md-6">
+        <div class="page-card h-100">
+            <div class="page-card-hd dark">
+                <i class="fas fa-clock me-2"></i>Pending Requests
+                @if (Model.PendingToApprove.Any())
+                {
+                    <span class="badge bg-warning text-dark ms-2" style="font-size:12px;">@Model.PendingToApprove.Count pending</span>
+                }
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width:36px;text-align:center;">No.</th>
+                            <th>Student</th>
+                            <th>Course</th>
+                            <th style="text-align:center;">Requested</th>
+                            <th style="text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.PendingToApprove.Any())
+                        {
+                            int ai = 1;
+                            foreach (var item in Model.PendingToApprove)
+                            {
+                                <tr>
+                                    <td style="text-align:center;color:#888;font-size:13px;">@ai</td>
+                                    <td>
+                                        <div style="font-weight:600;font-size:13px;">@item.StudentName</div>
+                                        <div style="font-size:11px;color:#888;">@item.StudentNumber</div>
+                                        @if (Model.MyPositions.Count >= 2)
+                                        {
+                                            <span style="background:#e8f5e9;color:#1a4731;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;">@item.Position</span>
+                                        }
+                                    </td>
+                                    <td style="font-size:13px;color:#555;">@item.Course</td>
+                                    <td style="text-align:center;">
+                                        @if (item.RequestedAt.HasValue)
+                                        {
+                                            <span class="date-stamp">
+                                                <i class="fas fa-paper-plane date-icon"></i>
+                                                @item.RequestedAt.Value.ToString("MMM d, yyyy")
+                                                <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="date-none">—</span>
+                                        }
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <div class="d-flex gap-2 justify-content-center align-items-center flex-wrap">
+                                            <form asp-action="ApproveOrgRequest" asp-controller="Student" method="post" style="display:inline;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id"       value="@item.Id" />
+                                                <input type="hidden" name="periodId" value="@(Model.ActivePeriodId)" />
+                                                <button type="submit" class="btn-approve"
+                                                        onclick="return confirm('Approve clearance for @Html.Raw(item.StudentName)?')">
+                                                    <i class="fas fa-check me-1"></i>Approve
+                                                </button>
+                                            </form>
+                                            <form asp-action="DeclineOrgRequest" asp-controller="Student" method="post" style="display:inline;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id"       value="@item.Id" />
+                                                <input type="hidden" name="periodId" value="@(Model.ActivePeriodId)" />
+                                                <button type="submit" class="btn-decline"
+                                                        onclick="return confirm('Decline clearance for @Html.Raw(item.StudentName)?')">
+                                                    <i class="fas fa-times me-1"></i>Decline
+                                                </button>
+                                            </form>
+                                            <div class="chat-btn-wrap" data-sn="@item.StudentNumber" data-key="@item.Position" data-type="org">
+                                                <button class="chat-icon-btn"
+                                                        onclick="openSignedChat('@Html.Raw(item.StudentNumber)','@Html.Raw(item.StudentName)','@Html.Raw(item.Position)')"
+                                                        title="Chat with @item.StudentName">
+                                                    <i class="fas fa-comment-dots"></i>
+                                                </button>
+                                                <span class="unread-dot" style="display:none;position:absolute;top:-3px;right:-3px;width:10px;height:10px;background:#dc3545;border-radius:50%;border:1.5px solid white;"></span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                ai++;
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="5" style="padding:40px;text-align:center;color:#888;">
+                                    <i class="fas fa-clock" style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
+                                    No pending clearance requests for this period.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+
+        <!-- APPROVAL HISTORY -->
+        <div class="col-md-6">
+        <div class="page-card h-100">
+            <div class="page-card-hd dark">
+                <i class="fas fa-history me-2"></i>Approval History
+                @if (Model.ApprovedHistory.Any())
+                {
+                    <span class="badge bg-secondary ms-2" style="font-size:12px;">@Model.ApprovedHistory.Count record(s)</span>
+                }
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width:36px;text-align:center;">No.</th>
+                            <th>Student</th>
+                            <th>Course</th>
+                            <th style="text-align:center;">Status</th>
+                            <th style="text-align:center;">Cleared</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.ApprovedHistory.Any())
+                        {
+                            int aj = 1;
+                            foreach (var item in Model.ApprovedHistory)
+                            {
+                                bool isCleared = item.Status == "Cleared";
+                                <tr>
+                                    <td style="text-align:center;color:#888;font-size:13px;">@aj</td>
+                                    <td>
+                                        <div style="font-weight:600;font-size:13px;">@item.StudentName</div>
+                                        <div style="font-size:11px;color:#888;">@item.StudentNumber</div>
+                                        @if (Model.MyPositions.Count >= 2)
+                                        {
+                                            <span style="background:#e8f5e9;color:#1a4731;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;">@item.Position</span>
+                                        }
+                                    </td>
+                                    <td style="font-size:13px;color:#555;">@item.Course</td>
+                                    <td style="text-align:center;">
+                                        @if (isCleared)
+                                        {
+                                            <span class="status-approved">Cleared</span>
+                                        }
+                                        else if (item.Status == "Declined")
+                                        {
+                                            <span class="status-declined">Declined</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="status-none">—</span>
+                                        }
+                                    </td>
+                                    <td style="text-align:center;">
+                                        @if (item.SignedAt.HasValue)
+                                        {
+                                            <span class="date-stamp @(isCleared ? "date-stamp-signed" : "date-stamp-declined")">
+                                                <i class="fas @(isCleared ? "fa-check-circle" : "fa-times-circle") date-icon"></i>
+                                                @item.SignedAt.Value.ToString("MMM d, yyyy")
+                                                <span class="date-time">@item.SignedAt.Value.ToString("h:mm tt")</span>
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="date-none">—</span>
+                                        }
+                                    </td>
+                                </tr>
+                                aj++;
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="7" style="padding:40px;text-align:center;color:#888;">
+                                    <i class="fas fa-history" style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
+                                    No approval history for this period yet.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+
+    </div>
+
+</div>@* end #panel-approval *@
+}
 
 @* ══════════════════════════════════════════════════════════════════════════
    CHAT MODAL
@@ -346,7 +630,6 @@
      box-shadow:0 -4px 40px rgba(0,0,0,0.18);z-index:1050;
      display:none;flex-direction:column;overflow:hidden;">
 
-    <!-- MODAL HEADER -->
     <div id="chat-header" style="background:var(--green,#1a4731);padding:14px 16px;
          display:flex;align-items:center;gap:10px;flex-shrink:0;">
         <div id="chat-avatar" style="width:38px;height:38px;border-radius:50%;
@@ -364,13 +647,10 @@
         </button>
     </div>
 
-    <!-- MESSAGES AREA -->
     <div id="chat-messages" style="flex:1;overflow-y:auto;padding:16px;
          display:flex;flex-direction:column;gap:10px;background:#f7f8fa;">
-        <!-- messages injected here -->
     </div>
 
-    <!-- INPUT AREA -->
     <div style="padding:12px 14px;border-top:1px solid #e2e8f0;background:white;
          display:flex;align-items:center;gap:8px;flex-shrink:0;">
         <input id="chat-input" type="text" placeholder="Type a message…"
@@ -388,8 +668,70 @@
     </div>
 </div>
 
+@* ── SC-CHAT (officer ↔ student) ── *@
+<div id="sc-chat-overlay" onclick="closeSignedChat()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1040;"></div>
+<div id="sc-chat-modal" style="display:none;position:fixed;bottom:0;right:24px;width:360px;height:520px;
+     background:white;border-radius:16px 16px 0 0;box-shadow:0 -4px 40px rgba(0,0,0,0.18);
+     z-index:1050;flex-direction:column;overflow:hidden;">
+    <div style="background:#1a4731;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <div id="sc-chat-avatar" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.2);
+             display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:white;flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+            <div id="sc-chat-name" style="font-size:13px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+            <div id="sc-chat-sub"  style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:1px;"></div>
+        </div>
+        <button onclick="closeSignedChat()" style="background:none;border:none;color:rgba(255,255,255,0.7);font-size:16px;cursor:pointer;padding:4px;line-height:1;">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div id="sc-chat-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f7f8fa;"></div>
+    <div style="padding:12px 14px;border-top:1px solid #e2e8f0;background:white;display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <input id="sc-chat-input" type="text" placeholder="Type a message…"
+               style="flex:1;border:1px solid #d1d5db;border-radius:22px;padding:9px 14px;font-size:13px;
+                      outline:none;font-family:inherit;background:#f7f8fa;"
+               onkeydown="if(event.key==='Enter')sendSignedChat()" />
+        <button onclick="sendSignedChat()" style="width:38px;height:38px;border-radius:50%;border:none;
+                background:#1a4731;color:white;font-size:14px;cursor:pointer;
+                display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fas fa-paper-plane"></i>
+        </button>
+    </div>
+</div>
+
 @section Styles {
 <style>
+    /* ── DATE STAMP ── */
+    .date-stamp {
+        display:inline-flex;flex-direction:column;align-items:center;gap:1px;
+        font-size:11px;font-weight:600;color:#555;line-height:1.3;
+    }
+    .date-stamp-signed  { color:#2e7d32; }
+    .date-stamp-declined { color:#c62828; }
+    .date-icon { font-size:10px;margin-bottom:1px;color:inherit;opacity:0.7; }
+    .date-time { font-size:10px;font-weight:400;color:#888; }
+    .date-stamp-signed .date-time  { color:#66bb6a; }
+    .date-stamp-declined .date-time { color:#e57373; }
+    .date-none { color:#ccc;font-size:13px; }
+
+    /* ── CLEARANCE TABS ── */
+    .clearance-tab-bar { display:flex;gap:8px;flex-wrap:wrap; }
+    .ctab {
+        display:inline-flex;align-items:center;gap:7px;
+        border-radius:20px;padding:6px 18px;font-size:12px;font-weight:700;
+        border:2px solid transparent;background:#fff;color:#111;
+        cursor:pointer;font-family:inherit;letter-spacing:0.4px;
+        transition:background 0.18s,color 0.18s;
+    }
+    .ctab.ctab-clearance        { border-color:#1a4731; }
+    .ctab.ctab-clearance.active { background:#1a4731;color:#fff; }
+    .ctab.ctab-approval         { border-color:#1a4731; }
+    .ctab.ctab-approval.active  { background:#1a4731;color:#fff; }
+    .ctab-badge {
+        background:#dc3545;color:white;border-radius:20px;
+        padding:1px 8px;font-size:10px;font-weight:800;min-width:20px;text-align:center;
+    }
+    .ctab.ctab-approval.active .ctab-badge { background:rgba(255,255,255,0.35);color:#fff; }
+
     /* ── PERIOD SELECTOR ── */
     .period-selector-wrap { position:relative;display:inline-block; }
     .period-btn {
@@ -421,10 +763,6 @@
         max-height:320px;overflow-y:auto;
     }
     .period-selector-wrap.open .period-dd { display:flex; }
-    .pd-section-label {
-        font-size:10px;font-weight:700;text-transform:uppercase;
-        letter-spacing:0.9px;color:var(--muted,#888);padding:6px 10px 4px;
-    }
     .pd-opt {
         display:flex;align-items:center;justify-content:space-between;
         padding:9px 12px;border-radius:8px;font-size:13px;font-weight:600;
@@ -433,12 +771,8 @@
     .pd-opt:hover    { background:rgba(0,0,0,0.04); }
     .pd-opt.selected { background:rgba(26,71,49,0.1);color:#1a4731; }
     .pd-opt.selected .pd-check { display:block; }
-    .pd-check     { display:none;font-size:11px;color:#1a4731;flex-shrink:0; }
-    .pd-opt-status { font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0; }
-    .pd-opt-status.active    { background:rgba(72,187,120,0.15);color:#38a169; }
-    .pd-opt-status.completed { background:rgba(160,174,192,0.15);color:#718096; }
-    .pd-loading,.pd-empty    { padding:20px;text-align:center;font-size:12px;color:var(--muted,#888); }
-    .pd-divider { border:none;border-top:1px solid var(--border,#e2e8f0);margin:4px 0; }
+    .pd-check { display:none;font-size:11px;color:#1a4731;flex-shrink:0; }
+    .pd-empty { padding:20px;text-align:center;font-size:12px;color:var(--muted,#888); }
 
     /* ── Empty state ── */
     .empty-state {
@@ -454,19 +788,6 @@
     .empty-title { font-size:16px;font-weight:700;color:#1a1a2e; }
     .empty-desc  { font-size:13px;color:#888;line-height:1.7;max-width:340px; }
 
-    /* ── Class Adviser card ── */
-    .adviser-card-body {
-        padding:20px 24px;display:flex;
-        align-items:center;gap:24px;flex-wrap:wrap;
-    }
-    .adviser-label { font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px; }
-    .adviser-value    { font-weight:700;font-size:15px;color:#1a1a2e; }
-    .adviser-divider  { width:1px;height:36px;background:#e0e0e0;flex-shrink:0; }
-    .adviser-actions  { margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap; }
-    .adviser-no-status    { color:#aaa;font-size:12px; }
-    .adviser-cleared-label { color:#2e7d32;font-size:12px;font-weight:600; }
-    .adviser-pending-label { color:#e6a817;font-size:12px;font-weight:600; }
-
     /* ── Status badges ── */
     .status-pending  { background:#fff8e1;color:#e6a817;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700; }
     .status-approved { background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700; }
@@ -474,7 +795,7 @@
     .status-none     { color:#aaa;font-size:12px; }
 
     /* ── Chat icon button ── */
-    .chat-btn-wrap { position:relative; display:inline-flex; }
+    .chat-btn-wrap { position:relative;display:inline-flex; }
     .unread-dot { position:absolute;top:-3px;right:-3px;width:10px;height:10px;background:#dc3545;border-radius:50%;border:1.5px solid white; }
     .chat-icon-btn {
         width:34px;height:34px;border-radius:50%;border:none;
@@ -482,7 +803,11 @@
         cursor:pointer;display:inline-flex;align-items:center;
         justify-content:center;transition:background 0.2s,transform 0.15s;
     }
-    .chat-icon-btn:hover { background:#c8e6c9;transform:scale(1.1); }
+    .chat-icon-btn:hover:not(:disabled) { background:#c8e6c9;transform:scale(1.1); }
+    .chat-icon-btn:disabled {
+        opacity:0.35;cursor:not-allowed;pointer-events:none;
+        background:#f0f0f0;color:#aaa;
+    }
 
     /* ── Delete icon button ── */
     .delete-icon-btn {
@@ -491,7 +816,8 @@
         cursor:pointer;display:inline-flex;align-items:center;
         justify-content:center;transition:background 0.2s,transform 0.15s;
     }
-    .delete-icon-btn:hover { background:#f8bbd0;transform:scale(1.1); }
+    .delete-icon-btn:hover:not(:disabled) { background:#f8bbd0;transform:scale(1.1); }
+    .delete-icon-btn:disabled { opacity:0.35;cursor:not-allowed;pointer-events:none; }
 
     /* ── Request button ── */
     .request-btn {
@@ -503,10 +829,8 @@
     .request-btn:hover { background:#c8e6c9; }
 
     /* ── Chat bubbles ── */
-    .chat-bubble-wrap {
-        display:flex;flex-direction:column;max-width:78%;
-    }
-    .chat-bubble-wrap.mine  { align-self:flex-end;align-items:flex-end; }
+    .chat-bubble-wrap { display:flex;flex-direction:column;max-width:78%; }
+    .chat-bubble-wrap.mine   { align-self:flex-end;align-items:flex-end; }
     .chat-bubble-wrap.theirs { align-self:flex-start;align-items:flex-start; }
     .chat-bubble {
         padding:9px 13px;border-radius:18px;font-size:13px;line-height:1.5;
@@ -514,24 +838,23 @@
     }
     .chat-bubble.mine   { background:#1a4731;color:white;border-bottom-right-radius:4px; }
     .chat-bubble.theirs { background:white;color:#1a1a2e;border:1px solid #e2e8f0;border-bottom-left-radius:4px; }
-    .chat-time {
-        font-size:10px;color:#aaa;margin-top:3px;padding:0 4px;
-    }
-    .chat-sender-name {
-        font-size:10px;font-weight:700;color:#1a4731;margin-bottom:3px;padding:0 4px;
-    }
-
-    /* ── Chat date divider ── */
+    .chat-time { font-size:10px;color:#aaa;margin-top:3px;padding:0 4px; }
+    .chat-sender-name { font-size:10px;font-weight:700;color:#1a4731;margin-bottom:3px;padding:0 4px; }
     .chat-date-divider {
         text-align:center;font-size:10px;color:#aaa;
         margin:6px 0;position:relative;
     }
     .chat-date-divider::before,.chat-date-divider::after {
-        content:'';position:absolute;top:50%;
-        width:30%;height:1px;background:#e2e8f0;
+        content:'';position:absolute;top:50%;width:30%;height:1px;background:#e2e8f0;
     }
     .chat-date-divider::before { left:0; }
     .chat-date-divider::after  { right:0; }
+
+    /* ── Approve / Decline buttons ── */
+    .btn-approve { background:#2e7d32;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s; }
+    .btn-approve:hover { opacity:.85; }
+    .btn-decline { background:#c62828;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s; }
+    .btn-decline:hover { opacity:.85; }
 </style>
 }
 
@@ -584,7 +907,6 @@ function onSearchInput(val) {
         </div>`;
     }).join('');
     list.style.display = 'block';
-    // Use event delegation — safe, no inline onclick escaping issues
     list.querySelectorAll('[data-mis]').forEach(el => {
         if (el.dataset.disabled === 'true') return;
         el.addEventListener('click', () => addSubject(el.dataset.mis));
@@ -638,309 +960,400 @@ document.addEventListener('click', e => {
 function escHtml(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 /* ── CLEARANCE PAGE ── */
-    const _csrf = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+const _csrf = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
 
-    /* ══════════════════════════════════════════
-       PERIOD DROPDOWN
-    ══════════════════════════════════════════ */
-    const _serverPeriodId = @(ViewData["ActivePeriodId"] is int svPid ? svPid : 0);
-    let allPeriods = [], selectedPeriodId = _serverPeriodId;
+/* ══════════════════════════════════════════
+   PERIOD DROPDOWN — data baked in from server
+══════════════════════════════════════════ */
+const _serverPeriodId = @(ViewData["ActivePeriodId"] is int svPid ? svPid : 0);
+const allPeriods = @Html.Raw(periodsJson);
 
-    async function loadPeriods() {
-        const dd = document.getElementById('period-dd');
-        try {
-            const res  = await fetch('/api/student/periods');
-            allPeriods = await res.json();
-        } catch { allPeriods = []; }
+function buildPeriodDropdown() {
+    const dd = document.getElementById('period-dd');
+    dd.innerHTML = '';
 
-        dd.innerHTML = '';
-        if (!allPeriods.length) {
-            dd.innerHTML = '<div class="pd-empty"><i class="fas fa-calendar-times me-2"></i>No academic periods found.</div>';
-            return;
-        }
-
-        const preselected = allPeriods.find(p => p.id === _serverPeriodId) ?? allPeriods[0];
-        selectedPeriodId = preselected.id;
-        updatePeriodDisplay(preselected);
-
-        allPeriods.forEach(p => {
-            const opt     = document.createElement('div');
-            opt.className = 'pd-opt' + (p.id === selectedPeriodId ? ' selected' : '');
-            opt.dataset.id = p.id;
-            opt.innerHTML = `
-                <span style="flex:1;">${escHtml(p.sem)}, A.Y. ${escHtml(p.ay)}</span>
-                <i class="fas fa-check pd-check"></i>`;
-            opt.onclick = (e) => { e.stopPropagation(); selectPeriod(p); };
-            dd.appendChild(opt);
-        });
+    if (!allPeriods || !allPeriods.length) {
+        dd.innerHTML = '<div class="pd-empty"><i class="fas fa-calendar-times me-2"></i>No academic periods found.</div>';
+        return;
     }
 
-    function selectPeriod(p) {
-        // Reload page for the selected period so clearance data comes from DB
-        window.location.href = '/Student/Clearance?periodId=' + p.id;
-    }
+    const active = allPeriods.find(p => p.id === _serverPeriodId) ?? allPeriods[0];
+    document.getElementById('period-btn-value').textContent = `${active.sem}, A.Y. ${active.ay}`;
 
-    function updatePeriodDisplay(p) {
-        document.getElementById('period-btn-value').textContent = `${p.sem}, A.Y. ${p.ay}`;
-    }
-
-    function togglePeriodDd(e) { e.stopPropagation(); document.getElementById('period-wrap').classList.toggle('open'); }
-    function closePeriodDd()    { document.getElementById('period-wrap').classList.remove('open'); }
-
-    document.addEventListener('click', function(e) {
-        const wrap = document.getElementById('period-wrap');
-        if (wrap && !wrap.contains(e.target)) closePeriodDd();
+    allPeriods.forEach(p => {
+        const opt     = document.createElement('div');
+        opt.className = 'pd-opt' + (p.id === _serverPeriodId ? ' selected' : '');
+        opt.innerHTML = `<span style="flex:1;">${escHtml(p.sem)}, A.Y. ${escHtml(p.ay)}</span>
+                         <i class="fas fa-check pd-check"></i>`;
+        opt.onclick = (e) => { e.stopPropagation(); selectPeriod(p); };
+        dd.appendChild(opt);
     });
+}
 
-    /* ══════════════════════════════════════════
-       UNREAD NOTIFICATION BADGES
-    ══════════════════════════════════════════ */
-    async function loadUnreadBadges() {
-        try {
-            const unreads = await (await fetch('/Student/GetUnreadCounts')).json();
-            // Reset all dots first
-            document.querySelectorAll('.chat-btn-wrap .unread-dot').forEach(d => d.style.display = 'none');
-            // Show dots for unread messages
-            unreads.forEach(u => {
-                document.querySelectorAll('.chat-btn-wrap').forEach(w => {
-                    if (w.dataset.key === u.clearanceKey && w.dataset.type === u.clearanceType) {
-                        const dot = w.querySelector('.unread-dot');
-                        if (dot) dot.style.display = 'block';
-                    }
-                });
+function selectPeriod(p) {
+    window.location.href = '/Student/Clearance?periodId=' + p.id;
+}
+
+function togglePeriodDd(e) {
+    e.stopPropagation();
+    document.getElementById('period-wrap').classList.toggle('open');
+}
+
+document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('period-wrap');
+    if (wrap && !wrap.contains(e.target)) wrap.classList.remove('open');
+});
+
+/* ══════════════════════════════════════════
+   UNREAD NOTIFICATION BADGES
+══════════════════════════════════════════ */
+async function loadUnreadBadges() {
+    try {
+        const unreads = await (await fetch('/Student/GetUnreadCounts')).json();
+        document.querySelectorAll('.chat-btn-wrap .unread-dot').forEach(d => d.style.display = 'none');
+        unreads.forEach(u => {
+            document.querySelectorAll('.chat-btn-wrap').forEach(w => {
+                if (w.dataset.key === u.clearanceKey && w.dataset.type === u.clearanceType) {
+                    const dot = w.querySelector('.unread-dot');
+                    if (dot) dot.style.display = 'block';
+                }
             });
-        } catch {}
-    }
-    async function markRead(key, type) {
-        try {
-            await fetch('/Student/MarkMessagesRead', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
-                body: JSON.stringify({ clearanceKey: key, clearanceType: type, message: '' })
-            });
-        } catch {}
-    }
-    function clearUnreadDot(key, type) {
-        document.querySelectorAll('.chat-btn-wrap').forEach(w => {
-            if (w.dataset.key === key && w.dataset.type === type) {
-                const dot = w.querySelector('.unread-dot');
-                if (dot) dot.style.display = 'none';
-            }
         });
-    }
-
-    /* ══════════════════════════════════════════
-       REQUEST ORG CLEARANCE
-    ══════════════════════════════════════════ */
-    function requestOrg(position) {
-        fetch('/Student/RequestOrgSignature', {
-            method:  'POST',
+    } catch {}
+}
+async function markRead(key, type) {
+    try {
+        await fetch('/Student/MarkMessagesRead', {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
-            body:    JSON.stringify({ orgName: position, periodId: _serverPeriodId })
-        })
-        .then(r => r.json())
-        .then(d => { if (d.success) location.reload(); else alert(d.error ?? 'Request failed'); })
-        .catch(err => console.warn('Request error:', err));
-    }
-
-    /* ══════════════════════════════════════════
-       DELETE CLEARANCE
-    ══════════════════════════════════════════ */
-    function deleteClearance(type, key) {
-        if (!confirm('Remove this pending clearance request?')) return;
-        fetch('/Student/DeleteClearanceRequest', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
-            body:    JSON.stringify({ type, key, periodId: _serverPeriodId })
-        })
-        .then(r => r.json())
-        .then(d => { if (d.success) location.reload(); else alert(d.error ?? 'Delete failed'); })
-        .catch(err => console.warn('Delete error:', err));
-    }
-
-    /* ══════════════════════════════════════════
-       CHAT  — backed by clearance_messages table
-    ══════════════════════════════════════════ */
-    let currentChatKey  = null;
-    let currentChatType = null;
-    let currentChatName = null;
-
-    function getInitials(name) {
-        return (name ?? '').split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-    }
-
-    function fmtTime(d) {
-        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    }
-
-    async function openChat(key, personName, type, role) {
-        currentChatKey  = key;
-        currentChatType = type;
-        currentChatName = personName;
-
-        document.getElementById('chat-name').textContent    = personName;
-        document.getElementById('chat-role').textContent    = role;
-        document.getElementById('chat-avatar').textContent  = getInitials(personName);
-
-        const modal   = document.getElementById('chat-modal');
-        const overlay = document.getElementById('chat-overlay');
-        modal.style.display   = 'flex';
-        overlay.style.display = 'block';
-
-        // Show loading state then fetch from server
-        document.getElementById('chat-messages').innerHTML =
-            '<div style="text-align:center;margin:auto;font-size:12px;color:#aaa;">' +
-            '<i class="fas fa-spinner fa-spin me-1"></i>Loading messages...</div>';
-
-        await markRead(key, type);
-        clearUnreadDot(key, type);
-        fetchMessages();
-        setTimeout(() => document.getElementById('chat-input').focus(), 80);
-    }
-
-    function closeChat() {
-        document.getElementById('chat-modal').style.display   = 'none';
-        document.getElementById('chat-overlay').style.display = 'none';
-        currentChatKey  = null;
-        currentChatType = null;
-    }
-
-    async function fetchMessages() {
-        if (!currentChatKey) return;
-        try {
-            const res  = await fetch(
-                `/Student/GetClearanceMessages?key=${encodeURIComponent(currentChatKey)}&type=${encodeURIComponent(currentChatType)}`
-            );
-            const data = await res.json();
-            if (data.success) renderMessages(data.messages ?? []);
-        } catch (err) {
-            console.warn('Failed to load messages:', err);
-        }
-    }
-
-    function renderMessages(msgs) {
-        const box = document.getElementById('chat-messages');
-        box.innerHTML = '';
-
-        if (!msgs.length) {
-            box.innerHTML = `
-                <div style="text-align:center;margin:auto;">
-                    <div style="font-size:32px;margin-bottom:10px;">💬</div>
-                    <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px;">
-                        Start the conversation
-                    </div>
-                    <div style="font-size:12px;color:#aaa;max-width:220px;margin:0 auto;line-height:1.6;">
-                        Send a message to <strong>${escHtml(currentChatName)}</strong> about your clearance.
-                    </div>
-                </div>`;
-            return;
-        }
-
-        let lastDate = null;
-        msgs.forEach(m => {
-            const d       = new Date(m.time);
-            const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-            if (dateStr !== lastDate) {
-                const div       = document.createElement('div');
-                div.className   = 'chat-date-divider';
-                div.textContent = dateStr;
-                box.appendChild(div);
-                lastDate = dateStr;
-            }
-
-            const wrap     = document.createElement('div');
-            wrap.className = 'chat-bubble-wrap ' + (m.mine ? 'mine' : 'theirs');
-
-            if (!m.mine) {
-                const sn       = document.createElement('div');
-                sn.className   = 'chat-sender-name';
-                sn.textContent = currentChatName;
-                wrap.appendChild(sn);
-            }
-
-            const bubble       = document.createElement('div');
-            bubble.className   = 'chat-bubble ' + (m.mine ? 'mine' : 'theirs');
-            bubble.textContent = m.text;
-            wrap.appendChild(bubble);
-
-            const time       = document.createElement('div');
-            time.className   = 'chat-time';
-            time.textContent = fmtTime(d);
-            wrap.appendChild(time);
-
-            box.appendChild(wrap);
+            body: JSON.stringify({ clearanceKey: key, clearanceType: type, message: '' })
         });
+    } catch {}
+}
+function clearUnreadDot(key, type) {
+    document.querySelectorAll('.chat-btn-wrap').forEach(w => {
+        if (w.dataset.key === key && w.dataset.type === type) {
+            const dot = w.querySelector('.unread-dot');
+            if (dot) dot.style.display = 'none';
+        }
+    });
+}
 
-        box.scrollTop = box.scrollHeight;
+/* ══════════════════════════════════════════
+   REQUEST ORG CLEARANCE
+══════════════════════════════════════════ */
+function requestOrg(position) {
+    fetch('/Student/RequestOrgSignature', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
+        body:    JSON.stringify({ orgName: position, periodId: _serverPeriodId })
+    })
+    .then(r => r.json())
+    .then(d => { if (d.success) location.reload(); else alert(d.error ?? 'Request failed'); })
+    .catch(err => console.warn('Request error:', err));
+}
+
+/* ══════════════════════════════════════════
+   RE-REQUEST SUBJECT CLEARANCE
+══════════════════════════════════════════ */
+function reRequestSubject(misCode) {
+    fetch('/Student/RequestSubjectSignature', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
+        body:    JSON.stringify({ misCode: misCode })
+    })
+    .then(r => r.json())
+    .then(d => { if (d.success) location.reload(); else alert(d.error ?? 'Re-request failed'); })
+    .catch(err => console.warn('Re-request error:', err));
+}
+
+/* ══════════════════════════════════════════
+   DELETE CLEARANCE
+══════════════════════════════════════════ */
+function deleteClearance(type, key) {
+    if (!confirm('Remove this pending clearance request?')) return;
+    fetch('/Student/DeleteClearanceRequest', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
+        body:    JSON.stringify({ type, key, periodId: _serverPeriodId })
+    })
+    .then(r => r.json())
+    .then(d => { if (d.success) location.reload(); else alert(d.error ?? 'Delete failed'); })
+    .catch(err => console.warn('Delete error:', err));
+}
+
+/* ══════════════════════════════════════════
+   CHAT
+══════════════════════════════════════════ */
+let currentChatKey  = null;
+let currentChatType = null;
+let currentChatName = null;
+
+function getInitials(name) {
+    return (name ?? '').split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+function fmtTime(d) {
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function openChat(key, personName, type, role) {
+    currentChatKey  = key;
+    currentChatType = type;
+    currentChatName = personName;
+
+    document.getElementById('chat-name').textContent    = personName;
+    document.getElementById('chat-role').textContent    = role;
+    document.getElementById('chat-avatar').textContent  = getInitials(personName);
+
+    const modal   = document.getElementById('chat-modal');
+    const overlay = document.getElementById('chat-overlay');
+    modal.style.display   = 'flex';
+    overlay.style.display = 'block';
+
+    document.getElementById('chat-messages').innerHTML =
+        '<div style="text-align:center;margin:auto;font-size:12px;color:#aaa;">' +
+        '<i class="fas fa-spinner fa-spin me-1"></i>Loading messages...</div>';
+
+    await markRead(key, type);
+    clearUnreadDot(key, type);
+    fetchMessages();
+    setTimeout(() => document.getElementById('chat-input').focus(), 80);
+}
+
+function closeChat() {
+    document.getElementById('chat-modal').style.display   = 'none';
+    document.getElementById('chat-overlay').style.display = 'none';
+    currentChatKey  = null;
+    currentChatType = null;
+}
+
+async function fetchMessages() {
+    if (!currentChatKey) return;
+    try {
+        const res  = await fetch(
+            `/Student/GetClearanceMessages?key=${encodeURIComponent(currentChatKey)}&type=${encodeURIComponent(currentChatType)}`
+        );
+        const data = await res.json();
+        if (data.success) renderMessages(data.messages ?? []);
+    } catch (err) {
+        console.warn('Failed to load messages:', err);
+    }
+}
+
+function renderMessages(msgs) {
+    const box = document.getElementById('chat-messages');
+    box.innerHTML = '';
+
+    if (!msgs.length) {
+        box.innerHTML = `
+            <div style="text-align:center;margin:auto;">
+                <div style="font-size:32px;margin-bottom:10px;">💬</div>
+                <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px;">Start the conversation</div>
+                <div style="font-size:12px;color:#aaa;max-width:220px;margin:0 auto;line-height:1.6;">
+                    Send a message to <strong>${escHtml(currentChatName)}</strong> about your clearance.
+                </div>
+            </div>`;
+        return;
     }
 
-    async function sendChatMessage() {
-        const input = document.getElementById('chat-input');
-        const text  = input.value.trim();
-        if (!text || !currentChatKey) return;
-
-        // Optimistically append the message in the UI
-        const tempMsg = { mine: true, text, time: new Date().toISOString() };
-        const existingMsgs = Array.from(document.querySelectorAll('#chat-messages .chat-bubble-wrap'))
-            .length > 0;
-
-        input.value = '';
-        if (!existingMsgs) {
-            // Was showing empty state; re-render with just this message
-            renderMessages([tempMsg]);
-        } else {
-            // Append bubble directly
-            appendBubble(tempMsg);
-            document.getElementById('chat-messages').scrollTop = 999999;
+    let lastDate = null;
+    msgs.forEach(m => {
+        const d       = new Date(m.time);
+        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (dateStr !== lastDate) {
+            const div       = document.createElement('div');
+            div.className   = 'chat-date-divider';
+            div.textContent = dateStr;
+            box.appendChild(div);
+            lastDate = dateStr;
         }
-
-        try {
-            const res  = await fetch('/Student/SendClearanceMessage', {
-                method:  'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': _csrf
-                },
-                body: JSON.stringify({
-                    clearanceType: currentChatType,
-                    clearanceKey:  currentChatKey,
-                    message:       text
-                })
-            });
-            const data = await res.json();
-            if (!data.success) console.warn('Message send failed:', data.error);
-        } catch (err) {
-            console.warn('Chat error:', err);
-        }
-    }
-
-    function appendBubble(m) {
-        const box  = document.getElementById('chat-messages');
-        const wrap = document.createElement('div');
+        const wrap     = document.createElement('div');
         wrap.className = 'chat-bubble-wrap ' + (m.mine ? 'mine' : 'theirs');
-
+        if (!m.mine) {
+            const sn       = document.createElement('div');
+            sn.className   = 'chat-sender-name';
+            sn.textContent = currentChatName;
+            wrap.appendChild(sn);
+        }
         const bubble       = document.createElement('div');
         bubble.className   = 'chat-bubble ' + (m.mine ? 'mine' : 'theirs');
         bubble.textContent = m.text;
         wrap.appendChild(bubble);
-
         const time       = document.createElement('div');
         time.className   = 'chat-time';
-        time.textContent = fmtTime(new Date(m.time));
+        time.textContent = fmtTime(d);
         wrap.appendChild(time);
-
         box.appendChild(wrap);
+    });
+    box.scrollTop = box.scrollHeight;
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const text  = input.value.trim();
+    if (!text || !currentChatKey) return;
+
+    const existingMsgs = Array.from(document.querySelectorAll('#chat-messages .chat-bubble-wrap')).length > 0;
+    input.value = '';
+    const tempMsg = { mine: true, text, time: new Date().toISOString() };
+    if (!existingMsgs) {
+        renderMessages([tempMsg]);
+    } else {
+        appendBubble(tempMsg);
+        document.getElementById('chat-messages').scrollTop = 999999;
     }
 
-    function escHtml(str) {
-        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    try {
+        await fetch('/Student/SendClearanceMessage', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
+            body: JSON.stringify({ clearanceType: currentChatType, clearanceKey: currentChatKey, message: text })
+        });
+    } catch (err) { console.warn('Chat error:', err); }
+}
+
+function appendBubble(m) {
+    const box  = document.getElementById('chat-messages');
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-bubble-wrap ' + (m.mine ? 'mine' : 'theirs');
+    const bubble       = document.createElement('div');
+    bubble.className   = 'chat-bubble ' + (m.mine ? 'mine' : 'theirs');
+    bubble.textContent = m.text;
+    wrap.appendChild(bubble);
+    const time       = document.createElement('div');
+    time.className   = 'chat-time';
+    time.textContent = fmtTime(new Date(m.time));
+    wrap.appendChild(time);
+    box.appendChild(wrap);
+}
+
+/* ══════════════════════════════════════════
+   TAB SWITCHING
+══════════════════════════════════════════ */
+function switchTab(tab) {
+    const pc = document.getElementById('panel-clearance');
+    const pa = document.getElementById('panel-approval');
+    if (pc) pc.style.display = tab === 'clearance' ? 'block' : 'none';
+    if (pa) pa.style.display = tab === 'approval'  ? 'block' : 'none';
+    document.querySelectorAll('.ctab').forEach(t => t.classList.remove('active'));
+    const btn = document.getElementById('tab-' + tab);
+    if (btn) btn.classList.add('active');
+    if (tab === 'approval') history.replaceState(null, '', '#approval');
+    else history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+if (window.location.hash === '#approval' && document.getElementById('panel-approval')) switchTab('approval');
+
+/* ── Init ── */
+buildPeriodDropdown();
+loadUnreadBadges();
+setInterval(loadUnreadBadges, 30000);
+
+/* ══════════════════════════════════════════
+   SIGNED CHAT (officer ↔ student)
+══════════════════════════════════════════ */
+let _scSN = null, _scName = null, _scKey = null;
+
+async function openSignedChat(sn, name, position) {
+    _scSN = sn; _scName = name; _scKey = position;
+    document.getElementById('sc-chat-name').textContent   = name;
+    document.getElementById('sc-chat-sub').textContent    = position;
+    document.getElementById('sc-chat-avatar').textContent = getInitials(name);
+    document.getElementById('sc-chat-modal').style.display   = 'flex';
+    document.getElementById('sc-chat-overlay').style.display = 'block';
+    document.getElementById('sc-chat-messages').innerHTML =
+        '<div style="text-align:center;margin:auto;font-size:12px;color:#aaa;"><i class="fas fa-spinner fa-spin me-1"></i>Loading…</div>';
+    try {
+        await fetch('/Student/MarkMessagesRead', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
+            body: JSON.stringify({ clearanceKey: position, clearanceType: 'org', studentNumber: sn, message: '' })
+        });
+    } catch {}
+    document.querySelectorAll('.chat-btn-wrap').forEach(w => {
+        if (w.dataset.sn === sn && w.dataset.key === position && w.dataset.type === 'org') {
+            const d = w.querySelector('.unread-dot'); if (d) d.style.display = 'none';
+        }
+    });
+    try {
+        const res = await fetch(`/Student/GetClearanceMessages?key=${encodeURIComponent(position)}&type=org&studentNumber=${encodeURIComponent(sn)}`);
+        const d   = await res.json();
+        if (d.success) renderSignedMessages(d.messages ?? []);
+    } catch {
+        document.getElementById('sc-chat-messages').innerHTML =
+            '<div style="text-align:center;color:#aaa;padding:24px;">Could not load messages.</div>';
     }
+    setTimeout(() => document.getElementById('sc-chat-input').focus(), 80);
+}
 
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeChat(); });
+function closeSignedChat() {
+    document.getElementById('sc-chat-modal').style.display   = 'none';
+    document.getElementById('sc-chat-overlay').style.display = 'none';
+    _scSN = null;
+}
 
-    loadPeriods();
-    loadUnreadBadges();
-    setInterval(loadUnreadBadges, 30000);
+function renderSignedMessages(msgs) {
+    const box = document.getElementById('sc-chat-messages');
+    box.innerHTML = '';
+    if (!msgs.length) {
+        box.innerHTML = `<div style="text-align:center;margin:auto;">
+            <div style="font-size:32px;margin-bottom:10px;">💬</div>
+            <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px;">Start the conversation</div>
+            <div style="font-size:12px;color:#aaa;">Send a message to <strong>${escHtml(_scName)}</strong>.</div>
+        </div>`;
+        return;
+    }
+    let lastDate = null;
+    msgs.forEach(m => {
+        const d  = new Date(m.time);
+        const ds = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (ds !== lastDate) {
+            const div = document.createElement('div');
+            div.style.cssText = 'text-align:center;font-size:10px;color:#aaa;margin:6px 0;';
+            div.textContent = ds;
+            box.appendChild(div);
+            lastDate = ds;
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'chat-bubble-wrap ' + (m.mine ? 'mine' : 'theirs');
+        if (!m.mine) {
+            const sn = document.createElement('div');
+            sn.className = 'chat-sender-name';
+            sn.textContent = _scName;
+            wrap.appendChild(sn);
+        }
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble ' + (m.mine ? 'mine' : 'theirs');
+        bubble.textContent = m.text;
+        wrap.appendChild(bubble);
+        const time = document.createElement('div');
+        time.className = 'chat-time';
+        time.textContent = fmtTime(d);
+        wrap.appendChild(time);
+        box.appendChild(wrap);
+    });
+    box.scrollTop = box.scrollHeight;
+}
+
+async function sendSignedChat() {
+    const input = document.getElementById('sc-chat-input');
+    const text  = input.value.trim();
+    if (!text || !_scSN) return;
+    input.value = '';
+    const wrap = document.createElement('div'); wrap.className = 'chat-bubble-wrap mine';
+    const b    = document.createElement('div'); b.className = 'chat-bubble mine'; b.textContent = text;
+    const t    = document.createElement('div'); t.className = 'chat-time'; t.textContent = fmtTime(new Date());
+    wrap.appendChild(b); wrap.appendChild(t);
+    const box = document.getElementById('sc-chat-messages');
+    box.appendChild(wrap); box.scrollTop = box.scrollHeight;
+    try {
+        await fetch('/Student/SendClearanceMessage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
+            body: JSON.stringify({ clearanceKey: _scKey, clearanceType: 'org', studentNumber: _scSN, message: text })
+        });
+    } catch {}
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeChat(); closeSignedChat(); } });
 </script>
 }

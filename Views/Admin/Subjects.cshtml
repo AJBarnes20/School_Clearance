@@ -28,7 +28,7 @@
 <div class="panel mb-4">
     <div class="panel-hd">
         <span class="panel-hd-title"><i class="fas fa-book me-2"></i>Subjects</span>
-        <div class="d-flex gap-2 align-items-center">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
             <div class="search-wrap">
                 <i class="fas fa-search"></i>
                 <input class="search-input" placeholder="Search Subject, MIS, Code, Instructor" oninput="filterTable(this,'subj-table')" />
@@ -41,10 +41,32 @@
             </button>
         </div>
     </div>
+
+    <!-- Bulk Action Bar (hidden until rows selected) -->
+    <div id="bulk-bar" style="display:none;align-items:center;gap:10px;padding:10px 16px;background:rgba(66,153,225,0.08);border-bottom:1px solid var(--border);flex-wrap:wrap;">
+        <span id="bulk-count" style="font-size:13px;font-weight:700;color:var(--text);"></span>
+        <button onclick="bulkDeactivate()"
+                style="background:#d69e2e;color:#fff;border:none;border-radius:7px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <i class="fas fa-ban"></i>Deactivate Selected
+        </button>
+        <button onclick="openBulkDeleteModal()"
+                style="background:#e53e3e;color:#fff;border:none;border-radius:7px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <i class="fas fa-trash"></i>Delete Selected
+        </button>
+        <button onclick="clearSelection()"
+                style="background:rgba(255,255,255,0.07);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;">
+            Cancel
+        </button>
+    </div>
+
     <div class="table-responsive">
         <table class="data-table" id="subj-table">
             <thead>
                 <tr>
+                    <th style="width:42px;text-align:center;">
+                        <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"
+                               style="width:15px;height:15px;cursor:pointer;accent-color:#4299e1;" />
+                    </th>
                     <th>MIS Code</th>
                     <th>Subject Code</th>
                     <th>Description</th>
@@ -168,7 +190,7 @@
     </div>
 </div>
 
-<!-- DELETE CONFIRM MODAL -->
+<!-- DELETE CONFIRM MODAL (single + bulk) -->
 <div id="delete-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
     <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;width:100%;max-width:380px;margin:16px;text-align:center;">
         <div style="width:56px;height:56px;border-radius:50%;background:rgba(229,62,62,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
@@ -188,16 +210,13 @@
 <!-- CSV IMPORT MODAL -->
 <div id="csv-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
     <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;width:100%;max-width:700px;margin:16px;max-height:90vh;display:flex;flex-direction:column;">
-        <!-- Header -->
         <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
             <div style="font-size:15px;font-weight:800;color:var(--text);">
                 <i class="fas fa-file-csv me-2" style="color:#38a169;"></i>Import Subjects from CSV
             </div>
             <button onclick="closeCsvModal()" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;line-height:1;">&times;</button>
         </div>
-        <!-- Body -->
         <div style="padding:20px 24px;overflow-y:auto;flex:1;">
-            <!-- Format hint -->
             <div style="background:rgba(66,153,225,0.08);border:1px solid rgba(66,153,225,0.25);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--muted);line-height:1.7;">
                 <strong style="color:var(--text);">Expected CSV format (with or without header row):</strong><br>
                 <code style="font-size:11px;color:#4299e1;">MIS Code, Subject Code, Description, Lec Units, Lab Units</code><br>
@@ -206,7 +225,6 @@
                     <i class="fas fa-download me-1"></i>Download Template
                 </span>
             </div>
-            <!-- File picker -->
             <div id="csv-drop-zone"
                  style="border:2px dashed var(--border);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:border-color 0.2s;margin-bottom:16px;"
                  onclick="document.getElementById('csv-file-input').click()"
@@ -218,7 +236,6 @@
                 <div id="csv-file-name" style="font-size:11px;color:var(--muted);margin-top:4px;">No file selected</div>
             </div>
             <input type="file" id="csv-file-input" accept=".csv,text/csv" style="display:none" onchange="handleCsvFile(this.files[0])">
-            <!-- Preview -->
             <div id="csv-preview-wrap" style="display:none;">
                 <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;">
                     Preview <span id="csv-preview-count" style="color:var(--muted);font-weight:400;"></span>
@@ -240,7 +257,6 @@
                 </div>
             </div>
         </div>
-        <!-- Footer -->
         <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;">
             <button onclick="closeCsvModal()" style="background:rgba(255,255,255,0.07);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 22px;font-size:13px;cursor:pointer;">Cancel</button>
             <button id="csv-import-btn" onclick="runCsvImport()" disabled
@@ -253,11 +269,113 @@
 
 @section Scripts {
 <script>
-   let subjects     = [];
+let subjects     = [];
 let offered      = [];
 let courses      = [];
-let deleteTarget = null;
+let deleteTarget = null; // { type: 'single'|'bulk', idx?: number }
 
+// ── Selection state ───────────────────────────────────────────────────────────
+const selectedIds = new Set(); // stores subject index (array position)
+
+function getSelectedIndices() {
+    return [...selectedIds];
+}
+
+function updateBulkBar() {
+    const bar   = document.getElementById('bulk-bar');
+    const count = selectedIds.size;
+    if (count === 0) {
+        bar.style.display = 'none';
+    } else {
+        bar.style.display = 'flex';
+        document.getElementById('bulk-count').textContent =
+            `${count} subject${count > 1 ? 's' : ''} selected`;
+    }
+    // Keep select-all checkbox in sync
+    const allCbs = document.querySelectorAll('.row-cb');
+    const sa     = document.getElementById('select-all');
+    if (sa) {
+        sa.indeterminate = count > 0 && count < allCbs.length;
+        sa.checked       = allCbs.length > 0 && count === allCbs.length;
+    }
+}
+
+function toggleSelectAll(master) {
+    document.querySelectorAll('.row-cb').forEach(cb => {
+        cb.checked = master.checked;
+        const idx  = parseInt(cb.dataset.idx);
+        if (master.checked) selectedIds.add(idx);
+        else                selectedIds.delete(idx);
+        // highlight row
+        cb.closest('tr').style.background = master.checked
+            ? 'rgba(66,153,225,0.07)' : '';
+    });
+    updateBulkBar();
+}
+
+function toggleRowSelect(cb) {
+    const idx = parseInt(cb.dataset.idx);
+    if (cb.checked) selectedIds.add(idx);
+    else            selectedIds.delete(idx);
+    cb.closest('tr').style.background = cb.checked
+        ? 'rgba(66,153,225,0.07)' : '';
+    updateBulkBar();
+}
+
+function clearSelection() {
+    selectedIds.clear();
+    document.querySelectorAll('.row-cb').forEach(cb => {
+        cb.checked = false;
+        cb.closest('tr').style.background = '';
+    });
+    const sa = document.getElementById('select-all');
+    if (sa) { sa.checked = false; sa.indeterminate = false; }
+    updateBulkBar();
+}
+
+// ── Bulk actions ──────────────────────────────────────────────────────────────
+async function bulkDeactivate() {
+    const indices = getSelectedIndices();
+    if (!indices.length) return;
+
+    // Only deactivate rows that actually have an active offering
+    const toDeactivate = indices
+        .map(i => subjects[i])
+        .map(s => offered.find(o => o.code === s.code && o.mis === s.mis && o.active))
+        .filter(Boolean);
+
+    if (!toDeactivate.length) {
+        alert('None of the selected subjects have an active offering to deactivate.');
+        return;
+    }
+    if (!confirm(`Deactivate ${toDeactivate.length} active offering(s)? This can be re-offered later.`)) return;
+
+    for (const ofr of toDeactivate) {
+        await fetch(`/api/admin/subject-offerings/${ofr.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: false })
+        });
+    }
+    const oRes = await fetch('/api/admin/subject-offerings');
+    offered    = await oRes.json();
+    clearSelection();
+    renderSubjects();
+    updateStats();
+}
+
+function openBulkDeleteModal() {
+    const indices = getSelectedIndices();
+    if (!indices.length) return;
+    deleteTarget = { type: 'bulk' };
+    const n = indices.length;
+    document.getElementById('delete-modal-title').textContent = `Delete ${n} Subject${n > 1 ? 's' : ''}?`;
+    document.getElementById('delete-modal-body').textContent  =
+        `${n} subject${n > 1 ? 's' : ''} will be permanently removed along with their offerings. This cannot be undone.`;
+    document.getElementById('delete-modal').style.display = 'flex';
+}
+
+// ── Data & render ─────────────────────────────────────────────────────────────
 async function init() {
     try {
         const [sRes, oRes, iRes] = await Promise.all([
@@ -296,8 +414,14 @@ function renderSubjects() {
     const tbody = document.getElementById('subj-body');
     const empty = document.getElementById('subj-empty');
     tbody.innerHTML = '';
+
+    // Reset select-all when re-rendering
+    const sa = document.getElementById('select-all');
+    if (sa) { sa.checked = false; sa.indeterminate = false; }
+
     if (!subjects.length) { empty.style.display = 'block'; updateStats(); return; }
     empty.style.display = 'none';
+
     subjects.forEach((s, i) => {
         const ofr = offered.find(o => o.code === s.code && o.mis === s.mis && o.active);
         const instInitial = (ofr && ofr.inst && ofr.inst !== '—') ? ofr.inst.charAt(0) : '?';
@@ -320,8 +444,19 @@ function renderSubjects() {
                    onclick="setOfferSubject(${i})">
                    <i class="fas fa-plus me-1"></i>Offer
                </button>`;
+
+        const isChecked = selectedIds.has(i);
+        const rowBg     = isChecked ? 'background:rgba(66,153,225,0.07);' : '';
+
         const tr = document.createElement('tr');
+        tr.style.cssText = rowBg;
         tr.innerHTML = `
+            <td style="text-align:center;vertical-align:middle;">
+                <input type="checkbox" class="row-cb" data-idx="${i}"
+                       ${isChecked ? 'checked' : ''}
+                       onchange="toggleRowSelect(this)"
+                       style="width:15px;height:15px;cursor:pointer;accent-color:#4299e1;" />
+            </td>
             <td style="color:var(--muted);">${escHtml(s.mis)}</td>
             <td style="font-weight:600;">${escHtml(s.code)}</td>
             <td>${escHtml(s.desc)}</td>
@@ -344,8 +479,10 @@ function renderSubjects() {
         tbody.appendChild(tr);
     });
     updateStats();
+    updateBulkBar();
 }
 
+// ── Subject CRUD ──────────────────────────────────────────────────────────────
 async function addSubject() {
     const mis  = document.getElementById('add-mis').value.trim();
     const code = document.getElementById('add-code').value.trim();
@@ -406,7 +543,6 @@ async function saveEditSubject() {
     }
 }
 
-
 function setOfferSubject(idx) {
     const s = subjects[idx];
     document.getElementById('offer-mis').value  = s.mis;
@@ -426,14 +562,12 @@ async function addToOffered() {
         mis:  document.getElementById('offer-mis').value,
         inst: parseInt(instVal)
     };
-    console.log('Sending payload:', payload);
     const res  = await fetch('/api/admin/subject-offerings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
     const data = await res.json();
-    console.log('API response:', data);
     if (data.success) {
         const oRes = await fetch('/api/admin/subject-offerings');
         offered    = await oRes.json();
@@ -462,8 +596,9 @@ async function toggleStatus(offeringId, action) {
     }
 }
 
+// ── Delete modal (single + bulk) ──────────────────────────────────────────────
 function openDeleteModal(type, idx) {
-    deleteTarget = { type, idx };
+    deleteTarget = { type: 'single', idx };
     document.getElementById('delete-modal-title').textContent = 'Delete Subject?';
     document.getElementById('delete-modal-body').textContent  = 'This subject will be permanently removed. This cannot be undone.';
     document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
@@ -472,45 +607,90 @@ function openDeleteModal(type, idx) {
     document.body.style.removeProperty('padding-right');
     document.getElementById('delete-modal').style.display = 'flex';
 }
+
 function closeDeleteModal() {
     document.getElementById('delete-modal').style.display = 'none';
     deleteTarget = null;
 }
 
 async function confirmDelete() {
-    const { type, idx } = deleteTarget;
-    if (type === 'subject') {
-        const id       = subjects[idx].id;
-        const subjCode = subjects[idx].code;
-        const hasActive = offered.some(o => o.code === subjCode && (o.active === true || o.active === 1));
-        if (hasActive) {
-            closeDeleteModal();
-            alert('Cannot delete this subject while it is still Active in Subjects Offered. Please deactivate it first.');
-            return;
-        }
-        const toRemove = offered.filter(o => o.code === subjCode);
+    if (!deleteTarget) return;
+
+    if (deleteTarget.type === 'single') {
+        await deleteSingle(deleteTarget.idx);
+    } else if (deleteTarget.type === 'bulk') {
+        await deleteBulk();
+    }
+    closeDeleteModal();
+}
+
+async function deleteSingle(idx) {
+    const id       = subjects[idx].id;
+    const subjCode = subjects[idx].code;
+    const hasActive = offered.some(o => o.code === subjCode && (o.active === true || o.active === 1));
+    if (hasActive) {
+        alert('Cannot delete this subject while it is still Active in Subjects Offered. Please deactivate it first.');
+        return;
+    }
+    const toRemove = offered.filter(o => o.code === subjCode);
+    for (const o of toRemove) {
+        await fetch(`/api/admin/subject-offerings/${o.id}`, { method: 'DELETE' });
+    }
+    const res  = await fetch(`/api/admin/subjects/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+        subjects.splice(idx, 1);
+        offered = offered.filter(o => o.code !== subjCode);
+        selectedIds.clear();
+        renderSubjects();
+        updateStats();
+    } else {
+        alert('Error: ' + (data.error || 'Could not delete subject'));
+    }
+}
+
+async function deleteBulk() {
+    const indices = getSelectedIndices().sort((a, b) => b - a); // descending so splicing is safe
+    const blocked = [];
+    const toDelete = [];
+
+    for (const idx of indices) {
+        const s         = subjects[idx];
+        const hasActive = offered.some(o => o.code === s.code && (o.active === true || o.active === 1));
+        if (hasActive) { blocked.push(s.code); continue; }
+        toDelete.push(idx);
+    }
+
+    if (blocked.length) {
+        alert(`The following subjects are still active and were skipped:\n${blocked.join(', ')}\n\nPlease deactivate them first.`);
+    }
+
+    for (const idx of toDelete) {
+        const s = subjects[idx];
+        const toRemove = offered.filter(o => o.code === s.code);
         for (const o of toRemove) {
             await fetch(`/api/admin/subject-offerings/${o.id}`, { method: 'DELETE' });
         }
-        const res  = await fetch(`/api/admin/subjects/${id}`, { method: 'DELETE' });
-        const data = await res.json();
-        if (data.success) {
-            subjects.splice(idx, 1);
-            offered = offered.filter(o => o.code !== subjCode);
-            renderSubjects();
-            updateStats();
-        } else {
-            alert('Error: ' + (data.error || 'Could not delete subject'));
-        }
+        await fetch(`/api/admin/subjects/${s.id}`, { method: 'DELETE' });
     }
-    closeDeleteModal();
+
+    // Rebuild arrays by removing deleted indices
+    const deletedSet = new Set(toDelete);
+    subjects = subjects.filter((_, i) => !deletedSet.has(i));
+    offered  = offered.filter(o => !subjects.every(s => s.code !== o.code)); // keep only still-existing
+    const oRes = await fetch('/api/admin/subject-offerings');
+    offered = await oRes.json();
+
+    selectedIds.clear();
+    renderSubjects();
+    updateStats();
 }
 
 document.getElementById('delete-modal').addEventListener('click', function(e) {
     if (e.target === this) closeDeleteModal();
 });
 
-// ── CSV IMPORT ──────────────────────────────────────────────────────────────
+// ── CSV IMPORT ────────────────────────────────────────────────────────────────
 let csvRows = [];
 
 function openCsvModal() {
@@ -522,22 +702,18 @@ function openCsvModal() {
     document.getElementById('csv-import-btn').style.opacity = '0.5';
     document.getElementById('csv-modal').style.display = 'flex';
 }
-
 function closeCsvModal() {
     document.getElementById('csv-modal').style.display = 'none';
 }
-
 document.getElementById('csv-modal').addEventListener('click', function(e) {
     if (e.target === this) closeCsvModal();
 });
-
 function handleCsvDrop(e) {
     e.preventDefault();
     document.getElementById('csv-drop-zone').style.borderColor = '';
     const file = e.dataTransfer.files[0];
     if (file) handleCsvFile(file);
 }
-
 function handleCsvFile(file) {
     if (!file) return;
     document.getElementById('csv-file-name').textContent = file.name;
@@ -545,7 +721,6 @@ function handleCsvFile(file) {
     reader.onload = function(ev) { parseCsvText(ev.target.result); };
     reader.readAsText(file);
 }
-
 function parseCsvText(text) {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
     csvRows = [];
@@ -567,7 +742,6 @@ function parseCsvText(text) {
     }
     renderCsvPreview();
 }
-
 function splitCsvLine(line) {
     const result = [];
     let cur = '', inQ = false;
@@ -580,7 +754,6 @@ function splitCsvLine(line) {
     result.push(cur);
     return result;
 }
-
 function renderCsvPreview() {
     const tbody = document.getElementById('csv-preview-body');
     tbody.innerHTML = '';
@@ -614,7 +787,6 @@ function renderCsvPreview() {
     btn.disabled = validCount === 0;
     btn.style.opacity = validCount > 0 ? '1' : '0.5';
 }
-
 async function runCsvImport() {
     const toImport = csvRows.filter(r => r.valid && !r.dup);
     if (!toImport.length) return;
@@ -639,7 +811,6 @@ async function runCsvImport() {
         btn.disabled = false;
     }
 }
-
 function downloadTemplate() {
     const csv = 'MIS Code,Subject Code,Description,Lec Units,Lab Units\nGT-60,GEC 1,Understanding the Self,3,0\nGT-61,MATH 1,Mathematics in the Modern World,3,0';
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -649,13 +820,13 @@ function downloadTemplate() {
     a.click();
 }
 
+// ── Utilities ─────────────────────────────────────────────────────────────────
 function filterTable(input, id) {
     const q = input.value.toLowerCase();
     document.querySelectorAll('#' + id + ' tbody tr').forEach(r =>
         r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none'
     );
 }
-
 function escHtml(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }

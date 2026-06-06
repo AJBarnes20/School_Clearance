@@ -11,6 +11,9 @@
     var orgSignedItems   = ViewBag.OrgSignedItems   as IEnumerable<OrganizationRequest> ?? Enumerable.Empty<OrganizationRequest>();
     int subPending = Model?.Count(x => x.Status == "Pending") ?? 0;
     int orgPending = orgItems.Count(x => x.Status == "Pending");
+
+    // Periods baked in from server — same pattern as student view
+    var periodsJson = ViewBag.Periods as string ?? "[]";
 }
 
 @Html.AntiForgeryToken()
@@ -34,15 +37,19 @@
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h5 class="fw-bold mb-0" style="color:#1a1a2e;">Clearance Management</h5>
     <div class="period-selector-wrap" id="period-wrap">
-        <button class="period-btn" onclick="togglePeriodDd(event)" type="button">
+        <button class="period-btn" id="period-btn" onclick="togglePeriodDd(event)" type="button">
             <div class="period-btn-icon"><i class="fas fa-calendar-alt"></i></div>
             <div class="period-btn-text">
                 <div class="period-btn-label">Academic Period</div>
-                <div class="period-btn-value" id="period-btn-value">@(ViewData["ActivePeriod"]?.ToString() ?? "Loading...")</div>
+                <div class="period-btn-value" id="period-btn-value">
+                    @(ViewData["ActivePeriod"]?.ToString() ?? "Select Period")
+                </div>
             </div>
             <i class="fas fa-chevron-down period-chevron"></i>
         </button>
-        <div class="period-dd" id="period-dd"></div>
+        <div class="period-dd" id="period-dd">
+            <!-- Populated by buildPeriodDropdown() -->
+        </div>
     </div>
 </div>
 
@@ -53,7 +60,7 @@
         @if (subPending > 0) { <span class="tab-badge">@subPending</span> }
     </button>
     <button class="cl-tab" onclick="switchTab('org', this)">
-        <i class="fas fa-sitemap me-1"></i>Organization
+        <i class="fas fa-sitemap me-1"></i>Departmental Clearance
         @if (orgPending > 0) { <span class="tab-badge">@orgPending</span> }
     </button>
     <button class="cl-tab" onclick="switchTab('signed', this)">
@@ -61,7 +68,7 @@
     </button>
 </div>
 
-<div class="d-flex gap-3 align-items-flex-start">
+<div class="d-flex flex-column flex-lg-row gap-3 align-items-stretch align-items-lg-start">
 
     <!-- ── MAIN CONTENT ── -->
     <div style="flex:1;min-width:0;">
@@ -77,8 +84,12 @@
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>MIS CODE</th><th>SUBJECT</th><th>STUDENT</th>
-                                <th style="text-align:center;">STATUS</th><th style="text-align:center;">ACTION</th>
+                                <th>MIS CODE</th>
+                                <th>SUBJECT CODE</th>
+                                <th>STUDENT</th>
+                                <th style="text-align:center;">STATUS</th>
+                                <th style="text-align:center;">REQUESTED</th>
+                                <th style="text-align:center;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -101,26 +112,38 @@
                                             else { <span class="status-pending-sm">Pending</span> }
                                         </td>
                                         <td style="text-align:center;">
+                                            @if (item.RequestedAt.HasValue)
+                                            {
+                                                <span class="date-stamp">
+                                                    <i class="fas fa-paper-plane date-icon"></i>
+                                                    @item.RequestedAt.Value.ToString("MMM d, yyyy")
+                                                    <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
+                                                </span>
+                                            }
+                                            else { <span class="date-none">—</span> }
+                                        </td>
+                                        <td style="text-align:center;">
                                             <div class="d-flex gap-2 justify-content-center align-items-center flex-wrap">
-                                                @if (item.Status == "Pending")
-                                                {
-                                                    <form asp-action="Approve" asp-controller="Instructor" method="post" style="display:inline;">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="id" value="@item.Id" />
-                                                        <input type="hidden" name="periodId" value="@serverPid" />
-                                                        <button type="submit" class="btn-approve" onclick="return confirm('Approve clearance for @item.StudentName?')">
-                                                            <i class="fas fa-check me-1"></i>Approve
-                                                        </button>
-                                                    </form>
-                                                    <form asp-action="Decline" asp-controller="Instructor" method="post" style="display:inline;">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="id" value="@item.Id" />
-                                                        <input type="hidden" name="periodId" value="@serverPid" />
-                                                        <button type="submit" class="btn-decline" onclick="return confirm('Decline clearance for @item.StudentName?')">
-                                                            <i class="fas fa-times me-1"></i>Decline
-                                                        </button>
-                                                    </form>
-                                                }
+                                                <form asp-action="Approve" asp-controller="Instructor" method="post" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    <input type="hidden" name="periodId" value="@serverPid" />
+                                                    <button type="submit" class="btn-approve"
+                                                            onclick="return confirm('Approve clearance for @item.StudentName?')"
+                                                            @(item.Status != "Pending" ? "disabled" : "")>
+                                                        <i class="fas fa-check me-1"></i>Approve
+                                                    </button>
+                                                </form>
+                                                <form asp-action="Decline" asp-controller="Instructor" method="post" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    <input type="hidden" name="periodId" value="@serverPid" />
+                                                    <button type="submit" class="btn-decline"
+                                                            onclick="return confirm('Decline clearance for @item.StudentName?')"
+                                                            @(item.Status != "Pending" ? "disabled" : "")>
+                                                        <i class="fas fa-times me-1"></i>Decline
+                                                    </button>
+                                                </form>
                                                 <div class="chat-btn-wrap" data-sn="@item.StudentNumber" data-key="@item.MisCode" data-type="subject">
                                                     <button class="chat-icon-btn" onclick="openChat('@Html.Raw(item.StudentNumber)','@Html.Raw(item.StudentName)','@Html.Raw(item.MisCode)','subject')" title="Chat">
                                                         <i class="fas fa-comment-dots"></i>
@@ -134,7 +157,7 @@
                             }
                             else
                             {
-                                <tr><td colspan="5" style="padding:40px;text-align:center;color:#888;">
+                                <tr><td colspan="7" style="padding:40px;text-align:center;color:#888;">
                                     <i class="fas fa-clipboard-check" style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
                                     No clearance requests for this period.
                                 </td></tr>
@@ -156,9 +179,12 @@
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th style="width:60px;text-align:center;">NO.</th>
-                                <th>POSITION</th><th>STUDENT</th>
-                                <th style="text-align:center;">STATUS</th><th style="text-align:center;">ACTION</th>
+                                <th style="width:50px;text-align:center;">NO.</th>
+                                <th>POSITION</th>
+                                <th>STUDENT</th>
+                                <th style="text-align:center;">STATUS</th>
+                                <th style="text-align:center;">REQUESTED</th>
+                                <th style="text-align:center;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -180,26 +206,38 @@
                                             else { <span class="status-pending-sm">Pending</span> }
                                         </td>
                                         <td style="text-align:center;">
+                                            @if (item.RequestedAt.HasValue)
+                                            {
+                                                <span class="date-stamp">
+                                                    <i class="fas fa-paper-plane date-icon"></i>
+                                                    @item.RequestedAt.Value.ToString("MMM d, yyyy")
+                                                    <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
+                                                </span>
+                                            }
+                                            else { <span class="date-none">—</span> }
+                                        </td>
+                                        <td style="text-align:center;">
                                             <div class="d-flex gap-2 justify-content-center align-items-center flex-wrap">
-                                                @if (item.Status == "Pending")
-                                                {
-                                                    <form asp-action="ApproveOrg" asp-controller="Instructor" method="post" style="display:inline;">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="id" value="@item.Id" />
-                                                        <input type="hidden" name="periodId" value="@serverPid" />
-                                                        <button type="submit" class="btn-approve" onclick="return confirm('Clear this student?')">
-                                                            <i class="fas fa-check me-1"></i>Cleared
-                                                        </button>
-                                                    </form>
-                                                    <form asp-action="DeclineOrg" asp-controller="Instructor" method="post" style="display:inline;">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="id" value="@item.Id" />
-                                                        <input type="hidden" name="periodId" value="@serverPid" />
-                                                        <button type="submit" class="btn-decline" onclick="return confirm('Decline this request?')">
-                                                            <i class="fas fa-times me-1"></i>Decline
-                                                        </button>
-                                                    </form>
-                                                }
+                                                <form asp-action="ApproveOrg" asp-controller="Instructor" method="post" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    <input type="hidden" name="periodId" value="@serverPid" />
+                                                    <button type="submit" class="btn-approve"
+                                                            onclick="return confirm('Clear this student?')"
+                                                            @(item.Status != "Pending" ? "disabled" : "")>
+                                                        <i class="fas fa-check me-1"></i>Cleared
+                                                    </button>
+                                                </form>
+                                                <form asp-action="DeclineOrg" asp-controller="Instructor" method="post" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    <input type="hidden" name="periodId" value="@serverPid" />
+                                                    <button type="submit" class="btn-decline"
+                                                            onclick="return confirm('Decline this request?')"
+                                                            @(item.Status != "Pending" ? "disabled" : "")>
+                                                        <i class="fas fa-times me-1"></i>Decline
+                                                    </button>
+                                                </form>
                                                 <div class="chat-btn-wrap" data-sn="@item.StudentNumber" data-key="@item.Position" data-type="org">
                                                     <button class="chat-icon-btn" onclick="openChat('@Html.Raw(item.StudentNumber)','@Html.Raw(item.StudentName)','@Html.Raw(item.Position)','org')" title="Chat">
                                                         <i class="fas fa-comment-dots"></i>
@@ -214,9 +252,9 @@
                             }
                             else
                             {
-                                <tr><td colspan="5" style="padding:40px;text-align:center;color:#888;">
+                                <tr><td colspan="7" style="padding:40px;text-align:center;color:#888;">
                                     <i class="fas fa-sitemap" style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
-                                    No organization requests for this period.
+                                    No departmental requests for this period.
                                 </td></tr>
                             }
                         </tbody>
@@ -239,7 +277,13 @@
                         <div class="table-responsive">
                             <table class="data-table">
                                 <thead>
-                                    <tr><th>SUBJECT</th><th>STUDENT</th><th style="text-align:center;">STATUS</th></tr>
+                                    <tr>
+                                        <th>SUBJECT</th>
+                                        <th>STUDENT</th>
+                                        <th style="text-align:center;">STATUS</th>
+                                        <th style="text-align:center;">REQUESTED</th>
+                                        <th style="text-align:center;">SIGNED</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     @if (signedItems.Any())
@@ -260,12 +304,34 @@
                                                     @if (item.Status == "Approved") { <span class="status-approved">Approved</span> }
                                                     else { <span class="status-declined-sm">Declined</span> }
                                                 </td>
+                                                <td style="text-align:center;">
+                                                    @if (item.RequestedAt.HasValue)
+                                                    {
+                                                        <span class="date-stamp">
+                                                            <i class="fas fa-paper-plane date-icon"></i>
+                                                            @item.RequestedAt.Value.ToString("MMM d, yyyy")
+                                                            <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
+                                                        </span>
+                                                    }
+                                                    else { <span class="date-none">—</span> }
+                                                </td>
+                                                <td style="text-align:center;">
+                                                    @if (item.SignedAt.HasValue)
+                                                    {
+                                                        <span class="date-stamp date-stamp-signed">
+                                                            <i class="fas fa-check-circle date-icon"></i>
+                                                            @item.SignedAt.Value.ToString("MMM d, yyyy")
+                                                            <span class="date-time">@item.SignedAt.Value.ToString("h:mm tt")</span>
+                                                        </span>
+                                                    }
+                                                    else { <span class="date-none">—</span> }
+                                                </td>
                                             </tr>
                                         }
                                     }
                                     else
                                     {
-                                        <tr><td colspan="3" style="padding:40px;text-align:center;color:#888;">
+                                        <tr><td colspan="5" style="padding:40px;text-align:center;color:#888;">
                                             <i class="fas fa-clipboard-check" style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
                                             No signed subject clearances.
                                         </td></tr>
@@ -280,13 +346,19 @@
                 <div class="col-md-6">
                     <div class="page-card">
                         <div class="page-card-hd dark">
-                            <i class="fas fa-sitemap me-2"></i>Signed Organization
+                            <i class="fas fa-sitemap me-2"></i>Signed Departmental
                             @if (orgSignedItems.Any()) { <span class="badge bg-secondary ms-2" style="font-size:12px;">@orgSignedItems.Count()</span> }
                         </div>
                         <div class="table-responsive">
                             <table class="data-table">
                                 <thead>
-                                    <tr><th>POSITION</th><th>STUDENT</th><th style="text-align:center;">STATUS</th></tr>
+                                    <tr>
+                                        <th>POSITION</th>
+                                        <th>STUDENT</th>
+                                        <th style="text-align:center;">STATUS</th>
+                                        <th style="text-align:center;">REQUESTED</th>
+                                        <th style="text-align:center;">SIGNED</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     @if (orgSignedItems.Any())
@@ -303,14 +375,36 @@
                                                     @if (item.Status == "Cleared") { <span class="status-approved">Cleared</span> }
                                                     else { <span class="status-declined-sm">Declined</span> }
                                                 </td>
+                                                <td style="text-align:center;">
+                                                    @if (item.RequestedAt.HasValue)
+                                                    {
+                                                        <span class="date-stamp">
+                                                            <i class="fas fa-paper-plane date-icon"></i>
+                                                            @item.RequestedAt.Value.ToString("MMM d, yyyy")
+                                                            <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
+                                                        </span>
+                                                    }
+                                                    else { <span class="date-none">—</span> }
+                                                </td>
+                                                <td style="text-align:center;">
+                                                    @if (item.SignedAt.HasValue)
+                                                    {
+                                                        <span class="date-stamp date-stamp-signed">
+                                                            <i class="fas fa-check-circle date-icon"></i>
+                                                            @item.SignedAt.Value.ToString("MMM d, yyyy")
+                                                            <span class="date-time">@item.SignedAt.Value.ToString("h:mm tt")</span>
+                                                        </span>
+                                                    }
+                                                    else { <span class="date-none">—</span> }
+                                                </td>
                                             </tr>
                                         }
                                     }
                                     else
                                     {
-                                        <tr><td colspan="3" style="padding:40px;text-align:center;color:#888;">
+                                        <tr><td colspan="5" style="padding:40px;text-align:center;color:#888;">
                                             <i class="fas fa-sitemap" style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
-                                            No signed organization clearances.
+                                            No signed departmental clearances.
                                         </td></tr>
                                     }
                                 </tbody>
@@ -324,7 +418,7 @@
 
     </div>
 
-    <!-- ── SIDEBAR: Assigned Subjects (Subject tab only) ── -->
+    <!-- ── SIDEBAR ── -->
     <div class="assigned-sidebar" id="assigned-sidebar">
         <div class="sidebar-hd">
             <i class="fas fa-book-open me-2"></i>Assigned Subjects
@@ -376,63 +470,128 @@
 
 @section Styles {
 <style>
+    /* ── DATE STAMP ── */
+    .date-stamp {
+        display:inline-flex;flex-direction:column;align-items:center;gap:1px;
+        font-size:11px;font-weight:600;color:#555;line-height:1.3;
+    }
+    .date-stamp-signed { color:#2e7d32; }
+    .date-icon { font-size:10px;margin-bottom:1px;color:inherit;opacity:0.7; }
+    .date-time { font-size:10px;font-weight:400;color:#888; }
+    .date-stamp-signed .date-time { color:#66bb6a; }
+    .date-none { color:#ccc;font-size:13px; }
+
     /* Tabs */
     .cl-tab{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;border:1.5px solid #dee2e6;background:white;color:#555;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;font-family:inherit;position:relative;}
     .cl-tab:hover{border-color:#1a4731;color:#1a4731;}
     .cl-tab.active{background:#1a4731;color:white;border-color:#1a4731;}
     .tab-badge{background:#dc3545;color:white;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;}
     .cl-tab.active .tab-badge{background:rgba(255,255,255,0.3);}
+
     /* Sidebar */
     .assigned-sidebar{width:220px;flex-shrink:0;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.07);overflow:hidden;align-self:flex-start;}
+    @@media(max-width:991.98px){
+        .assigned-sidebar{width:100%;align-self:stretch;}
+    }
     .sidebar-hd{background:#1a4731;color:#fff;padding:12px 14px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:space-between;}
     .sidebar-count{background:rgba(255,255,255,0.25);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700;}
     .sidebar-item{padding:12px 14px;border-bottom:1px solid #f0f0f0;}
     .sidebar-item:last-child{border-bottom:none;}
     .unit-badge{background:#e8f5e9;color:#1a4731;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;}
-    /* Period dropdown */
-    .period-selector-wrap{position:relative;display:inline-block}
-    .period-btn{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#1a4731,#2d6a4f);border:none;border-radius:10px;padding:9px 16px;cursor:pointer;transition:filter .2s;user-select:none;min-width:270px}
-    .period-btn:hover{filter:brightness(1.12)}
-    .period-btn-icon{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:14px}
-    .period-btn-text{flex:1;text-align:left}.period-btn-label{font-size:10px;color:rgba(255,255,255,.6);margin-bottom:1px}
-    .period-btn-value{font-size:13px;font-weight:700;color:#fff;line-height:1.3}
-    .period-chevron{color:rgba(255,255,255,.7);font-size:11px;transition:transform .2s;flex-shrink:0}
-    .period-selector-wrap.open .period-chevron{transform:rotate(180deg)}
-    .period-dd{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:290px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 36px rgba(0,0,0,.18);z-index:999;padding:8px;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto}
-    .period-selector-wrap.open .period-dd{display:flex}
-    .pd-opt{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#1a1a2e;cursor:pointer;transition:background .15s;gap:8px}
-    .pd-opt:hover{background:rgba(0,0,0,.04)}.pd-opt.selected{background:rgba(26,71,49,.1);color:#1a4731}
-    .pd-opt.selected .pd-check{display:block}.pd-check{display:none;font-size:11px;color:#1a4731;flex-shrink:0}
-    .pd-opt-status{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0}
-    .pd-opt-status.active{background:rgba(72,187,120,.15);color:#38a169}
-    .pd-opt-status.completed{background:rgba(160,174,192,.15);color:#718096}
-    /* Buttons & status */
-    .btn-approve{background:#2e7d32;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s}
-    .btn-approve:hover{opacity:.85}
-    .btn-decline{background:#c62828;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s}
-    .btn-decline:hover{opacity:.85}
-    .status-cleared{background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700}
-    .status-approved{background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700}
-    .status-declined-sm{background:#fce4ec;color:#c62828;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700}
-    .status-pending-sm{background:#fff8e1;color:#e6a817;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700}
+
+    /* ── PERIOD SELECTOR ── */
+    .period-selector-wrap{position:relative;display:inline-block;}
+    .period-btn{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#1a4731,#2d6a4f);border:none;border-radius:10px;padding:9px 16px;cursor:pointer;transition:filter .2s;user-select:none;min-width:270px;}
+    .period-btn:hover{filter:brightness(1.12);}
+    .period-btn-icon{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:14px;}
+    .period-btn-text{flex:1;text-align:left;}
+    .period-btn-label{font-size:10px;color:rgba(255,255,255,.6);margin-bottom:1px;}
+    .period-btn-value{font-size:13px;font-weight:700;color:#fff;line-height:1.3;}
+    .period-chevron{color:rgba(255,255,255,.7);font-size:11px;transition:transform .2s;flex-shrink:0;}
+    .period-selector-wrap.open .period-chevron{transform:rotate(180deg);}
+
+    /* ── DROPDOWN ── */
+    .period-dd{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:290px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 36px rgba(0,0,0,.18);z-index:999;padding:8px;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;}
+    .period-selector-wrap.open .period-dd{display:flex;}
+    .pd-opt{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#1a1a2e;cursor:pointer;transition:background .15s;gap:8px;}
+    .pd-opt:hover{background:rgba(0,0,0,.04);}
+    .pd-opt.selected{background:rgba(26,71,49,.1);color:#1a4731;}
+    .pd-opt.selected .pd-check{display:block;}
+    .pd-check{display:none;font-size:11px;color:#1a4731;flex-shrink:0;}
+    .pd-empty{padding:20px;text-align:center;font-size:12px;color:#888;}
+
+    /* Approve / Decline buttons */
+    .btn-approve{background:#2e7d32;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s;}
+    .btn-approve:hover:not(:disabled){opacity:.85;}
+    .btn-approve:disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
+    .btn-decline{background:#c62828;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s;}
+    .btn-decline:hover:not(:disabled){opacity:.85;}
+    .btn-decline:disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
+
+    /* Status badges */
+    .status-cleared{background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;}
+    .status-approved{background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;}
+    .status-declined-sm{background:#fce4ec;color:#c62828;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;}
+    .status-pending-sm{background:#fff8e1;color:#e6a817;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;}
+
     /* Chat */
-    .chat-btn-wrap{position:relative;display:inline-flex}
-    .chat-icon-btn{width:34px;height:34px;border-radius:50%;border:none;background:#e8f5e9;color:#1a4731;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .2s,transform .15s}
-    .chat-icon-btn:hover{background:#c8e6c9;transform:scale(1.1)}
-    .chat-bubble-wrap{display:flex;flex-direction:column;max-width:78%}
-    .chat-bubble-wrap.mine{align-self:flex-end;align-items:flex-end}
-    .chat-bubble-wrap.theirs{align-self:flex-start;align-items:flex-start}
-    .chat-bubble{padding:9px 13px;border-radius:18px;font-size:13px;line-height:1.5;word-break:break-word}
-    .chat-bubble.mine{background:#1a4731;color:white;border-bottom-right-radius:4px}
-    .chat-bubble.theirs{background:white;color:#1a1a2e;border:1px solid #e2e8f0;border-bottom-left-radius:4px}
-    .chat-time{font-size:10px;color:#aaa;margin-top:3px;padding:0 4px}
-    .chat-sender-name{font-size:10px;font-weight:700;color:#1a4731;margin-bottom:3px;padding:0 4px}
+    .chat-btn-wrap{position:relative;display:inline-flex;}
+    .chat-icon-btn{width:34px;height:34px;border-radius:50%;border:none;background:#e8f5e9;color:#1a4731;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .2s,transform .15s;}
+    .chat-icon-btn:hover{background:#c8e6c9;transform:scale(1.1);}
+    .chat-bubble-wrap{display:flex;flex-direction:column;max-width:78%;}
+    .chat-bubble-wrap.mine{align-self:flex-end;align-items:flex-end;}
+    .chat-bubble-wrap.theirs{align-self:flex-start;align-items:flex-start;}
+    .chat-bubble{padding:9px 13px;border-radius:18px;font-size:13px;line-height:1.5;word-break:break-word;}
+    .chat-bubble.mine{background:#1a4731;color:white;border-bottom-right-radius:4px;}
+    .chat-bubble.theirs{background:white;color:#1a1a2e;border:1px solid #e2e8f0;border-bottom-left-radius:4px;}
+    .chat-time{font-size:10px;color:#aaa;margin-top:3px;padding:0 4px;}
+    .chat-sender-name{font-size:10px;font-weight:700;color:#1a4731;margin-bottom:3px;padding:0 4px;}
 </style>
 }
+
 @section Scripts {
 <script>
 const _csrf      = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
 const _serverPid = @serverPid;
+
+// ── Periods baked in from server — no AJAX needed ──────────────────────────
+const allPeriods = @Html.Raw(periodsJson);
+
+function buildPeriodDropdown() {
+    const dd = document.getElementById('period-dd');
+    dd.innerHTML = '';
+
+    if (!allPeriods || !allPeriods.length) {
+        dd.innerHTML = '<div class="pd-empty"><i class="fas fa-calendar-times me-2"></i>No academic periods found.</div>';
+        return;
+    }
+
+    const active = allPeriods.find(p => p.id === _serverPid) ?? allPeriods[0];
+    document.getElementById('period-btn-value').textContent = `${active.sem}, A.Y. ${active.ay}`;
+
+    allPeriods.forEach(p => {
+        const opt     = document.createElement('div');
+        opt.className = 'pd-opt' + (p.id === _serverPid ? ' selected' : '');
+        opt.innerHTML = `<span style="flex:1;">${esc(p.sem)}, A.Y. ${esc(p.ay)}</span>
+                         <i class="fas fa-check pd-check"></i>`;
+        opt.onclick = (e) => { e.stopPropagation(); selectPeriod(p); };
+        dd.appendChild(opt);
+    });
+}
+
+function selectPeriod(p) {
+    window.location.href = '/Instructor/SubjectClearance?periodId=' + p.id;
+}
+
+function togglePeriodDd(e) {
+    e.stopPropagation();
+    document.getElementById('period-wrap').classList.toggle('open');
+}
+
+document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('period-wrap');
+    if (wrap && !wrap.contains(e.target)) wrap.classList.remove('open');
+});
 
 /* ── TABS ── */
 function switchTab(name, btn) {
@@ -444,103 +603,149 @@ function switchTab(name, btn) {
     if (sidebar) sidebar.style.display = name === 'subject' ? '' : 'none';
 }
 
-/* ── PERIOD DROPDOWN ── */
-let _allPeriods = [];
-async function loadPeriods() {
-    const dd = document.getElementById('period-dd');
-    try { const r = await fetch('/api/instructor/periods'); _allPeriods = await r.json(); } catch { _allPeriods = []; }
-    dd.innerHTML = '';
-    if (!_allPeriods.length) { dd.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:#888;">No periods found.</div>'; return; }
-    const pre = _allPeriods.find(p => p.id === _serverPid) ?? _allPeriods[0];
-    document.getElementById('period-btn-value').textContent = `${pre.sem}, A.Y. ${pre.ay}`;
-    _allPeriods.forEach(p => {
-        const opt = document.createElement('div');
-        opt.className = 'pd-opt' + (p.id === pre.id ? ' selected' : '');
-        opt.innerHTML = `<span style="flex:1">${esc(p.sem)}, A.Y. ${esc(p.ay)}</span><i class="fas fa-check pd-check"></i>`;
-        opt.onclick = e => { e.stopPropagation(); window.location.href = '/Instructor/SubjectClearance?periodId=' + p.id; };
-        dd.appendChild(opt);
-    });
-}
-function togglePeriodDd(e) { e.stopPropagation(); document.getElementById('period-wrap').classList.toggle('open'); }
-document.addEventListener('click', e => { const w = document.getElementById('period-wrap'); if (w && !w.contains(e.target)) w.classList.remove('open'); });
-
 /* ── CHAT ── */
 let _chatStudentNumber = null, _chatStudentName = null, _chatKey = null, _chatType = null;
+
 function getInitials(name) { return (name??'').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 function fmtTime(d) { return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }
 
-async function markRead(sn,key,type) {
-    try { await fetch('/Instructor/MarkMessagesRead',{method:'POST',headers:{'Content-Type':'application/json','RequestVerificationToken':_csrf},body:JSON.stringify({studentNumber:sn,clearanceKey:key,clearanceType:type,message:''})}); } catch {}
+async function markRead(sn, key, type) {
+    try {
+        await fetch('/Instructor/MarkMessagesRead', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
+            body: JSON.stringify({ studentNumber: sn, clearanceKey: key, clearanceType: type, message: '' })
+        });
+    } catch {}
 }
-function clearUnreadDot(sn,key,type) {
+
+function clearUnreadDot(sn, key, type) {
     document.querySelectorAll('.chat-btn-wrap').forEach(w => {
-        if (w.dataset.sn===sn && w.dataset.key===key && w.dataset.type===type) { const d=w.querySelector('.unread-dot'); if(d) d.style.display='none'; }
+        if (w.dataset.sn === sn && w.dataset.key === key && w.dataset.type === type) {
+            const d = w.querySelector('.unread-dot');
+            if (d) d.style.display = 'none';
+        }
     });
 }
+
 async function loadUnreadBadges() {
     try {
         const unreads = await (await fetch('/Instructor/GetUnreadCounts')).json();
-        // Reset all dots first
         document.querySelectorAll('.chat-btn-wrap .unread-dot').forEach(d => d.style.display = 'none');
-        // Show dots for unread messages
         unreads.forEach(u => {
             document.querySelectorAll('.chat-btn-wrap').forEach(w => {
-                if (w.dataset.sn===u.studentNumber && w.dataset.key===u.clearanceKey && w.dataset.type===u.clearanceType) {
+                if (w.dataset.sn === u.studentNumber && w.dataset.key === u.clearanceKey && w.dataset.type === u.clearanceType) {
                     const d = w.querySelector('.unread-dot');
                     if (d) d.style.display = 'block';
                 }
             });
         });
-    } catch {}
+    } catch(e) { console.error('[chat-dots] error:', e); }
 }
 
-async function openChat(sn,name,key,type) {
-    _chatStudentNumber=sn; _chatStudentName=name; _chatKey=key; _chatType=type;
+async function openChat(sn, name, key, type) {
+    _chatStudentNumber = sn; _chatStudentName = name; _chatKey = key; _chatType = type;
     document.getElementById('chat-name').textContent   = name;
-    document.getElementById('chat-role').textContent   = type==='subject' ? `Subject: ${key}` : `Position: ${key}`;
+    document.getElementById('chat-role').textContent   = type === 'subject' ? `Subject: ${key}` : `Position: ${key}`;
     document.getElementById('chat-avatar').textContent = getInitials(name);
-    const modal=document.getElementById('chat-modal'), overlay=document.getElementById('chat-overlay');
-    modal.style.display='flex'; overlay.style.display='block';
-    document.getElementById('chat-messages').innerHTML='<div style="text-align:center;margin:auto;font-size:12px;color:#aaa;"><i class="fas fa-spinner fa-spin me-1"></i>Loading…</div>';
-    await markRead(sn,key,type); clearUnreadDot(sn,key,type); fetchMessages();
-    setTimeout(()=>document.getElementById('chat-input').focus(),80);
+    const modal   = document.getElementById('chat-modal');
+    const overlay = document.getElementById('chat-overlay');
+    modal.style.display   = 'flex';
+    overlay.style.display = 'block';
+    document.getElementById('chat-messages').innerHTML =
+        '<div style="text-align:center;margin:auto;font-size:12px;color:#aaa;"><i class="fas fa-spinner fa-spin me-1"></i>Loading…</div>';
+    await markRead(sn, key, type);
+    clearUnreadDot(sn, key, type);
+    fetchMessages();
+    setTimeout(() => document.getElementById('chat-input').focus(), 80);
 }
-function closeChat() { document.getElementById('chat-modal').style.display='none'; document.getElementById('chat-overlay').style.display='none'; _chatStudentNumber=null; }
+
+function closeChat() {
+    document.getElementById('chat-modal').style.display   = 'none';
+    document.getElementById('chat-overlay').style.display = 'none';
+    _chatStudentNumber = null;
+}
 
 async function fetchMessages() {
     if (!_chatStudentNumber) return;
-    try { const d=await (await fetch(`/Instructor/GetClearanceMessages?studentNumber=${encodeURIComponent(_chatStudentNumber)}&key=${encodeURIComponent(_chatKey)}&type=${encodeURIComponent(_chatType)}`)).json(); if(d.success) renderMessages(d.messages??[]); } catch {}
+    try {
+        const d = await (await fetch(
+            `/Instructor/GetClearanceMessages?studentNumber=${encodeURIComponent(_chatStudentNumber)}&key=${encodeURIComponent(_chatKey)}&type=${encodeURIComponent(_chatType)}`
+        )).json();
+        if (d.success) renderMessages(d.messages ?? []);
+    } catch {}
 }
+
 function renderMessages(msgs) {
-    const box=document.getElementById('chat-messages'); box.innerHTML='';
-    if (!msgs.length) { box.innerHTML=`<div style="text-align:center;margin:auto;"><div style="font-size:32px;margin-bottom:10px;">💬</div><div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px;">Start the conversation</div><div style="font-size:12px;color:#aaa;max-width:220px;margin:0 auto;line-height:1.6;">Send a message to <strong>${esc(_chatStudentName)}</strong>.</div></div>`; return; }
-    let lastDate=null;
+    const box = document.getElementById('chat-messages');
+    box.innerHTML = '';
+    if (!msgs.length) {
+        box.innerHTML = `<div style="text-align:center;margin:auto;">
+            <div style="font-size:32px;margin-bottom:10px;">💬</div>
+            <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px;">Start the conversation</div>
+            <div style="font-size:12px;color:#aaa;max-width:220px;margin:0 auto;line-height:1.6;">
+                Send a message to <strong>${esc(_chatStudentName)}</strong>.
+            </div>
+        </div>`;
+        return;
+    }
+    let lastDate = null;
     msgs.forEach(m => {
-        const d=new Date(m.time), dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-        if (dateStr!==lastDate) { const div=document.createElement('div'); div.style.cssText='text-align:center;font-size:10px;color:#aaa;margin:6px 0;'; div.textContent=dateStr; box.appendChild(div); lastDate=dateStr; }
-        const wrap=document.createElement('div'); wrap.className='chat-bubble-wrap '+(m.mine?'mine':'theirs');
-        if (!m.mine) { const sn=document.createElement('div'); sn.className='chat-sender-name'; sn.textContent=_chatStudentName; wrap.appendChild(sn); }
-        const bubble=document.createElement('div'); bubble.className='chat-bubble '+(m.mine?'mine':'theirs'); bubble.textContent=m.text; wrap.appendChild(bubble);
-        const time=document.createElement('div'); time.className='chat-time'; time.textContent=fmtTime(d); wrap.appendChild(time);
+        const d       = new Date(m.time);
+        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (dateStr !== lastDate) {
+            const div       = document.createElement('div');
+            div.style.cssText = 'text-align:center;font-size:10px;color:#aaa;margin:6px 0;';
+            div.textContent = dateStr;
+            box.appendChild(div);
+            lastDate = dateStr;
+        }
+        const wrap     = document.createElement('div');
+        wrap.className = 'chat-bubble-wrap ' + (m.mine ? 'mine' : 'theirs');
+        if (!m.mine) {
+            const sn       = document.createElement('div');
+            sn.className   = 'chat-sender-name';
+            sn.textContent = _chatStudentName;
+            wrap.appendChild(sn);
+        }
+        const bubble       = document.createElement('div');
+        bubble.className   = 'chat-bubble ' + (m.mine ? 'mine' : 'theirs');
+        bubble.textContent = m.text;
+        wrap.appendChild(bubble);
+        const time       = document.createElement('div');
+        time.className   = 'chat-time';
+        time.textContent = fmtTime(d);
+        wrap.appendChild(time);
         box.appendChild(wrap);
     });
-    box.scrollTop=box.scrollHeight;
+    box.scrollTop = box.scrollHeight;
 }
+
 async function sendChatMessage() {
-    const input=document.getElementById('chat-input'), text=input.value.trim();
-    if (!text||!_chatStudentNumber) return; input.value='';
-    const wrap=document.createElement('div'); wrap.className='chat-bubble-wrap mine';
-    const bubble=document.createElement('div'); bubble.className='chat-bubble mine'; bubble.textContent=text;
-    const time=document.createElement('div'); time.className='chat-time'; time.textContent=fmtTime(new Date());
+    const input = document.getElementById('chat-input');
+    const text  = input.value.trim();
+    if (!text || !_chatStudentNumber) return;
+    input.value = '';
+    const wrap   = document.createElement('div'); wrap.className = 'chat-bubble-wrap mine';
+    const bubble = document.createElement('div'); bubble.className = 'chat-bubble mine'; bubble.textContent = text;
+    const time   = document.createElement('div'); time.className = 'chat-time'; time.textContent = fmtTime(new Date());
     wrap.appendChild(bubble); wrap.appendChild(time);
-    const box=document.getElementById('chat-messages'); box.appendChild(wrap); box.scrollTop=box.scrollHeight;
-    try { await fetch('/Instructor/SendClearanceMessage',{method:'POST',headers:{'Content-Type':'application/json','RequestVerificationToken':_csrf},body:JSON.stringify({studentNumber:_chatStudentNumber,clearanceType:_chatType,clearanceKey:_chatKey,message:text})}); } catch {}
+    const box = document.getElementById('chat-messages');
+    box.appendChild(wrap); box.scrollTop = box.scrollHeight;
+    try {
+        await fetch('/Instructor/SendClearanceMessage', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': _csrf },
+            body: JSON.stringify({ studentNumber: _chatStudentNumber, clearanceType: _chatType, clearanceKey: _chatKey, message: text })
+        });
+    } catch {}
 }
 
-function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-document.addEventListener('keydown', e => { if(e.key==='Escape') closeChat(); });
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeChat(); });
 
-loadPeriods();
+/* ── Init ── */
+buildPeriodDropdown();
 loadUnreadBadges();
 setInterval(loadUnreadBadges, 30000);
 </script>

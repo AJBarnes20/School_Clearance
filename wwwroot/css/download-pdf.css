@@ -1,0 +1,215 @@
+/* ── TOOLBAR ── */
+#toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.toolbar-left  { display: flex; align-items: center; gap: 10px; }
+.toolbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ── Period button ── */
+.period-selector-wrap { position: relative; display: inline-block; }
+.period-btn {
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, #1a4731, #2d6a4f);
+    border: none; border-radius: 10px; padding: 9px 16px;
+    cursor: pointer; transition: filter .2s; user-select: none; min-width: 280px;
+}
+.period-btn:hover { filter: brightness(1.12); }
+.period-btn-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: rgba(255,255,255,.18);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: #fff; font-size: 14px;
+}
+.period-btn-text  { flex: 1; text-align: left; }
+.period-btn-label { font-size: 10px; color: rgba(255,255,255,.6); margin-bottom: 1px; }
+.period-btn-value { font-size: 13px; font-weight: 700; color: #fff; line-height: 1.3; }
+.period-chevron   { color: rgba(255,255,255,.7); font-size: 11px; transition: transform .2s; flex-shrink: 0; }
+.period-selector-wrap.open .period-chevron { transform: rotate(180deg); }
+.period-dd {
+    display: none; position: absolute; top: calc(100% + 8px); left: 0;
+    min-width: 300px; background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 12px; box-shadow: 0 10px 36px rgba(0,0,0,.18);
+    z-index: 999; padding: 8px; flex-direction: column; gap: 2px;
+    max-height: 320px; overflow-y: auto;
+}
+.period-selector-wrap.open .period-dd { display: flex; }
+.pd-loading { padding: 20px; text-align: center; font-size: 12px; color: #888; }
+.pd-opt {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    color: #1a1a2e; cursor: pointer; transition: background .15s; gap: 8px;
+}
+.pd-opt:hover           { background: rgba(0,0,0,.04); }
+.pd-opt.selected        { background: rgba(26,71,49,.1); color: #1a4731; }
+.pd-opt.selected .pd-check { display: block; }
+.pd-check { display: none; font-size: 11px; color: #1a4731; flex-shrink: 0; }
+
+/* ── Fit to Page button ── */
+.btn-fit {
+    display: flex; align-items: center; gap: 8px;
+    background: white;
+    color: #1a4731; border: 2px solid #1a4731; border-radius: 10px;
+    padding: 9px 22px; font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all .2s; white-space: nowrap;
+}
+.btn-fit:hover  { background: #f4faf6; }
+.btn-fit.active { background: linear-gradient(135deg, #1a4731, #2d6a4f); color: white; border-color: transparent; }
+
+/* ── Print button ── */
+.btn-print {
+    display: flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, #1a4731, #2d6a4f);
+    color: #fff; border: none; border-radius: 10px;
+    padding: 9px 22px; font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: filter .2s; white-space: nowrap;
+}
+.btn-print:hover { filter: brightness(1.12); }
+
+/* ── SCREEN PREVIEW ── */
+#pdf-preview {
+    background: #888;
+    padding: 20px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow: hidden;
+    height: auto;
+}
+
+/* ── PAPER ── */
+#sheet {
+    width: 210mm;
+    /* NO min-height — let content determine height naturally */
+    background: white;
+    box-sizing: border-box;
+    padding: 4mm;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 8.5pt;   /* base font — don't set too high */
+    color: #000;
+    transform-origin: top left;
+    display: block;
+}
+
+/* ── CARD ── */
+.card { margin-bottom: 0; }
+
+/* ── HEADER ── */
+.hdr      { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 1px; }
+.hdr-logo { width: 36px; height: 36px; object-fit: contain; flex-shrink: 0; }
+.hdr-text { text-align: center; line-height: 1.15; }
+.hdr-rep  { font-size: 8pt; }
+.hdr-uni  { font-size: 9pt; font-weight: 600; letter-spacing: .3px; }
+.hdr-camp { font-size: 7pt; font-weight: 700; }
+.hdr-addr { font-size: 6pt; color: #111; }
+
+/* ── TITLE / SEM LINE ── */
+.card-title { text-align: center; font-size: 8pt; font-weight: 800; letter-spacing: .5px; margin: 2px 0 0; }
+.sem-line   { text-align: center; font-size: 8pt; margin: 0 0 2px; }
+.line       { display: inline-block; min-width: 80px; border-bottom: 1px solid #000; padding: 0 4px; font-weight: 700; font-size: 8.5pt; }
+
+/* ── STUDENT INFO TABLE ── */
+.info3          { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
+.info3 td       { padding: 0 2px; text-align: center; width: 33.33%; vertical-align: bottom; }
+.info3 td .line { min-width: 100%; display: block; padding: 1px 4px; text-align: center; }
+.info3 .cap td  { font-size: 6.5pt; font-style: italic; padding-top: 1px; border: none; line-height: 1.2; }
+
+/* ── SUBJECTS TABLE ── */
+.subj-tbl          { width: 100%; border-collapse: collapse; font-size: 9pt; }
+.subj-tbl th,
+.subj-tbl td       { border: 1px solid #000; padding: 0 2px; vertical-align: middle; }
+.subj-tbl thead th { font-weight: 700; text-align: center; font-size: 10pt; padding: 1px 2px; }
+.subj-tbl tbody td { height: 12px; }
+.col-code { width: 13%; }
+.col-name { width: 22%; }
+.col-sig  { width: 15%; }
+.sig-cell { text-align: center; }
+.sig-img  { max-height: 18px; max-width: 95%; object-fit: contain; filter: invert(1); }
+
+/* ── SIGNATURE SECTION ── */
+.sig-section   { display: flex; margin-top: 2px; width: 100%; }
+.sig-col       { display: flex; flex-direction: column; gap: 2px; width: 50%; }
+.sig-col-left  { padding-right: 12px; }
+.sig-col-right { padding-left: 12px; }
+.sig-block     { display: flex; flex-direction: column; }
+.sig-line-wrap {
+    position: relative;
+    border-bottom: 1px solid #000;
+    min-height: 22px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    margin-bottom: 1px;
+}
+.sig-person       { font-size: 8pt; font-weight: 700; text-align: center; padding-bottom: 1px; line-height: 1.2; }
+.sig-person-blank { height: 13px; }
+.sig-inline-img   {
+    position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%);
+    max-height: 18px; max-width: 80%; object-fit: contain; filter: invert(1);
+}
+.sig-role { font-size: 8pt; font-weight: 800; text-align: center; letter-spacing: .2px; text-transform: uppercase; }
+
+/* ── COPY DIVIDER ── */
+.copy-divider {
+    text-align: center; font-size: 6.5pt; font-weight: 700; letter-spacing: .3px;
+    margin: 2px 0; color: #000;
+    border-top: 1px dashed #aaa; border-bottom: 1px dashed #aaa; padding: 1px 0;
+}
+
+/* ── RANKINGS FOOTER ── */
+.rankings-footer     { text-align: center; margin-top: 2px; }
+.rankings-footer img { max-width: 100%; height: auto; display: block; margin: 0 auto; max-height: 36px; }
+
+/* ── PRINT ── */
+@media print {
+    .top-header,
+    .sidebar,
+    #mob-overlay,
+    #toolbar {
+        display: none !important;
+    }
+
+    body {
+        background: white !important;
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .layout {
+        display: block !important;
+    }
+
+    .main {
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+
+    #pdf-preview {
+        background: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: block !important;
+        overflow: visible !important;
+    }
+
+    #sheet {
+        transform: none !important;
+        width: 210mm !important;
+        min-height: unset !important;
+        box-shadow: none !important;
+        padding: 4mm !important;
+        margin: 0 auto !important;
+        font-size: 8.5pt !important;
+    }
+}
+
+@page {
+    size: legal portrait;
+    margin: 3mm;
+}

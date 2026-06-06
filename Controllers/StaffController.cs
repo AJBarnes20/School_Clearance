@@ -35,32 +35,37 @@ namespace OnlineClearanceSystem.Controllers
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
 
-                var periodCmd = new MySqlCommand(
-                    "SELECT CONCAT(semester, ', A.Y. ', year_label) " +
-                    "FROM academic_periods WHERE is_active = 1 LIMIT 1", conn);
-                var period = periodCmd.ExecuteScalar()?.ToString();
-                if (!string.IsNullOrEmpty(period)) model.ActivePeriod = period;
+                int.TryParse(Request.Cookies["StaffPeriodId"], out var cookiePid);
+                var (staffPid, periodLabel) = ResolvePeriod(conn, cookiePid > 0 ? cookiePid : (int?)null);
+                model.ActivePeriod = periodLabel;
 
                 var appCmd = new MySqlCommand(@"
                     SELECT COUNT(*) FROM clearance_organization co
                     JOIN organizations o ON o.position_title = co.position
-                    WHERE o.user_id = @uid AND co.status = 'Cleared'", conn);
+                    WHERE o.user_id = @uid AND co.status = 'Cleared'
+                      AND (@pid = 0 OR co.period_id = @pid)", conn);
                 appCmd.Parameters.AddWithValue("@uid", userId);
+                appCmd.Parameters.AddWithValue("@pid", staffPid);
                 model.Approved = Convert.ToInt32(appCmd.ExecuteScalar() ?? 0);
 
                 var penCmd = new MySqlCommand(@"
                     SELECT COUNT(*) FROM clearance_organization co
                     JOIN organizations o ON o.position_title = co.position
-                    WHERE o.user_id = @uid AND co.status = 'Pending'", conn);
+                    WHERE o.user_id = @uid AND co.status = 'Pending'
+                      AND (@pid = 0 OR co.period_id = @pid)", conn);
                 penCmd.Parameters.AddWithValue("@uid", userId);
+                penCmd.Parameters.AddWithValue("@pid", staffPid);
                 model.Pending = Convert.ToInt32(penCmd.ExecuteScalar() ?? 0);
 
                 var decCmd = new MySqlCommand(@"
                     SELECT COUNT(*) FROM clearance_organization co
                     JOIN organizations o ON o.position_title = co.position
-                    WHERE o.user_id = @uid AND co.status = 'Declined'", conn);
+                    WHERE o.user_id = @uid AND co.status = 'Declined'
+                      AND (@pid = 0 OR co.period_id = @pid)", conn);
                 decCmd.Parameters.AddWithValue("@uid", userId);
+                decCmd.Parameters.AddWithValue("@pid", staffPid);
                 model.Declined = Convert.ToInt32(decCmd.ExecuteScalar() ?? 0);
+                model.TotalRequests = model.Approved + model.Pending + model.Declined;
 
                 LoadAnnouncements(conn, model.Announcements);
             }
@@ -70,16 +75,30 @@ namespace OnlineClearanceSystem.Controllers
         }
 
         // ── Signatories ───────────────────────────────────────────────────
-        public IActionResult Signatories()
+        public IActionResult Signatories(int? periodId)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
             var items  = new List<SignatoryViewModel>();
+
+            // ── Resolve & persist the active period ───────────────────────
+            int pid = 0;
+            string periodLabel = "—";
 
             try
             {
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
 
+                if (!periodId.HasValue || periodId.Value <= 0)
+                { int.TryParse(Request.Cookies["StaffPeriodId"], out var cp); if (cp > 0) periodId = cp; }
+
+                (pid, periodLabel) = ResolvePeriod(conn, periodId);
+                if (pid > 0) Response.Cookies.Append("StaffPeriodId", pid.ToString(),
+                    new CookieOptions { MaxAge = TimeSpan.FromDays(365), HttpOnly = true, SameSite = SameSiteMode.Lax });
+                ViewData["ActivePeriodId"] = pid;
+                ViewData["ActivePeriod"]   = periodLabel;
+
+                // ── Pending requests ──────────────────────────────────────
                 var cmd = new MySqlCommand(@"
                     SELECT
                         co.id                                                   AS Id,
@@ -90,15 +109,19 @@ namespace OnlineClearanceSystem.Controllers
                             '—'
                         )                                                       AS Course,
                         COALESCE(co.status, 'Pending')                         AS Status,
-                        co.position                                             AS Position
+                        co.position                                             AS Position,
+                        co.requested_at                                         AS RequestedAt
                     FROM clearance_organization co
                     JOIN organizations  o   ON o.position_title  = co.position
                     JOIN users          stu ON stu.student_number = co.student_number
                     LEFT JOIN curriculum cu ON cu.id             = stu.curriculum_id
                     LEFT JOIN courses    c  ON c.id              = cu.course_id
                     WHERE o.user_id = @uid
+                      AND (@pid = 0 OR co.period_id = @pid)
+                      AND co.status = 'Pending'
                     ORDER BY co.id", conn);
                 cmd.Parameters.AddWithValue("@uid", userId);
+                cmd.Parameters.AddWithValue("@pid", pid);
 
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
@@ -107,26 +130,53 @@ namespace OnlineClearanceSystem.Controllers
                     {
                         Id          = r.GetInt32("Id"),
                         StudentName = r.GetString("StudentName"),
-                        StudentId   = r.IsDBNull(r.GetOrdinal("StudentId")) ? "—" : r.GetString("StudentId"),
-                        Course      = r.IsDBNull(r.GetOrdinal("Course"))    ? "—" : r.GetString("Course"),
+                        StudentId   = r.IsDBNull(r.GetOrdinal("StudentId"))   ? "—" : r.GetString("StudentId"),
+                        Course      = r.IsDBNull(r.GetOrdinal("Course"))      ? "—" : r.GetString("Course"),
                         Status      = r.GetString("Status"),
-                        Position    = r.IsDBNull(r.GetOrdinal("Position"))  ? "" : r.GetString("Position")
+                        Position    = r.IsDBNull(r.GetOrdinal("Position"))    ? "" : r.GetString("Position"),
+                        RequestedAt = r.IsDBNull(r.GetOrdinal("RequestedAt")) ? null : r.GetDateTime("RequestedAt")
                     });
                 }
             }
             catch { }
 
-            // Load signed clearances for the Signed Clearance tab
+            // ── Signed clearances (Cleared / Declined) ────────────────────
+            // FIX: filter by the SAME resolved period id so Signed History
+            //      changes when the user switches the period dropdown.
             var signedItems = new List<StaffSignedClearance>();
             try
             {
                 using var conn2 = DbHelper.GetConnection(_config);
                 conn2.Open();
+
+                var uid2 = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
                 var signedCmd = new MySqlCommand(@"
-                    SELECT student_number AS StudentId, student_name AS StudentName,
-                           course AS StudentCourse, department AS Description,
-                           status AS Status, signed_at AS SignedAt
-                    FROM signed_clearances ORDER BY signed_at DESC", conn2);
+                    SELECT
+                        co.student_number                                       AS StudentId,
+                        CONCAT(stu.first_name, ' ', stu.last_name)             AS StudentName,
+                        COALESCE(
+                            CONCAT(c.course_code, '-', cu.year_level, cu.section),
+                            '—'
+                        )                                                       AS StudentCourse,
+                        co.position                                             AS Description,
+                        CASE WHEN co.status = 'Cleared' THEN 'Approved'
+                             ELSE 'Declined' END                                AS Status,
+                        co.requested_at                                         AS RequestedAt,
+                        co.signed_at                                            AS SignedAt
+                    FROM   clearance_organization co
+                    JOIN   organizations  o   ON o.position_title  = co.position
+                    JOIN   users          stu ON stu.student_number = co.student_number
+                    LEFT JOIN curriculum  cu  ON cu.id             = stu.curriculum_id
+                    LEFT JOIN courses     c   ON c.id              = cu.course_id
+                    WHERE  o.user_id = @uid2
+                      AND  co.status IN ('Cleared', 'Declined')
+                      AND  (@pid2 = 0 OR co.period_id = @pid2)
+                    ORDER BY co.signed_at DESC", conn2);
+
+                signedCmd.Parameters.AddWithValue("@uid2", uid2);
+                signedCmd.Parameters.AddWithValue("@pid2", pid);   // <-- THE FIX
+
                 using var sr = signedCmd.ExecuteReader();
                 while (sr.Read())
                     signedItems.Add(new StaffSignedClearance {
@@ -135,7 +185,8 @@ namespace OnlineClearanceSystem.Controllers
                         StudentCourse = sr.IsDBNull(sr.GetOrdinal("StudentCourse")) ? "—" : sr.GetString("StudentCourse"),
                         Description   = sr.IsDBNull(sr.GetOrdinal("Description"))   ? "—" : sr.GetString("Description"),
                         Status        = sr.GetString("Status"),
-                        SignedAt      = sr.GetDateTime("SignedAt")
+                        RequestedAt   = sr.IsDBNull(sr.GetOrdinal("RequestedAt"))   ? null : sr.GetDateTime("RequestedAt"),
+                        SignedAt      = sr.IsDBNull(sr.GetOrdinal("SignedAt"))      ? DateTime.MinValue : sr.GetDateTime("SignedAt")
                     });
             }
             catch { }
@@ -185,8 +236,8 @@ namespace OnlineClearanceSystem.Controllers
                 conn.Open();
                 var cmd = new MySqlCommand(@"
                     INSERT INTO clearance_messages
-                        (sender_id, student_number, clearance_type, clearance_key, message, sent_at)
-                    VALUES (@sid, @sn, @type, @key, @msg, NOW())", conn);
+                        (sender_id, student_number, clearance_type, clearance_key, message, sent_at, is_read)
+                    VALUES (@sid, @sn, @type, @key, @msg, NOW(), 0)", conn);
                 cmd.Parameters.AddWithValue("@sid",  userId);
                 cmd.Parameters.AddWithValue("@sn",   dto.StudentNumber  ?? "");
                 cmd.Parameters.AddWithValue("@type", dto.ClearanceType  ?? "");
@@ -215,7 +266,7 @@ namespace OnlineClearanceSystem.Controllers
                       AND  clearance_key  = @key
                       AND  sender_id      != @uid
                       AND  is_read        = 0", conn);
-                cmd.Parameters.AddWithValue("@sn",  dto.StudentNumber ?? "");
+                cmd.Parameters.AddWithValue("@sn",   dto.StudentNumber ?? "");
                 cmd.Parameters.AddWithValue("@type", dto.ClearanceType ?? "");
                 cmd.Parameters.AddWithValue("@key",  dto.ClearanceKey  ?? "");
                 cmd.Parameters.AddWithValue("@uid",  userId);
@@ -235,19 +286,21 @@ namespace OnlineClearanceSystem.Controllers
             {
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
-
-                var readFilter = "AND cm.is_read = 0";
-                var cmd = new MySqlCommand($@"
+                var cmd = new MySqlCommand(@"
                     SELECT cm.student_number, cm.clearance_key, cm.clearance_type
                     FROM   clearance_messages cm
-                    JOIN   organizations o
-                           ON o.position_title = cm.clearance_key
-                          AND o.user_id        = @uid
-                    WHERE  cm.sender_id      != @uid
-                      AND  cm.clearance_type  = 'org'
-                      {readFilter}
+                    WHERE  cm.sender_id != @uid
+                      AND  cm.is_read   =  0
+                      AND  EXISTS (
+                          SELECT 1 FROM clearance_messages
+                          WHERE  sender_id     = @uid2
+                            AND  student_number = cm.student_number
+                            AND  clearance_key  = cm.clearance_key
+                            AND  clearance_type = cm.clearance_type
+                      )
                     GROUP BY cm.student_number, cm.clearance_key, cm.clearance_type", conn);
-                cmd.Parameters.AddWithValue("@uid", userId);
+                cmd.Parameters.AddWithValue("@uid",  userId);
+                cmd.Parameters.AddWithValue("@uid2", userId);
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
                     items.Add(new { studentNumber = r.GetString("student_number"), clearanceKey = r.GetString("clearance_key"), clearanceType = r.GetString("clearance_type") });
@@ -260,9 +313,7 @@ namespace OnlineClearanceSystem.Controllers
         [HttpPost, ValidateAntiForgeryToken]
         public IActionResult Approve(int id)
         {
-            var studentInfo = GetStudentInfoFromOrg(id);
             UpdateOrgStatus(id, "Cleared");
-            InsertSignedClearance(studentInfo, "Approved");
             TempData["SuccessMessage"] = "Student clearance approved.";
             return RedirectToAction(nameof(Signatories));
         }
@@ -271,14 +322,12 @@ namespace OnlineClearanceSystem.Controllers
         [HttpPost, ValidateAntiForgeryToken]
         public IActionResult Decline(int id)
         {
-            var studentInfo = GetStudentInfoFromOrg(id);
             UpdateOrgStatus(id, "Declined");
-            InsertSignedClearance(studentInfo, "Rejected");
             TempData["SuccessMessage"] = "Student clearance declined.";
             return RedirectToAction(nameof(Signatories));
         }
 
-        // ── Signed Clearance ──────────────────────────────────────────────
+        // ── Signed Clearance (standalone page, kept as-is) ───────────────
         public IActionResult SignedClearance(string filter = "all")
         {
             ViewData["Filter"] = filter;
@@ -297,13 +346,12 @@ namespace OnlineClearanceSystem.Controllers
                 };
 
                 var cmd = new MySqlCommand($@"
-                    SELECT
-                        sc.student_number   AS StudentId,
-                        sc.student_name     AS StudentName,
-                        sc.course           AS StudentCourse,
-                        sc.department       AS Description,
-                        sc.status           AS Status,
-                        sc.signed_at        AS SignedAt
+                    SELECT sc.student_number   AS StudentId,
+                           sc.student_name     AS StudentName,
+                           sc.course           AS StudentCourse,
+                           sc.department       AS Description,
+                           sc.status           AS Status,
+                           sc.signed_at        AS SignedAt
                     FROM signed_clearances sc
                     {where}
                     ORDER BY sc.signed_at DESC", conn);
@@ -349,13 +397,13 @@ namespace OnlineClearanceSystem.Controllers
                 using var r = cmd.ExecuteReader();
                 if (r.Read())
                 {
-                    model.FirstName      = r.IsDBNull(r.GetOrdinal("first_name"))      ? "" : r.GetString("first_name");
-                    model.MiddleInitial  = r.IsDBNull(r.GetOrdinal("middle_initial"))  ? "" : r.GetString("middle_initial");
-                    model.LastName       = r.IsDBNull(r.GetOrdinal("last_name"))       ? "" : r.GetString("last_name");
-                    model.StaffId        = r.IsDBNull(r.GetOrdinal("id_number"))       ? "—" : r.GetString("id_number");
-                    model.Email          = r.IsDBNull(r.GetOrdinal("email"))            ? "" : r.GetString("email");
-                    model.SignatureBase64 = r.IsDBNull(r.GetOrdinal("signature_data")) ? null : r.GetString("signature_data");
-                    model.Password       = "";
+                    model.FirstName       = r.IsDBNull(r.GetOrdinal("first_name"))      ? "" : r.GetString("first_name");
+                    model.MiddleInitial   = r.IsDBNull(r.GetOrdinal("middle_initial"))  ? "" : r.GetString("middle_initial");
+                    model.LastName        = r.IsDBNull(r.GetOrdinal("last_name"))       ? "" : r.GetString("last_name");
+                    model.StaffId         = r.IsDBNull(r.GetOrdinal("id_number"))       ? "—" : r.GetString("id_number");
+                    model.Email           = r.IsDBNull(r.GetOrdinal("email"))            ? "" : r.GetString("email");
+                    model.SignatureBase64  = r.IsDBNull(r.GetOrdinal("signature_data")) ? null : r.GetString("signature_data");
+                    model.Password        = "";
                 }
                 r.Close();
 
@@ -439,6 +487,48 @@ namespace OnlineClearanceSystem.Controllers
             return RedirectToAction(nameof(Profile));
         }
 
+        // ── Academic Periods API ──────────────────────────────────────────
+        [HttpGet("/api/staff/periods")]
+        public IActionResult GetPeriods()
+        {
+            var items = new List<object>();
+            try
+            {
+                using var conn = DbHelper.GetConnection(_config);
+                conn.Open();
+                var cmd = new MySqlCommand(
+                    "SELECT id, year_label, semester FROM academic_periods ORDER BY id DESC", conn);
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                    items.Add(new { id = r.GetInt32("id"), ay = r.GetString("year_label"), sem = r.GetString("semester") });
+            }
+            catch { }
+            return Json(items);
+        }
+
+        // ── Period resolution helper ──────────────────────────────────────
+        private (int id, string label) ResolvePeriod(MySqlConnection conn, int? periodId)
+        {
+            MySqlCommand cmd;
+            if (periodId.HasValue && periodId.Value > 0)
+            {
+                cmd = new MySqlCommand(
+                    "SELECT id, CONCAT(semester, ', A.Y. ', year_label) AS lbl " +
+                    "FROM academic_periods WHERE id = @pid LIMIT 1", conn);
+                cmd.Parameters.AddWithValue("@pid", periodId.Value);
+            }
+            else
+            {
+                cmd = new MySqlCommand(
+                    "SELECT id, CONCAT(semester, ', A.Y. ', year_label) AS lbl " +
+                    "FROM academic_periods ORDER BY is_active DESC, id DESC LIMIT 1", conn);
+            }
+            using var r = cmd.ExecuteReader();
+            if (r.Read())
+                return (r.GetInt32("id"), r.IsDBNull(1) ? "—" : r.GetString("lbl"));
+            return (0, "—");
+        }
+
         // ── Helpers ───────────────────────────────────────────────────────
         private void UpdateOrgStatus(int id, string status)
         {
@@ -447,7 +537,7 @@ namespace OnlineClearanceSystem.Controllers
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
                 var cmd = new MySqlCommand(
-                    "UPDATE clearance_organization SET status = @s WHERE id = @id", conn);
+                    "UPDATE clearance_organization SET status = @s, signed_at = NOW() WHERE id = @id", conn);
                 cmd.Parameters.AddWithValue("@s",  status);
                 cmd.Parameters.AddWithValue("@id", id);
                 cmd.ExecuteNonQuery();
@@ -471,62 +561,6 @@ namespace OnlineClearanceSystem.Controllers
                     Date    = r.GetDateTime("created_at").ToString("MMMM d, yyyy")
                 });
             }
-        }
-
-        private (string studentNumber, string studentName, string course, string department) GetStudentInfoFromOrg(int id)
-        {
-            try
-            {
-                using var conn = DbHelper.GetConnection(_config);
-                conn.Open();
-
-                var cmd = new MySqlCommand(@"
-                    SELECT
-                        stu.student_number,
-                        CONCAT(stu.first_name, ' ', stu.last_name) AS student_name,
-                        COALESCE(CONCAT(c.course_code, '-', cu.year_level, cu.section), '—') AS course,
-                        co.position AS department
-                    FROM clearance_organization co
-                    JOIN users       stu ON stu.student_number = co.student_number
-                    LEFT JOIN curriculum cu ON cu.id = stu.curriculum_id
-                    LEFT JOIN courses    c  ON c.id  = cu.course_id
-                    WHERE co.id = @id LIMIT 1", conn);
-                cmd.Parameters.AddWithValue("@id", id);
-
-                using var r = cmd.ExecuteReader();
-                if (r.Read())
-                    return (
-                        r.IsDBNull(0) ? "" : r.GetString(0),
-                        r.IsDBNull(1) ? "" : r.GetString(1),
-                        r.IsDBNull(2) ? "" : r.GetString(2),
-                        r.IsDBNull(3) ? "" : r.GetString(3)
-                    );
-            }
-            catch { }
-
-            return ("", "", "", "");
-        }
-
-        private void InsertSignedClearance((string studentNumber, string studentName, string course, string department) info, string status)
-        {
-            try
-            {
-                using var conn = DbHelper.GetConnection(_config);
-                conn.Open();
-
-                var cmd = new MySqlCommand(@"
-                    INSERT INTO signed_clearances
-                        (student_number, student_name, course, department, status, signed_at)
-                    VALUES
-                        (@sn, @name, @course, @dept, @status, NOW())", conn);
-                cmd.Parameters.AddWithValue("@sn",     info.studentNumber);
-                cmd.Parameters.AddWithValue("@name",   info.studentName);
-                cmd.Parameters.AddWithValue("@course", info.course);
-                cmd.Parameters.AddWithValue("@dept",   info.department);
-                cmd.Parameters.AddWithValue("@status", status);
-                cmd.ExecuteNonQuery();
-            }
-            catch { }
         }
     }
 }

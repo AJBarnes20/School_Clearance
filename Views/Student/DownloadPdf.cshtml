@@ -3,316 +3,334 @@
     ViewData["Title"]      = "Download Clearance";
     ViewData["ActivePage"] = "DownloadPdf";
     Layout = "~/Views/Shared/_StudentLayout.cshtml";
+
+    string sem = "";
+    string ay  = "";
+    if (!string.IsNullOrEmpty(Model?.AySemester))
+    {
+        var parts = Model.AySemester.Split(',', 2);
+        if (parts.Length == 2) { sem = parts[0].Trim(); ay = parts[1].Replace("A.Y.","").Trim(); }
+        else sem = Model.AySemester;
+    }
+
+    string courseSection = (Model?.CourseYear ?? "")
+        + (string.IsNullOrEmpty(Model?.Section) ? "" : ", " + Model.Section);
+
+    var orgList = Model?.Organizations
+                  ?? new List<OnlineClearanceSystem.Models.PdfOrganizationItem>();
+
+    var classAdviser = orgList.FirstOrDefault(o =>
+        string.Equals(o.OrgName, "Class Adviser", StringComparison.OrdinalIgnoreCase));
+    var deptChair = orgList.FirstOrDefault(o =>
+        string.Equals(o.OrgName, "Department Chairperson", StringComparison.OrdinalIgnoreCase));
+
+    var leftSlots = orgList
+    .Where(o => !string.Equals(o.OrgName, "Class Adviser",          StringComparison.OrdinalIgnoreCase)
+             && !string.Equals(o.OrgName, "Department Chairperson", StringComparison.OrdinalIgnoreCase)
+             && !string.Equals(o.OrgName, "Organization Adviser",   StringComparison.OrdinalIgnoreCase))
+    .ToList();
+
+    // ── Periods passed from server — no AJAX needed (same as Clearance page) ──
+    var periodsJson = ViewBag.Periods as string ?? "[]";
+
+    string PersonDisplay(string? name) =>
+        (!string.IsNullOrWhiteSpace(name)
+          && !string.Equals(name, "TBA",  StringComparison.OrdinalIgnoreCase)
+          && !string.Equals(name, "—",    StringComparison.Ordinal))
+            ? name! : "";
 }
+
+@functions {
+    string FillLine(string? v) =>
+        $"<span class=\"line\">&nbsp;{System.Net.WebUtility.HtmlEncode(v ?? "")}&nbsp;</span>";
+}
+
+<link rel="stylesheet" href="~/css/download-pdf.css" asp-append-version="true" />
 
 <!-- TOOLBAR -->
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-
-    <!-- PERIOD SELECTOR -->
-    <div class="period-selector-wrap" id="period-wrap">
-        <button class="period-btn" id="period-btn" onclick="togglePeriodDd(event)" type="button">
-            <div class="period-btn-icon"><i class="fas fa-calendar-alt"></i></div>
-            <div class="period-btn-text">
-                <div class="period-btn-label">Academic Period</div>
-                <div class="period-btn-value" id="period-btn-value">
-                    @(string.IsNullOrEmpty(Model?.AySemester) ? "Loading..." : Model!.AySemester)
+<div id="toolbar">
+    <div class="toolbar-left">
+        <div class="period-selector-wrap" id="period-wrap">
+            <button class="period-btn" id="period-btn" onclick="togglePeriodDd(event)" type="button">
+                <div class="period-btn-icon"><i class="fas fa-calendar-alt"></i></div>
+                <div class="period-btn-text">
+                    <div class="period-btn-label">Academic Period</div>
+                    <div class="period-btn-value" id="period-btn-value">
+                        @(string.IsNullOrEmpty(Model?.AySemester) ? "Select Period" : Model!.AySemester)
+                    </div>
                 </div>
+                <i class="fas fa-chevron-down period-chevron"></i>
+            </button>
+            <div class="period-dd" id="period-dd">
+                <!-- Populated by buildPeriodDropdown() -->
             </div>
-            <i class="fas fa-chevron-down period-chevron"></i>
+        </div>
+    </div>
+    <div class="toolbar-right">
+        <button class="btn-print" onclick="doPrint()" type="button">
+            <i class="fas fa-print"></i>&nbsp; Print / Download
         </button>
-        <div class="period-dd" id="period-dd">
-            <div style="padding:20px;text-align:center;font-size:12px;color:#888;">
-                <i class="fas fa-spinner fa-spin me-2"></i>Loading periods...
-            </div>
-        </div>
     </div>
-
-    <button class="btn-green" onclick="window.print()" style="padding:9px 22px;">
-        <i class="fas fa-print me-2"></i>Print / Download
-    </button>
 </div>
 
-<!-- DOCUMENT PREVIEW -->
-<div style="background:white;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1);
-            overflow:hidden;" id="pdf-preview">
-    <div id="clearance-doc"
-         style="padding:32px 48px;max-width:740px;margin:0 auto;
-                font-family:'Times New Roman',serif;">
+<!-- PRINTABLE DOCUMENT -->
+<div id="pdf-preview">
+<div id="sheet">
 
-        <!-- HEADER -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <div style="width:70px;height:70px;border-radius:50%;background:#7a1515;
-                        display:flex;align-items:center;justify-content:center;
-                        overflow:hidden;flex-shrink:0;">
-                <img src="/images/Cebu_Technological_University_Logo.png" alt="CTU Seal"
-                     style="width:100%;height:100%;object-fit:cover;">
-            </div>
-            <div style="text-align:center;flex:1;padding:0 16px;">
-                <div style="font-size:11px;color:#333;">Republic of the Philippines</div>
-                <div style="font-size:14px;font-weight:700;color:#111;">
-                    CEBU TECHNOLOGICAL UNIVERSITY
+@{
+    void RenderCard()
+    {
+        <section class="card">
+            <!-- HEADER -->
+            <div class="hdr">
+                <img class="hdr-logo" src="/images/Cebu_Technological_University_Logo.png" alt="CTU" />
+                <div class="hdr-text">
+                    <div class="hdr-rep">Republic of the Philippines</div>
+                    <div class="hdr-uni">CEBU TECHNOLOGICAL UNIVERSITY</div>
+                    <div class="hdr-camp">ARGAO CAMPUS</div>
+                    <div class="hdr-addr">Ed Kintanar Street, Lamacan, Argao, Cebu</div>
+                    <div class="hdr-addr">Website: http://www.argao.ctu.edu.ph &nbsp;&nbsp; E-mail: cdargao@ctu.edu.ph</div>
+                    <div class="hdr-addr">Phone No.: (032) 401-0737 local 1700 </div>
                 </div>
-                <div style="font-size:12px;font-weight:600;">GINATILAN EXTENSION CAMPUS</div>
-                <div style="font-size:10px;color:#555;">Ginatilan, Cebu</div>
+                <img class="hdr-logo" src="/images/Bagong_Pilipinas_logo.png" alt="BP" />
             </div>
-            <div style="width:70px;height:70px;flex-shrink:0;
-                        display:flex;align-items:center;justify-content:center;">
-                <img src="/images/Bagong_Pilipinas_logo.png" alt="Bagong Pilipinas"
-                     style="width:60px;height:60px;object-fit:contain;">
-            </div>
-        </div>
 
-        <hr style="border:2px solid #333;margin:10px 0 4px;" />
-        <hr style="border:1px solid #333;margin:0 0 18px;" />
+            <div class="card-title">DEPARTMENTAL CLEARANCE</div>
+            <div class="sem-line">@Html.Raw(FillLine(sem)) Sem, AY @Html.Raw(FillLine(ay))</div>
 
-        <div style="text-align:center;margin-bottom:24px;">
-            <h2 style="font-size:20px;font-weight:900;letter-spacing:1px;margin:0;">
-                DEPARTMENTAL<br />CLEARANCE
-            </h2>
-        </div>
-
-        <!-- STUDENT INFO -->
-        <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:13px;">
-            <tr>
-                <td style="padding:3px 0;width:110px;color:#555;">Student ID:</td>
-                <td style="padding:3px 8px;border-bottom:1px solid #333;font-weight:700;">
-                    @(Model?.StudentId ?? "")
-                </td>
-                <td style="padding:3px 0 3px 24px;width:140px;color:#555;">Student Name:</td>
-                <td style="padding:3px 8px;border-bottom:1px solid #333;font-weight:700;">
-                    @(Model?.StudentName ?? "")
-                </td>
-            </tr>
-            <tr>
-                <td style="padding:6px 0;color:#555;">Course, Year &amp; Section:</td>
-                <td style="padding:6px 8px;border-bottom:1px solid #333;font-weight:700;">
-                    @(Model?.CourseYear ?? "")@(!string.IsNullOrEmpty(Model?.Section) ? $", {Model.Section}" : "")
-                </td>
-                <td style="padding:6px 0 6px 24px;color:#555;">Semester / A.Y.:</td>
-                <td style="padding:6px 8px;border-bottom:1px solid #333;font-weight:700;">
-                    @(Model?.AySemester ?? "")
-                </td>
-            </tr>
-        </table>
-
-        <!-- SUBJECT CLEARANCES -->
-        <div style="font-size:12px;font-weight:700;margin-bottom:6px;text-decoration:underline;">
-            SUBJECT CLEARANCES
-        </div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px;">
-            <thead>
-                <tr style="background:#1a4731;color:white;">
-                    <th style="padding:7px 10px;text-align:left;">Code</th>
-                    <th style="padding:7px 10px;text-align:left;">Subject</th>
-                    <th style="padding:7px 10px;text-align:left;">Description</th>
-                    <th style="padding:7px 10px;text-align:left;">Instructor</th>
-                    <th style="padding:7px 10px;text-align:center;">Signature</th>
+            <!-- STUDENT INFO -->
+            <table class="info3">
+                <tr>
+                    <td>@Html.Raw(FillLine(Model?.StudentName))</td>
+                    <td>@Html.Raw(FillLine(courseSection))</td>
+                    <td>@Html.Raw(FillLine(Model?.StudentId))</td>
                 </tr>
-            </thead>
-            <tbody>
-                @if (Model?.Subjects != null && Model.Subjects.Any())
-                {
-                    foreach (var row in Model.Subjects)
+                <tr class="cap">
+                    <td>(Name of Student)</td>
+                    <td>(Course, Year &amp; Section)</td>
+                    <td>ID Number</td>
+                </tr>
+            </table>
+
+            <!-- SUBJECTS TABLE -->
+            <table class="subj-tbl">
+                <thead>
+                    <tr><th colspan="2">Subjects</th><th colspan="2">Instructors/Professors</th></tr>
+                    <tr>
+                        <th class="col-code">Code</th>
+                        <th>Title/Description</th>
+                        <th class="col-name">Name</th>
+                        <th class="col-sig">Signature</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @{
+                    var rows    = (Model?.Subjects ?? new List<OnlineClearanceSystem.Models.PdfSubjectItem>()).ToList();
+                    int minRows = Math.Max(rows.Count, 10);
+                    for (int i = 0; i < minRows; i++)
                     {
-                        <tr style="border-bottom:1px solid #dee2e6;">
-                            <td style="padding:6px 10px;">@row.MisCode</td>
-                            <td style="padding:6px 10px;">@row.SubjectCode</td>
-                            <td style="padding:6px 10px;">@row.Description</td>
-                            <td style="padding:6px 10px;">@row.InstructorName</td>
-                            <td style="padding:6px 10px;text-align:center;border-bottom:1px solid #333;min-width:100px;">
-                                @if (row.Status == "Cleared" && !string.IsNullOrEmpty(row.SignatureBase64))
-                                {
-                                    <img src="@row.SignatureBase64"
-                                         style="max-height:40px;max-width:90px;object-fit:contain;filter:invert(1);" />
-                                }
-                                else if (row.Status == "Cleared")
-                                {
-                                    <span style="font-size:10px;color:#333;font-style:italic;">
-                                        @(string.IsNullOrEmpty(row.InstructorName) ? "—" : row.InstructorName)
-                                    </span>
-                                }
-                                else
-                                {
-                                    @:&nbsp;
-                                }
-                            </td>
-                        </tr>
+                        if (i < rows.Count)
+                        {
+                            var row = rows[i];
+                            <tr>
+                                <td>@row.SubjectCode</td>
+                                <td>@row.Description</td>
+                                <td>@(row.InstructorName == "TBA" ? "" : row.InstructorName)</td>
+                                <td class="sig-cell">
+                                    @if (row.Status == "Cleared" && !string.IsNullOrEmpty(row.SignatureBase64))
+                                    { <img src="@row.SignatureBase64" class="sig-img" /> }
+                                </td>
+                            </tr>
+                        }
+                        else { <tr><td>&nbsp;</td><td></td><td></td><td></td></tr> }
                     }
                 }
-                else
-                {
-                    <tr>
-                        <td colspan="5" style="padding:20px;text-align:center;color:#888;font-style:italic;">
-                            No subjects enrolled for this period.
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                </tbody>
+            </table>
 
-        <!-- ORGANIZATION CLEARANCES -->
-        <div style="font-size:12px;font-weight:700;margin-bottom:6px;text-decoration:underline;">
-            ORGANIZATION CLEARANCES
-        </div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:24px;">
-            <thead>
-                <tr style="background:#1a4731;color:white;">
-                    <th style="padding:7px 10px;text-align:left;">Organization / Position</th>
-                    <th style="padding:7px 10px;text-align:left;">Signatory</th>
-                    <th style="padding:7px 10px;text-align:center;">Signature</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model?.Organizations != null && Model.Organizations.Any())
-                {
-                    foreach (var row in Model.Organizations)
+            <!-- SIGNATURES -->
+            <div class="sig-section">
+                <!-- LEFT: org treasurer, computer lab in-charge, class adviser -->
+                <div class="sig-col sig-col-left">
+                    @foreach (var item in leftSlots)
                     {
-                        <tr style="border-bottom:1px solid #dee2e6;">
-                            <td style="padding:6px 10px;font-weight:600;">@row.OrgName</td>
-                            <td style="padding:6px 10px;">@row.PersonName</td>
-                            <td style="padding:6px 10px;text-align:center;border-bottom:1px solid #333;min-width:100px;">
-                                @if (row.Status == "Cleared" && !string.IsNullOrEmpty(row.SignatureBase64))
-                                {
-                                    <img src="@row.SignatureBase64"
-                                         style="max-height:40px;max-width:90px;object-fit:contain;filter:invert(1);" />
-                                }
-                                else if (row.Status == "Cleared")
-                                {
-                                    <span style="font-size:10px;color:#333;font-style:italic;">
-                                        @(string.IsNullOrEmpty(row.PersonName) || row.PersonName == "TBA" ? "—" : row.PersonName)
-                                    </span>
-                                }
-                                else
-                                {
-                                    @:&nbsp;
-                                }
-                            </td>
-                        </tr>
+                        var cleared  = string.Equals(item.Status, "Cleared", StringComparison.OrdinalIgnoreCase);
+                        var dispName = PersonDisplay(item.PersonName);
+                        var hasSig   = cleared && !string.IsNullOrEmpty(item.SignatureBase64);
+                        <div class="sig-block">
+                            <div class="sig-line-wrap">
+                                @if (hasSig) { <img src="@item.SignatureBase64" class="sig-inline-img" /> }
+                                @if (!string.IsNullOrEmpty(dispName)) { <div class="sig-person">@dispName</div> }
+                                else { <div class="sig-person-blank"></div> }
+                            </div>
+                            <div class="sig-role">@((item.OrgName ?? "").ToUpperInvariant())</div>
+                        </div>
                     }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="3" style="padding:20px;text-align:center;color:#888;font-style:italic;">
-                            No organization signatories assigned yet.
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                    @{
+                        var advCleared  = classAdviser != null && string.Equals(classAdviser.Status, "Cleared", StringComparison.OrdinalIgnoreCase);
+                        var advDispName = PersonDisplay(classAdviser?.PersonName);
+                        var advHasSig   = advCleared && !string.IsNullOrEmpty(classAdviser?.SignatureBase64);
+                    }
+                    <div class="sig-block">
+                        <div class="sig-line-wrap">
+                            @if (advHasSig) { <img src="@classAdviser!.SignatureBase64" class="sig-inline-img" /> }
+                            @if (!string.IsNullOrEmpty(advDispName)) { <div class="sig-person">@advDispName</div> }
+                            else { <div class="sig-person-blank"></div> }
+                        </div>
+                        <div class="sig-role">CLASS ADVISER</div>
+                    </div>
+                </div>
 
-        <div style="font-size:11px;color:#555;text-align:center;font-style:italic;margin-top:12px;">
-            This clearance is valid for @(Model?.AySemester ?? "the current semester") only.
-            Cebu Technological University – Ginatilan Extension Campus · All rights reserved.
-        </div>
-    </div>
+                <!-- RIGHT: student's signature, organization adviser, department chairperson -->
+                <div class="sig-col sig-col-right">
+
+                    @{ var studentSig = Model?.SignaturePath ?? ""; var studentName = Model?.StudentName ?? ""; }
+                    <div class="sig-block">
+                        <div class="sig-line-wrap">
+                            @if (!string.IsNullOrEmpty(studentSig)) { <img src="@studentSig" class="sig-inline-img" /> }
+                            @if (!string.IsNullOrEmpty(studentName)) { <div class="sig-person">@studentName</div> }
+                            else { <div class="sig-person-blank"></div> }
+                        </div>
+                        <div class="sig-role">STUDENT'S SIGNATURE</div>
+                    </div>
+
+                    @{
+                        var orgAdviser = orgList.FirstOrDefault(o =>
+                            string.Equals(o.OrgName, "Organization Adviser", StringComparison.OrdinalIgnoreCase));
+                        var oaCleared  = orgAdviser != null && string.Equals(orgAdviser.Status, "Cleared", StringComparison.OrdinalIgnoreCase);
+                        var oaDispName = PersonDisplay(orgAdviser?.PersonName);
+                        var oaHasSig   = oaCleared && !string.IsNullOrEmpty(orgAdviser?.SignatureBase64);
+                    }
+                    <div class="sig-block">
+                        <div class="sig-line-wrap">
+                            @if (oaHasSig) { <img src="@orgAdviser!.SignatureBase64" class="sig-inline-img" /> }
+                            @if (!string.IsNullOrEmpty(oaDispName)) { <div class="sig-person">@oaDispName</div> }
+                            else { <div class="sig-person-blank"></div> }
+                        </div>
+                        <div class="sig-role">ORGANIZATION ADVISER</div>
+                    </div>
+
+                    @{
+                        var dcCleared  = deptChair != null && string.Equals(deptChair.Status, "Cleared", StringComparison.OrdinalIgnoreCase);
+                        var dcDispName = PersonDisplay(deptChair?.PersonName);
+                        var dcHasSig   = dcCleared && !string.IsNullOrEmpty(deptChair?.SignatureBase64);
+                    }
+                    <div class="sig-block">
+                        <div class="sig-line-wrap">
+                            @if (dcHasSig) { <img src="@deptChair!.SignatureBase64" class="sig-inline-img" /> }
+                            @if (!string.IsNullOrEmpty(dcDispName)) { <div class="sig-person">@dcDispName</div> }
+                            else { <div class="sig-person-blank"></div> }
+                        </div>
+                        <div class="sig-role">DEPARTMENT CHAIRPERSON</div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+    }
+}
+
+@{ RenderCard(); }
+<div class="copy-divider">— — — — — — — — STUDENT'S COPY — — — — — — — —</div>
+@{ RenderCard(); }
+<div class="rankings-footer">
+    <img src="/images/university_rankings.png" alt="University Rankings" />
 </div>
 
-@section Styles {
-<style>
-    /* ── PERIOD SELECTOR ── */
-    .period-selector-wrap { position:relative;display:inline-block; }
-    .period-btn {
-        display:flex;align-items:center;gap:10px;
-        background:linear-gradient(135deg,#1a4731,#2d6a4f);
-        border:none;border-radius:10px;padding:9px 16px;
-        cursor:pointer;transition:filter 0.2s;user-select:none;min-width:280px;
-    }
-    .period-btn:hover { filter:brightness(1.12); }
-    .period-btn-icon {
-        width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.18);
-        display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:14px;
-    }
-    .period-btn-text  { flex:1;text-align:left; }
-    .period-btn-label { font-size:10px;color:rgba(255,255,255,0.6);margin-bottom:1px; }
-    .period-btn-value { font-size:13px;font-weight:700;color:#fff;line-height:1.3; }
-    .period-chevron   { color:rgba(255,255,255,0.7);font-size:11px;transition:transform 0.2s;flex-shrink:0; }
-    .period-selector-wrap.open .period-chevron { transform:rotate(180deg); }
-
-    .period-dd {
-        display:none;position:absolute;top:calc(100% + 8px);left:0;
-        min-width:300px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;
-        box-shadow:0 10px 36px rgba(0,0,0,0.18);z-index:999;
-        padding:8px;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;
-    }
-    .period-selector-wrap.open .period-dd { display:flex; }
-    .pd-opt {
-        display:flex;align-items:center;justify-content:space-between;
-        padding:9px 12px;border-radius:8px;font-size:13px;font-weight:600;
-        color:#1a1a2e;cursor:pointer;transition:background 0.15s;gap:8px;
-    }
-    .pd-opt:hover    { background:rgba(0,0,0,0.04); }
-    .pd-opt.selected { background:rgba(26,71,49,0.1);color:#1a4731; }
-    .pd-opt.selected .pd-check { display:block; }
-    .pd-check     { display:none;font-size:11px;color:#1a4731;flex-shrink:0; }
-    .pd-opt-status { font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0; }
-    .pd-opt-status.active    { background:rgba(72,187,120,0.15);color:#38a169; }
-    .pd-opt-status.completed { background:rgba(160,174,192,0.15);color:#718096; }
-
-    @@media print {
-        .top-header, .sidebar,
-        .d-flex.align-items-center.justify-content-between.mb-3 { display:none !important; }
-        .main { padding:0 !important; }
-        #pdf-preview { box-shadow:none;border-radius:0; }
-        body { background:white; }
-        .layout { display:block; }
-    }
-</style>
-}
+</div><!-- /#sheet -->
+</div><!-- /#pdf-preview -->
 
 @section Scripts {
 <script>
-    const _serverPeriodId = @Model.ActivePeriodId;
-    let allPeriods = [], selectedPeriodId = _serverPeriodId;
+/* ══════════════════════════════════════════
+   PERIOD DROPDOWN — data baked in from server (same approach as Clearance page)
+══════════════════════════════════════════ */
+const _serverPeriodId = @(Model?.ActivePeriodId ?? 0);
+const allPeriods = @Html.Raw(periodsJson);
 
-    async function loadPeriods() {
-        const dd = document.getElementById('period-dd');
-        try {
-            const res  = await fetch('/api/student/periods');
-            allPeriods = await res.json();
-        } catch { allPeriods = []; }
+function buildPeriodDropdown() {
+    const dd = document.getElementById('period-dd');
+    dd.innerHTML = '';
 
-        dd.innerHTML = '';
-        if (!allPeriods.length) {
-            dd.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:#888;">No academic periods found.</div>';
-            return;
-        }
-
-        const preselected = allPeriods.find(p => p.id === _serverPeriodId) ?? allPeriods[0];
-        selectedPeriodId = preselected.id;
-        updatePeriodDisplay(preselected);
-
-        allPeriods.forEach(p => {
-            const opt     = document.createElement('div');
-            opt.className = 'pd-opt' + (p.id === selectedPeriodId ? ' selected' : '');
-            opt.dataset.id = p.id;
-            opt.innerHTML = `
-                <span style="flex:1;">${esc(p.sem)}, A.Y. ${esc(p.ay)}</span>
-                <i class="fas fa-check pd-check"></i>`;
-            opt.onclick = (e) => { e.stopPropagation(); selectPeriod(p); };
-            dd.appendChild(opt);
-        });
+    if (!allPeriods || !allPeriods.length) {
+        dd.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:#aaa;">No academic periods found.</div>';
+        return;
     }
 
-    function selectPeriod(p) {
-        window.location.href = '/Student/DownloadPdf?periodId=' + p.id;
-    }
+    // Update button display to match server-selected period
+    const active = allPeriods.find(p => p.id === _serverPeriodId) ?? allPeriods[0];
+    document.getElementById('period-btn-value').textContent = `${active.sem}, A.Y. ${active.ay}`;
 
-    function updatePeriodDisplay(p) {
-        document.getElementById('period-btn-value').textContent = `${p.sem}, A.Y. ${p.ay}`;
-    }
-
-    function togglePeriodDd(e) { e.stopPropagation(); document.getElementById('period-wrap').classList.toggle('open'); }
-
-    document.addEventListener('click', e => {
-        const wrap = document.getElementById('period-wrap');
-        if (wrap && !wrap.contains(e.target)) wrap.classList.remove('open');
+    allPeriods.forEach(p => {
+        const opt     = document.createElement('div');
+        opt.className = 'pd-opt' + (p.id === _serverPeriodId ? ' selected' : '');
+        opt.innerHTML = `<span style="flex:1;">${esc(p.sem)}, A.Y. ${esc(p.ay)}</span>
+                         <i class="fas fa-check pd-check"></i>`;
+        opt.onclick = (e) => {
+            e.stopPropagation();
+            window.location.href = '/Student/DownloadPdf?periodId=' + p.id;
+        };
+        dd.appendChild(opt);
     });
+}
 
-    function esc(str) {
-        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function togglePeriodDd(e) {
+    e.stopPropagation();
+    document.getElementById('period-wrap').classList.toggle('open');
+}
+
+document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('period-wrap');
+    if (wrap && !wrap.contains(e.target)) wrap.classList.remove('open');
+});
+
+function esc(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/* ── Init ── */
+buildPeriodDropdown();
+
+/* ══════════════════════════════════════════
+   FIT TO PAGE
+══════════════════════════════════════════ */
+let isFitted = true;
+
+function fitToPage() {
+    const preview = document.getElementById("pdf-preview");
+    const sheet   = document.getElementById("sheet");
+    if (!preview || !sheet) return;
+
+    if (isFitted) {
+        const pageWidth  = preview.clientWidth - 40;
+        const a4WidthPx  = 210 * 3.7795275591;
+        const scale      = pageWidth / a4WidthPx;
+        const finalScale = Math.min(scale, 1);
+
+        sheet.style.transform       = `scale(${finalScale})`;
+        sheet.style.transformOrigin = "top left";
+        sheet.style.marginBottom    = "0";
+
+        const scaledHeight = sheet.scrollHeight * finalScale;
+        preview.style.height = (scaledHeight + 40) + "px";
+    } else {
+        sheet.style.transform    = "scale(1)";
+        sheet.style.marginBottom = "0";
+        preview.style.height     = "auto";
     }
+}
 
-    loadPeriods();
+window.addEventListener("load", () => {
+    fitToPage();
+});
+window.addEventListener("resize", fitToPage);
+
+function doPrint() {
+    window.print();
+}
 </script>
 }

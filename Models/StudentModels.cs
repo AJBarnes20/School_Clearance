@@ -10,6 +10,9 @@ namespace OnlineClearanceSystem.Models
         public int             TotalSubjects     { get; set; }
         public int             TotalOrgs         { get; set; }
         public string          ActivePeriod      { get; set; } = "A.Y. 2025-2026, 2nd Semester";
+        public int             PendingRequests   { get; set; }
+        public int             PendingToSign     { get; set; }
+        public bool            HasOrgPosition    { get; set; }
         public List<AnnouncementItem> Announcements { get; set; } = new();
     }
 
@@ -44,8 +47,12 @@ namespace OnlineClearanceSystem.Models
         public required string Description    { get; set; }
         public required string InstructorName { get; set; }
         public required string Status         { get; set; }
+        /// <summary>When the student submitted the clearance request.</summary>
+        public DateTime?       RequestedAt    { get; set; }
+        /// <summary>When the instructor approved or declined the request.</summary>
+        public DateTime?       SignedAt       { get; set; }
     }
-
+      
     // ── Subjects Offered ──────────────────────────────────────────────────────
     public class SubjectOfferedViewModel
     {
@@ -73,6 +80,7 @@ namespace OnlineClearanceSystem.Models
         public string CourseYear     { get; set; } = "";
         public string Section        { get; set; } = "";
         public string AySemester     { get; set; } = "";
+        public string SignaturePath  { get; set; } = "";
         public int    ActivePeriodId { get; set; } = 0;
         public List<PdfSubjectItem>      Subjects      { get; set; } = new();
         public List<PdfOrganizationItem> Organizations { get; set; } = new();
@@ -80,32 +88,34 @@ namespace OnlineClearanceSystem.Models
 
     public class PdfSubjectItem
     {
-        public string MisCode         { get; set; } = "";
-        public string SubjectCode     { get; set; } = "";
-        public string Description     { get; set; } = "";
-        public string InstructorName  { get; set; } = "";
-        public string Status          { get; set; } = "";
-        public string SignatureBase64  { get; set; } = "";
+        public string MisCode        { get; set; } = "";
+        public string SubjectCode    { get; set; } = "";
+        public string Description    { get; set; } = "";
+        public string InstructorName { get; set; } = "";
+        public string Status         { get; set; } = "";
+        public string SignatureBase64 { get; set; } = "";
     }
 
     // ── Student as Org Officer — Signed Clearance ─────────────────────────────
     public class StudentSignedClearanceViewModel
     {
-        public List<string>              MyPositions  { get; set; } = new();
-        public List<StudentOrgOfficerItem> PendingItems { get; set; } = new();
-        public List<StudentOrgOfficerItem> SignedItems  { get; set; } = new();
-        public int                       ActivePeriodId { get; set; } = 0;
+        public List<string>                MyPositions    { get; set; } = new();
+        public List<StudentOrgOfficerItem> PendingItems   { get; set; } = new();
+        public List<StudentOrgOfficerItem> SignedItems    { get; set; } = new();
+        public int                         ActivePeriodId { get; set; } = 0;
     }
 
     public class StudentOrgOfficerItem
-    {
-        public int    Id            { get; set; }
-        public string Position      { get; set; } = "";
-        public string StudentName   { get; set; } = "";
-        public string StudentNumber { get; set; } = "";
-        public string Course        { get; set; } = "";
-        public string Status        { get; set; } = "";
-    }
+{
+    public int       Id            { get; set; }
+    public string    Position      { get; set; } = "";
+    public string    StudentName   { get; set; } = "";
+    public string    StudentNumber { get; set; } = "";
+    public string    Course        { get; set; } = "";
+    public string    Status        { get; set; } = "";
+    public DateTime? RequestedAt   { get; set; }   // ← NEW
+    public DateTime? SignedAt      { get; set; }   // ← NEW
+}
 
     public class PdfOrganizationItem
     {

@@ -32,6 +32,7 @@ namespace OnlineClearanceSystem.Controllers
             if (TempData["RegisterSuccess"] != null)
                 ViewBag.SuccessMessage = TempData["RegisterSuccess"];
 
+            ViewBag.PublicUrl = _config["PublicUrl"] ?? $"{Request.Scheme}://{Request.Host}";
             return View(new LoginViewModel());
         }
 

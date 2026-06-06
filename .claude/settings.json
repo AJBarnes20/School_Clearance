@@ -3,7 +3,16 @@
     "allow": [
       "Bash(del \"Views\\\\Instructor\\\\Organization.cshtml\" \"Views\\\\Instructor\\\\SignedClearance.cshtml\" \"Views\\\\Instructor\\\\SubjectOfferings.cshtml\" \"Views\\\\Staff\\\\SignedClearance.cshtml\" \"Views\\\\Student\\\\SubjectsOffered.cshtml\")",
       "Bash(Remove-Item \"Views\\\\Instructor\\\\Organization.cshtml\",\"Views\\\\Instructor\\\\SignedClearance.cshtml\",\"Views\\\\Instructor\\\\SubjectOfferings.cshtml\",\"Views\\\\Staff\\\\SignedClearance.cshtml\",\"Views\\\\Student\\\\SubjectsOffered.cshtml\")",
-      "Bash(dotnet add *)"
+      "Bash(dotnet add *)",
+      "Bash(ipconfig)",
+      "Bash(findstr \"IPv4\")",
+      "PowerShell(New-NetFirewallRule -DisplayName \"OnlineClearance LAN\" -Direction Inbound -Protocol TCP -LocalPort 5248 -Action Allow -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object Name, InterfaceDescription)",
+      "PowerShell(Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null } | Select-Object InterfaceAlias, @{N='IP';E={$_.IPv4Address.IPAddress}}, @{N='Gateway';E={$_.IPv4DefaultGateway.NextHop}}, @{N='DNS';E={$_.DNSServer.ServerAddresses[0]}})",
+      "PowerShell(Get-NetIPConfiguration)",
+      "PowerShell(New-NetIPAddress -InterfaceAlias \"Wi-Fi\" -IPAddress \"192.168.254.108\" -PrefixLength 24 -DefaultGateway \"192.168.254.254\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Set-DnsClientServerAddress -InterfaceAlias \"Wi-Fi\" -ServerAddresses \"192.168.254.254\",\"8.8.8.8\")",
+      "PowerShell(findstr /i \"wi-fi\" /A:5)"
     ]
   }
 }

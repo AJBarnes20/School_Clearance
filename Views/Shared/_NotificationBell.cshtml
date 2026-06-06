@@ -72,7 +72,15 @@
         const dd = document.getElementById('notif-dropdown');
         notifOpen = !notifOpen;
         dd.style.display = notifOpen ? 'block' : 'none';
-        if (notifOpen) loadNotifications();
+        if (notifOpen) {
+            // Clear badge immediately
+            document.getElementById('notif-count').style.display = 'none';
+            document.getElementById('notif-dot').style.display   = 'none';
+            document.getElementById('notif-badge').textContent   = '0 new';
+            // Persist read timestamp
+            fetch('/api/notification/mark-read', { method: 'POST' }).catch(() => {});
+            loadNotifications();
+        }
     }
 
     // Close on outside click
@@ -90,17 +98,17 @@
             const res  = await fetch('/api/notification/list');
             const data = await res.json();
 
-            // Update count badge
+            // Update count badge (only if dropdown is closed — don't re-show after mark-read)
             const countEl = document.getElementById('notif-count');
             const dotEl   = document.getElementById('notif-dot');
             const badgeEl = document.getElementById('notif-badge');
 
-            if (data.count > 0) {
-                countEl.textContent = data.count > 9 ? '9+' : data.count;
+            if (!notifOpen && data.newCount > 0) {
+                countEl.textContent = data.newCount > 9 ? '9+' : data.newCount;
                 countEl.style.display = 'flex';
                 dotEl.style.display   = 'block';
-                badgeEl.textContent   = `${data.count} new`;
-            } else {
+                badgeEl.textContent   = `${data.newCount} new`;
+            } else if (!notifOpen) {
                 countEl.style.display = 'none';
                 dotEl.style.display   = 'none';
                 badgeEl.textContent   = '0 new';

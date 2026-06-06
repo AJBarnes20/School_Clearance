@@ -10,7 +10,31 @@
       "PowerShell(Get-Command mysql -ErrorAction SilentlyContinue)",
       "PowerShell(& \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 9.6\\\\bin\\\\mysql.exe\" -u root \"-paltheajean1120!\" OnlineClearance --execute \"SOURCE c:/Users/Admin/OnlineClearance/migration.sql\" 2>&1)",
       "PowerShell(& \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 9.6\\\\bin\\\\mysql.exe\" -u root \"-paltheajean1120!\" OnlineClearance 2>&1)",
-      "PowerShell(& \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 9.6\\\\bin\\\\mysql.exe\" -u root \"-paltheajean1120!\" OnlineClearance --execute \"SELECT TABLE_NAME, CONSTRAINT_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = 'OnlineClearance' AND REFERENCED_TABLE_NAME IS NOT NULL ORDER BY TABLE_NAME;\" 2>&1)"
+      "PowerShell(& \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 9.6\\\\bin\\\\mysql.exe\" -u root \"-paltheajean1120!\" OnlineClearance --execute \"SELECT TABLE_NAME, CONSTRAINT_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = 'OnlineClearance' AND REFERENCED_TABLE_NAME IS NOT NULL ORDER BY TABLE_NAME;\" 2>&1)",
+      "PowerShell(Get-NetConnectionProfile)",
+      "PowerShell(Get-Command ssh 2>&1)",
+      "PowerShell(Invoke-WebRequest -Uri \"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe\" -OutFile \"C:\\\\Users\\\\Admin\\\\OnlineClearance\\\\cloudflared.exe\" -UseBasicParsing)",
+      "PowerShell(\\(Get-Item \"C:\\\\Users\\\\Admin\\\\OnlineClearance\\\\cloudflared.exe\"\\).Length / 1MB)",
+      "PowerShell(Stop-Process -Id 34316 -Force)",
+      "Bash(netstat -ano)",
+      "PowerShell(Stop-Process -Id 9968 -Force)",
+      "PowerShell(Stop-Process -Id 27796 -Force)",
+      "Bash(which mysql *)",
+      "Read(//c/Program Files/MySQL//**)",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.6/bin/mysql.exe' -uroot -paltheajean1120! OnlineClearance -e 'SHOW INDEX FROM subjects;')",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.6/bin/mysql.exe' -uroot -paltheajean1120! OnlineClearance -e 'ALTER TABLE subjects DROP INDEX subject_code;')",
+      "Bash(awk -F'\\\\t' '{print $3, \"non_unique=\"$2, \"col=\"$5}')",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.6/bin/mysql.exe' -uroot -paltheajean1120! OnlineClearance -e ' *)",
+      "Bash(grep -v \":0$\")",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.6/bin/mysql.exe' -uroot -paltheajean1120! OnlineClearance -e 'ALTER TABLE users ADD COLUMN middle_name VARCHAR\\(50\\) NULL AFTER first_name;')",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.6/bin/mysql.exe' -uroot -paltheajean1120! OnlineClearance -e 'DESCRIBE users;')",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.6/bin/mysql.exe' -uroot -paltheajean1120! OnlineClearance -e 'UPDATE users SET middle_name = middle_initial WHERE \\(middle_name IS NULL OR middle_name='\\\\'''\\\\''\\) AND middle_initial IS NOT NULL AND middle_initial != '\\\\'''\\\\'';')",
+      "Bash(where mysql *)",
+      "Bash(ls \"C:/Program Files/MySQL/\" 2>&1; ls \"C:/xampp/mysql/bin/\" 2>&1 | head -5)",
+      "Read(//c/xampp/mysql/bin/**)",
+      "Bash(\"C:/Program Files/MySQL/MySQL Server 9.6/bin/mysql.exe\" -u root -p\"altheajean1120!\" OnlineClearance)",
+      "Bash(git checkout *)",
+      "Bash(\"C:/Program Files/MySQL/MySQL Server 9.6/bin/mysql.exe\" -u root -p\"altheajean1120!\" OnlineClearance -e \"DESCRIBE clearance_organization;\")"
     ]
   }
 }
