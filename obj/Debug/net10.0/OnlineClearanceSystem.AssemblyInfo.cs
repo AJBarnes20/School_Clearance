@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OnlineClearanceSystem")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+11c35bbf4e467d24a9dfe1da72ebcf97664cff48")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5c9d22d438a4b40006bdab9a559834fc0ce1b5ca")]
 [assembly: System.Reflection.AssemblyProductAttribute("OnlineClearanceSystem")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OnlineClearanceSystem")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

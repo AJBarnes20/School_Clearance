@@ -9,10 +9,8 @@
     var availableSubjects = ViewBag.AvailableSubjects as IEnumerable<SubjectItem> ?? Enumerable.Empty<SubjectItem>();
     var adviser     = Model?.ClassAdviser;
 
-    // Periods passed from server — no AJAX needed
     var periodsJson = ViewBag.Periods as string ?? "[]";
 
-    // ── Build one unified, sorted list for the Departmental table ─────────
     var posRank = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
     {
         { "Computer Laboratory In-Charge", 1 },
@@ -57,7 +55,24 @@
 
 <!-- HEADER ROW -->
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-    <h5 class="fw-bold mb-0" style="color:#1a1a2e;font-size:15px;"></h5>
+
+    @if (Model?.MyPositions != null && Model.MyPositions.Any())
+    {
+        <div style="display:inline-flex;align-items:center;gap:0;border-radius:10px;overflow:hidden;border:1px solid #c8e6c9;">
+            <div style="background:#1a4731;padding:8px 14px;font-size:12px;font-weight:700;color:white;white-space:nowrap;">
+                <i class="fas fa-user-tag me-2"></i>Your Assigned Position(s)
+            </div>
+            <div style="background:white;padding:6px 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+                @foreach (var pos in Model.MyPositions)
+                {
+                    <span style="background:#e8f5e9;color:#1a4731;border:1.5px solid #a5d6a7;border-radius:20px;
+                                 padding:4px 14px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">
+                        <i class="fas fa-check-circle" style="color:#28a745;"></i>@pos
+                    </span>
+                }
+            </div>
+        </div>
+    }
 
     <!-- PERIOD SELECTOR DROPDOWN -->
     <div class="period-selector-wrap" id="period-wrap">
@@ -79,6 +94,8 @@
 </div>
 
 @{ bool hasApproval = Model?.MyPositions != null && Model.MyPositions.Any(); }
+
+<!-- ══ TOP-LEVEL TAB BAR (My Clearance / Approval Requests) ══ -->
 @if (hasApproval)
 {
 <div class="clearance-tab-bar mb-3">
@@ -95,313 +112,335 @@
 </div>
 }
 
+<!-- ══ CLEARANCE PANEL ══ -->
 <div id="panel-clearance">
 
-@* ══════════════════════════════════════════════════════════════════════════
-   SECTION 1 — SUBJECT CLEARANCE
-   ══════════════════════════════════════════════════════════════════════════ *@
+    @* ══════════════════════════════════════════════════════════════════════════
+       SECTION 1 — SUBJECT CLEARANCE
+       ══════════════════════════════════════════════════════════════════════════ *@
 
-<div class="page-card mb-4">
-    <div class="page-card-hd dark" style="display:flex;align-items:center;justify-content:space-between;">
-        <span><i class="fas fa-clipboard-list me-2"></i>Subjects Clearance</span>
-        <button onclick="toggleAddPanel()" id="add-subj-btn" style="background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;border-radius:7px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">
-            <i class="fas fa-plus me-1"></i>Add Subject
-        </button>
-    </div>
-
-    <!-- INLINE ADD SUBJECT -->
-    <div id="add-subject-panel" style="display:none;border-bottom:1px solid var(--border,#e2e8f0);background:#fafbfc;">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border,#e2e8f0);display:flex;align-items:center;gap:10px;">
-            <div class="search-wrap" style="position:relative;flex:1;max-width:500px;">
-                <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;"></i>
-                <input type="text" id="subject-search"
-                       placeholder="Search by MIS code, subject or instructor…"
-                       autocomplete="off" oninput="onSearchInput(this.value)"
-                       style="width:100%;padding:9px 12px 9px 36px;border:1px solid #dee2e6;border-radius:8px;font-size:13px;font-family:inherit;outline:none;" />
-                <div id="autocomplete-list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #dee2e6;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.13);z-index:900;max-height:280px;overflow-y:auto;"></div>
+    <div id="inner-panel-subjects">
+    <div class="page-card mb-4">
+        <div class="page-card-hd dark" style="display:flex;align-items:center;justify-content:space-between;cursor:default;">
+            <div style="display:flex;gap:0;">
+                <span class="card-switcher active" id="csw-subjects" onclick="switchInnerTab('subjects')"
+                      style="display:inline-flex;align-items:center;gap:6px;padding:0 18px 0 0;cursor:pointer;">
+                    <i class="fas fa-clipboard-list"></i>Subjects Clearance
+                </span>
+                <span style="color:rgba(255,255,255,0.3);margin:0 4px;">|</span>
+                <span class="card-switcher" id="csw-departmental" onclick="switchInnerTab('departmental')"
+                      style="display:inline-flex;align-items:center;gap:6px;padding:0 0 0 18px;cursor:pointer;opacity:0.55;">
+                    <i class="fas fa-sitemap"></i>Departmental Clearance
+                </span>
             </div>
-            <span id="sel-count-badge" style="font-size:12px;color:#2d6a4f;font-weight:700;white-space:nowrap;display:none;">
-                <i class="fas fa-check-circle me-1"></i><span id="sel-count-num">0</span> selected
-            </span>
-            <button onclick="closeAddPanel()" style="background:#eef0f3;border:1px solid #dee2e6;color:#555;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">
-                <i class="fas fa-times me-1"></i>Close
+            <button onclick="toggleAddPanel()" id="add-subj-btn" style="background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;border-radius:7px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">
+                <i class="fas fa-plus me-1"></i>Add Subject
             </button>
         </div>
-        <div id="selected-area">
-            <div id="empty-state" style="display:flex;flex-direction:column;align-items:center;padding:28px 24px;gap:8px;text-align:center;">
-                <div style="width:52px;height:52px;border-radius:50%;background:#f0fdf4;border:2px solid #bbf7d0;display:flex;align-items:center;justify-content:center;font-size:22px;color:#16a34a;">
-                    <i class="fas fa-book-open"></i>
+
+        <!-- INLINE ADD SUBJECT -->
+        <div id="add-subject-panel" style="display:none;border-bottom:1px solid var(--border,#e2e8f0);background:#fafbfc;">
+            <div style="padding:12px 16px;border-bottom:1px solid var(--border,#e2e8f0);display:flex;align-items:center;gap:10px;">
+                <div class="search-wrap" style="position:relative;flex:1;max-width:500px;">
+                    <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;"></i>
+                    <input type="text" id="subject-search"
+                           placeholder="Search by MIS code, subject or instructor…"
+                           autocomplete="off" oninput="onSearchInput(this.value)"
+                           style="width:100%;padding:9px 12px 9px 36px;border:1px solid #dee2e6;border-radius:8px;font-size:13px;font-family:inherit;outline:none;" />
+                    <div id="autocomplete-list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #dee2e6;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.13);z-index:900;max-height:280px;overflow-y:auto;"></div>
                 </div>
-                <div style="font-size:13px;font-weight:700;color:#1a1a2e;">No subjects selected yet</div>
-                <div style="font-size:12px;color:#888;">Use the search box above to find and add your enrolled subjects.</div>
+                <span id="sel-count-badge" style="font-size:12px;color:#2d6a4f;font-weight:700;white-space:nowrap;display:none;">
+                    <i class="fas fa-check-circle me-1"></i><span id="sel-count-num">0</span> selected
+                </span>
+                <button onclick="closeAddPanel()" style="background:#eef0f3;border:1px solid #dee2e6;color:#555;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">
+                    <i class="fas fa-times me-1"></i>Close
+                </button>
             </div>
-            <div id="selected-list" style="display:flex;flex-direction:column;gap:0;"></div>
+            <div id="selected-area">
+                <div id="empty-state" style="display:flex;flex-direction:column;align-items:center;padding:28px 24px;gap:8px;text-align:center;">
+                    <div style="width:52px;height:52px;border-radius:50%;background:#f0fdf4;border:2px solid #bbf7d0;display:flex;align-items:center;justify-content:center;font-size:22px;color:#16a34a;">
+                        <i class="fas fa-book-open"></i>
+                    </div>
+                    <div style="font-size:13px;font-weight:700;color:#1a1a2e;">No subjects selected yet</div>
+                    <div style="font-size:12px;color:#888;">Use the search box above to find and add your enrolled subjects.</div>
+                </div>
+                <div id="selected-list" style="display:flex;flex-direction:column;gap:0;"></div>
+            </div>
+            <div style="padding:12px 16px;border-top:1px solid var(--border,#e2e8f0);text-align:right;">
+                <form asp-action="ConfirmSubjects" asp-controller="Student" method="post" id="confirm-form" style="display:inline;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="selectedSubjects" id="selected-hidden" />
+                    <input type="hidden" name="periodId" value="@(ViewData["ActivePeriodId"] ?? 0)" />
+                    <button type="submit" class="btn-green" onclick="return prepareSubmit()"><i class="fas fa-check me-2"></i>Confirm</button>
+                </form>
+            </div>
         </div>
-        <div style="padding:12px 16px;border-top:1px solid var(--border,#e2e8f0);text-align:right;">
-            <form asp-action="ConfirmSubjects" asp-controller="Student" method="post" id="confirm-form" style="display:inline;">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="selectedSubjects" id="selected-hidden" />
-                <input type="hidden" name="periodId" value="@(ViewData["ActivePeriodId"] ?? 0)" />
-                <button type="submit" class="btn-green" onclick="return prepareSubmit()"><i class="fas fa-check me-2"></i>Confirm</button>
-            </form>
-        </div>
-    </div>
 
-    <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>MIS Code</th>
-                    <th>Subject Code</th>
-                    <th>Description</th>
-                    <th>Instructor</th>
-                    <th style="text-align:center;">Status</th>
-                    <th style="text-align:center;">Requested</th>
-                    <th style="text-align:center;">Cleared</th>
-                    <th style="text-align:center;">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (hasSubjects)
-                {
-                    foreach (var item in Model!.SubjectItems!)
-                    {
-                        <tr>
-                            <td>@item.MisCode</td>
-                            <td style="font-weight:600;">@item.SubjectCode</td>
-                            <td>@item.Description</td>
-                            <td>@item.InstructorName</td>
-                            <td style="text-align:center;">
-                                @if (item.Status == "Cleared")
-                                {
-                                    <span class="status-approved">Cleared</span>
-                                }
-                                else if (item.Status == "Pending")
-                                {
-                                    <span class="status-pending">Pending</span>
-                                }
-                                else
-                                {
-                                    <span class="status-none">—</span>
-                                }
-                            </td>
-                            <td style="text-align:center;">
-                                @if (item.RequestedAt.HasValue)
-                                {
-                                    <span class="date-stamp">
-                                        <i class="fas fa-paper-plane date-icon"></i>
-                                        @item.RequestedAt.Value.ToString("MMM d, yyyy")
-                                        <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="date-none">—</span>
-                                }
-                            </td>
-                            <td style="text-align:center;">
-                                @if (item.SignedAt.HasValue)
-                                {
-                                    <span class="date-stamp date-stamp-signed">
-                                        <i class="fas fa-check-circle date-icon"></i>
-                                        @item.SignedAt.Value.ToString("MMM d, yyyy")
-                                        <span class="date-time">@item.SignedAt.Value.ToString("h:mm tt")</span>
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="date-none">—</span>
-                                }
-                            </td>
-                            <td style="text-align:center;">
-                                <div class="chat-btn-wrap" data-key="@item.MisCode" data-type="subject">
-                                    <button class="chat-icon-btn"
-                                            onclick="openChat('@item.MisCode', '@Html.Raw(item.InstructorName)', 'subject', '@item.SubjectCode')"
-                                            title="@(item.Status == "Cleared" ? "Clearance already approved" : "Message " + item.InstructorName)"
-                                            @(item.Status == "Cleared" ? "disabled" : "")>
-                                        <i class="fas fa-comment-dots"></i>
-                                    </button>
-                                    <span class="unread-dot" style="display:none;"></span>
-                                </div>
-                                <button class="delete-icon-btn"
-                                        onclick="deleteClearance('subject', '@item.MisCode')"
-                                        title="Delete clearance request"
-                                        @(item.Status != "Pending" ? "disabled" : "")>
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                                @if (item.Status == "Declined")
-                                {
-                                    <button class="request-btn"
-                                            onclick="reRequestSubject('@item.MisCode')"
-                                            title="Re-request clearance">
-                                        <i class="fas fa-redo me-1"></i>Re-request
-                                    </button>
-                                }
-                            </td>
-                        </tr>
-                    }
-                }
-                else
-                {
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <td colspan="8">
-                            <div class="empty-state">
-                                <div class="empty-icon">
-                                    <i class="fas fa-clipboard-list"></i>
-                                </div>
-                                <div class="empty-title">No selected subjects yet</div>
-                                <div class="empty-desc">
-                                    You haven't confirmed your subjects yet.<br />
-                                    Click <strong>Add Subject</strong> above to select and confirm your enrolled subjects.
-                                </div>
-                            </div>
-                        </td>
+                        <th>MIS Code</th>
+                        <th>Subject Code</th>
+                        <th>Description</th>
+                        <th>Instructor</th>
+                        <th style="text-align:center;">Status</th>
+                        <th style="text-align:center;">Requested</th>
+                        <th style="text-align:center;">Cleared</th>
+                        <th style="text-align:center;">Action</th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-</div>
-
-@* ══════════════════════════════════════════════════════════════════════════
-   SECTION 2 — DEPARTMENTAL CLEARANCE
-   Canonical order: Computer Laboratory In-Charge (1) → SSG Treasurer (2) →
-                    Organization Adviser (3) → Class Adviser (4) →
-                    Department Chairperson (5)
-   ══════════════════════════════════════════════════════════════════════════ *@
-
-<div class="page-card mb-4">
-    <div class="page-card-hd dark">
-        <i class="fas fa-sitemap me-2"></i>Departmental Clearance
-    </div>
-    <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Position</th>
-                    <th>Signatory</th>
-                    <th style="text-align:center;">Status</th>
-                    <th style="text-align:center;">Requested</th>
-                    <th style="text-align:center;">Cleared</th>
-                    <th style="text-align:center;">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (allSignatories.Any())
-                {
-                    foreach (var item in allSignatories)
+                </thead>
+                <tbody>
+                    @if (hasSubjects)
                     {
-                        bool isAdviser = item.OrgName.Equals("Class Adviser", StringComparison.OrdinalIgnoreCase);
-                        <tr>
-                            <td style="font-weight:600;">
-                                @item.OrgName
-                                @* Sub-label (course / year / section) only for Class Adviser *@
-                                @if (isAdviser && !string.IsNullOrEmpty(item.OrgRole) &&
-                                     !item.OrgRole.Equals("Class Adviser", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    <div style="font-size:11px;color:#888;font-weight:400;">@item.OrgRole</div>
-                                }
-                            </td>
-                            <td>@item.PersonName</td>
-                            <td style="text-align:center;">
-                                @switch (item.Status)
-                                {
-                                    case "Cleared":
+                        foreach (var item in Model!.SubjectItems!)
+                        {
+                            <tr>
+                                <td>@item.MisCode</td>
+                                <td style="font-weight:600;">@item.SubjectCode</td>
+                                <td>@item.Description</td>
+                                <td>@item.InstructorName</td>
+                                <td style="text-align:center;">
+                                    @if (item.Status == "Cleared")
+                                    {
                                         <span class="status-approved">Cleared</span>
-                                        break;
-                                    case "Declined":
-                                        <span class="status-declined">Declined</span>
-                                        break;
-                                    case "Pending":
+                                    }
+                                    else if (item.Status == "Pending")
+                                    {
                                         <span class="status-pending">Pending</span>
-                                        break;
-                                    default:
-                                        <span style="color:#aaa;font-size:12px;">—</span>
-                                        break;
-                                }
-                            </td>
-                            <td style="text-align:center;">
-                                @if (item.RequestedAt.HasValue)
-                                {
-                                    <span class="date-stamp">
-                                        <i class="fas fa-paper-plane date-icon"></i>
-                                        @item.RequestedAt.Value.ToString("MMM d, yyyy")
-                                        <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="date-none">—</span>
-                                }
-                            </td>
-                            <td style="text-align:center;">
-                                @if (item.SignedAt.HasValue)
-                                {
-                                    <span class="date-stamp date-stamp-signed">
-                                        <i class="fas fa-check-circle date-icon"></i>
-                                        @item.SignedAt.Value.ToString("MMM d, yyyy")
-                                        <span class="date-time">@item.SignedAt.Value.ToString("h:mm tt")</span>
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="date-none">—</span>
-                                }
-                            </td>
-                            <td style="text-align:center;">
-                                @* ── Request / Re-request ── *@
-                                @if (string.IsNullOrEmpty(item.Status))
-                                {
-                                    <button class="request-btn"
-                                            onclick="requestOrg('@Html.Raw(item.OrgName)')">
-                                        <i class="fas fa-paper-plane"></i> Request
+                                    }
+                                    else
+                                    {
+                                        <span class="status-none">—</span>
+                                    }
+                                </td>
+                                <td style="text-align:center;">
+                                    @if (item.RequestedAt.HasValue)
+                                    {
+                                        <span class="date-stamp">
+                                            <i class="fas fa-paper-plane date-icon"></i>
+                                            @item.RequestedAt.Value.ToString("MMM d, yyyy")
+                                            <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="date-none">—</span>
+                                    }
+                                </td>
+                                <td style="text-align:center;">
+                                    @if (item.SignedAt.HasValue)
+                                    {
+                                        <span class="date-stamp date-stamp-signed">
+                                            <i class="fas fa-check-circle date-icon"></i>
+                                            @item.SignedAt.Value.ToString("MMM d, yyyy")
+                                            <span class="date-time">@item.SignedAt.Value.ToString("h:mm tt")</span>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="date-none">—</span>
+                                    }
+                                </td>
+                                <td style="text-align:center;">
+                                    <div class="chat-btn-wrap" data-key="@item.MisCode" data-type="subject">
+                                        <button class="chat-icon-btn"
+                                                onclick="openChat('@item.MisCode', '@Html.Raw(item.InstructorName)', 'subject', '@item.SubjectCode')"
+                                                title="@(item.Status == "Cleared" ? "Clearance already approved" : "Message " + item.InstructorName)"
+                                                @(item.Status == "Cleared" ? "disabled" : "")>
+                                            <i class="fas fa-comment-dots"></i>
+                                        </button>
+                                        <span class="unread-dot" style="display:none;"></span>
+                                    </div>
+                                    <button class="delete-icon-btn"
+                                            onclick="deleteClearance('subject', '@item.MisCode')"
+                                            title="Delete clearance request"
+                                            @(item.Status != "Pending" ? "disabled" : "")>
+                                        <i class="fas fa-trash-alt"></i>
                                     </button>
-                                }
-                                @if (item.Status == "Declined")
-                                {
-                                    <button class="request-btn"
-                                            onclick="requestOrg('@Html.Raw(item.OrgName)')"
-                                            title="Re-request clearance">
-                                        <i class="fas fa-redo me-1"></i>Re-request
-                                    </button>
-                                }
-
-                                @* ── Chat ── *@
-                                <div class="chat-btn-wrap" data-key="@item.OrgName" data-type="org">
-                                    <button class="chat-icon-btn"
-                                            onclick="openChat('@item.OrgName', '@Html.Raw(item.PersonName)', 'org', '@Html.Raw(item.OrgName)')"
-                                            title="@(item.Status == "Cleared" ? "Clearance already approved" : "Message " + item.PersonName)"
-                                            @(item.Status == "Cleared" ? "disabled" : "")>
-                                        <i class="fas fa-comment-dots"></i>
-                                    </button>
-                                    <span class="unread-dot" style="display:none;"></span>
+                                    @if (item.Status == "Declined")
+                                    {
+                                        <button class="request-btn"
+                                                onclick="reRequestSubject('@item.MisCode')"
+                                                title="Re-request clearance">
+                                            <i class="fas fa-redo me-1"></i>Re-request
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8">
+                                <div class="empty-state">
+                                    <div class="empty-icon">
+                                        <i class="fas fa-clipboard-list"></i>
+                                    </div>
+                                    <div class="empty-title">No selected subjects yet</div>
+                                    <div class="empty-desc">
+                                        You haven't confirmed your subjects yet.<br />
+                                        Click <strong>Add Subject</strong> above to select and confirm your enrolled subjects.
+                                    </div>
                                 </div>
-
-                                @* ── Delete ── *@
-                                <button class="delete-icon-btn"
-                                        onclick="deleteClearance('@(isAdviser ? "adviser" : "org")', '@Html.Raw(item.OrgName)')"
-                                        title="Delete clearance request"
-                                        @(item.Status != "Pending" ? "disabled" : "")>
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
                             </td>
                         </tr>
                     }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="6" style="padding:40px;text-align:center;color:#888;">
-                            <i class="fas fa-sitemap"
-                               style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
-                            No department signatories assigned to your curriculum yet.
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        </div>
     </div>
-</div>
+    </div>@* end #inner-panel-subjects *@
+
+    @* ══════════════════════════════════════════════════════════════════════════
+       SECTION 2 — DEPARTMENTAL CLEARANCE
+       ══════════════════════════════════════════════════════════════════════════ *@
+
+    <div id="inner-panel-departmental" style="display:none;">
+    <div class="page-card mb-4">
+        <div class="page-card-hd dark" style="display:flex;align-items:center;cursor:default;">
+            <div style="display:flex;gap:0;">
+                <span class="card-switcher" id="csw-subjects2" onclick="switchInnerTab('subjects')"
+                      style="display:inline-flex;align-items:center;gap:6px;padding:0 18px 0 0;cursor:pointer;opacity:0.55;">
+                    <i class="fas fa-clipboard-list"></i>Subjects Clearance
+                </span>
+                <span style="color:rgba(255,255,255,0.3);margin:0 4px;">|</span>
+                <span class="card-switcher active" id="csw-departmental2" onclick="switchInnerTab('departmental')"
+                      style="display:inline-flex;align-items:center;gap:6px;padding:0 0 0 18px;cursor:pointer;">
+                    <i class="fas fa-sitemap"></i>Departmental Clearance
+                </span>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Position</th>
+                        <th>Signatory</th>
+                        <th style="text-align:center;">Status</th>
+                        <th style="text-align:center;">Requested</th>
+                        <th style="text-align:center;">Cleared</th>
+                        <th style="text-align:center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (allSignatories.Any())
+                    {
+                        foreach (var item in allSignatories)
+                        {
+                            bool isAdviser = item.OrgName.Equals("Class Adviser", StringComparison.OrdinalIgnoreCase);
+                            <tr>
+                                <td style="font-weight:600;">
+                                    @item.OrgName
+                                    @if (isAdviser && !string.IsNullOrEmpty(item.OrgRole) &&
+                                         !item.OrgRole.Equals("Class Adviser", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <div style="font-size:11px;color:#888;font-weight:400;">@item.OrgRole</div>
+                                    }
+                                </td>
+                                <td>@item.PersonName</td>
+                                <td style="text-align:center;">
+                                    @switch (item.Status)
+                                    {
+                                        case "Cleared":
+                                            <span class="status-approved">Cleared</span>
+                                            break;
+                                        case "Declined":
+                                            <span class="status-declined">Declined</span>
+                                            break;
+                                        case "Pending":
+                                            <span class="status-pending">Pending</span>
+                                            break;
+                                        default:
+                                            <span style="color:#aaa;font-size:12px;">—</span>
+                                            break;
+                                    }
+                                </td>
+                                <td style="text-align:center;">
+                                    @if (item.RequestedAt.HasValue)
+                                    {
+                                        <span class="date-stamp">
+                                            <i class="fas fa-paper-plane date-icon"></i>
+                                            @item.RequestedAt.Value.ToString("MMM d, yyyy")
+                                            <span class="date-time">@item.RequestedAt.Value.ToString("h:mm tt")</span>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="date-none">—</span>
+                                    }
+                                </td>
+                                <td style="text-align:center;">
+                                    @if (item.SignedAt.HasValue)
+                                    {
+                                        <span class="date-stamp date-stamp-signed">
+                                            <i class="fas fa-check-circle date-icon"></i>
+                                            @item.SignedAt.Value.ToString("MMM d, yyyy")
+                                            <span class="date-time">@item.SignedAt.Value.ToString("h:mm tt")</span>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="date-none">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                        @* Request slot — always reserves space *@
+                                        <div style="width:90px;display:flex;justify-content:center;">
+                                            @if (string.IsNullOrEmpty(item.Status))
+                                            {
+                                                <button class="request-btn" onclick="requestOrg('@Html.Raw(item.OrgName)')">
+                                                    <i class="fas fa-paper-plane"></i> Request
+                                                </button>
+                                            }
+                                            else if (item.Status == "Declined")
+                                            {
+                                                <button class="request-btn" onclick="requestOrg('@Html.Raw(item.OrgName)')" title="Re-request clearance">
+                                                    <i class="fas fa-redo me-1"></i>Re-request
+                                                </button>
+                                            }
+                                        </div>
+
+                                        @* Chat *@
+                                        <div class="chat-btn-wrap" data-key="@item.OrgName" data-type="org">
+                                            <button class="chat-icon-btn"
+                                                    onclick="openChat('@item.OrgName', '@Html.Raw(item.PersonName)', 'org', '@Html.Raw(item.OrgName)')"
+                                                    title="@(item.Status == "Cleared" ? "Clearance already approved" : "Message " + item.PersonName)"
+                                                    @(item.Status == "Cleared" ? "disabled" : "")>
+                                                <i class="fas fa-comment-dots"></i>
+                                            </button>
+                                            <span class="unread-dot" style="display:none;"></span>
+                                        </div>
+
+                                        @* Delete *@
+                                        <button class="delete-icon-btn"
+                                                onclick="deleteClearance('@(isAdviser ? "adviser" : "org")', '@Html.Raw(item.OrgName)')"
+                                                title="Delete clearance request"
+                                                @(item.Status != "Pending" ? "disabled" : "")>
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" style="padding:40px;text-align:center;color:#888;">
+                                <i class="fas fa-sitemap"
+                                   style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
+                                No department signatories assigned to your curriculum yet.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>@* end #inner-panel-departmental *@
 
 </div>@* end #panel-clearance *@
 
@@ -409,21 +448,6 @@
 @if (hasApproval)
 {
 <div id="panel-approval" style="display:none;">
-
-    <div class="page-card mb-4">
-        <div class="page-card-hd dark">
-            <i class="fas fa-user-tag me-2"></i>Your Assigned Position(s)
-        </div>
-        <div style="padding:14px 20px;display:flex;flex-wrap:wrap;gap:8px;">
-            @foreach (var pos in Model!.MyPositions)
-            {
-                <span style="background:#e8f5e9;color:#1a4731;border:1.5px solid #a5d6a7;border-radius:20px;
-                             padding:6px 16px;font-size:12px;font-weight:700;">
-                    <i class="fas fa-check-circle me-1" style="color:#28a745;"></i>@pos
-                </span>
-            }
-        </div>
-    </div>
 
     <div class="row g-3">
 
@@ -480,7 +504,7 @@
                                         }
                                     </td>
                                     <td style="text-align:center;">
-                                        <div class="d-flex gap-2 justify-content-center align-items-center flex-wrap">
+                                        <div style="display:flex;align-items:center;justify-content:center;gap:5px;">
                                             <form asp-action="ApproveOrgRequest" asp-controller="Student" method="post" style="display:inline;">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="id"       value="@item.Id" />
@@ -713,7 +737,7 @@
     .date-stamp-declined .date-time { color:#e57373; }
     .date-none { color:#ccc;font-size:13px; }
 
-    /* ── CLEARANCE TABS ── */
+    /* ── TOP-LEVEL CLEARANCE TABS ── */
     .clearance-tab-bar { display:flex;gap:8px;flex-wrap:wrap; }
     .ctab {
         display:inline-flex;align-items:center;gap:7px;
@@ -731,6 +755,10 @@
         padding:1px 8px;font-size:10px;font-weight:800;min-width:20px;text-align:center;
     }
     .ctab.ctab-approval.active .ctab-badge { background:rgba(255,255,255,0.35);color:#fff; }
+
+    /* ── CARD SWITCHER (inside dark header) ── */
+    .card-switcher { font-size:13px;font-weight:700;color:white;transition:opacity 0.15s; }
+    .card-switcher:hover { opacity:1 !important; }
 
     /* ── PERIOD SELECTOR ── */
     .period-selector-wrap { position:relative;display:inline-block; }
@@ -851,9 +879,9 @@
     .chat-date-divider::after  { right:0; }
 
     /* ── Approve / Decline buttons ── */
-    .btn-approve { background:#2e7d32;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s; }
+    .btn-approve { background:#2e7d32;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s;white-space:nowrap; }
     .btn-approve:hover { opacity:.85; }
-    .btn-decline { background:#c62828;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s; }
+    .btn-decline { background:#c62828;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s;white-space:nowrap; }
     .btn-decline:hover { opacity:.85; }
 </style>
 }
@@ -963,7 +991,7 @@ function escHtml(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&
 const _csrf = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
 
 /* ══════════════════════════════════════════
-   PERIOD DROPDOWN — data baked in from server
+   PERIOD DROPDOWN
 ══════════════════════════════════════════ */
 const _serverPeriodId = @(ViewData["ActivePeriodId"] is int svPid ? svPid : 0);
 const allPeriods = @Html.Raw(periodsJson);
@@ -971,15 +999,12 @@ const allPeriods = @Html.Raw(periodsJson);
 function buildPeriodDropdown() {
     const dd = document.getElementById('period-dd');
     dd.innerHTML = '';
-
     if (!allPeriods || !allPeriods.length) {
         dd.innerHTML = '<div class="pd-empty"><i class="fas fa-calendar-times me-2"></i>No academic periods found.</div>';
         return;
     }
-
     const active = allPeriods.find(p => p.id === _serverPeriodId) ?? allPeriods[0];
     document.getElementById('period-btn-value').textContent = `${active.sem}, A.Y. ${active.ay}`;
-
     allPeriods.forEach(p => {
         const opt     = document.createElement('div');
         opt.className = 'pd-opt' + (p.id === _serverPeriodId ? ' selected' : '');
@@ -989,20 +1014,59 @@ function buildPeriodDropdown() {
         dd.appendChild(opt);
     });
 }
-
 function selectPeriod(p) {
     window.location.href = '/Student/Clearance?periodId=' + p.id;
 }
-
 function togglePeriodDd(e) {
     e.stopPropagation();
     document.getElementById('period-wrap').classList.toggle('open');
 }
-
 document.addEventListener('click', function(e) {
     const wrap = document.getElementById('period-wrap');
     if (wrap && !wrap.contains(e.target)) wrap.classList.remove('open');
 });
+
+/* ══════════════════════════════════════════
+   INNER TAB SWITCHING (Subjects / Departmental)
+══════════════════════════════════════════ */
+function switchInnerTab(tab) {
+    const ps = document.getElementById('inner-panel-subjects');
+    const pd = document.getElementById('inner-panel-departmental');
+    if (ps) ps.style.display = tab === 'subjects'     ? 'block' : 'none';
+    if (pd) pd.style.display = tab === 'departmental' ? 'block' : 'none';
+    // update opacity on all card-switcher spans
+    ['csw-subjects','csw-subjects2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.opacity = tab === 'subjects' ? '1' : '0.55';
+    });
+    ['csw-departmental','csw-departmental2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.opacity = tab === 'departmental' ? '1' : '0.55';
+    });
+    if (window.location.hash !== '#approval') {
+        history.replaceState(null, '', tab === 'departmental'
+            ? window.location.pathname + window.location.search + '#departmental'
+            : window.location.pathname + window.location.search);
+    }
+}
+// Restore inner tab from hash on load
+if (window.location.hash === '#departmental') switchInnerTab('departmental');
+
+/* ══════════════════════════════════════════
+   OUTER TAB SWITCHING (My Clearance / Approval)
+══════════════════════════════════════════ */
+function switchTab(tab) {
+    const pc = document.getElementById('panel-clearance');
+    const pa = document.getElementById('panel-approval');
+    if (pc) pc.style.display = tab === 'clearance' ? 'block' : 'none';
+    if (pa) pa.style.display = tab === 'approval'  ? 'block' : 'none';
+    document.querySelectorAll('.ctab').forEach(t => t.classList.remove('active'));
+    const btn = document.getElementById('tab-' + tab);
+    if (btn) btn.classList.add('active');
+    if (tab === 'approval') history.replaceState(null, '', '#approval');
+    else history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+if (window.location.hash === '#approval' && document.getElementById('panel-approval')) switchTab('approval');
 
 /* ══════════════════════════════════════════
    UNREAD NOTIFICATION BADGES
@@ -1100,20 +1164,16 @@ async function openChat(key, personName, type, role) {
     currentChatKey  = key;
     currentChatType = type;
     currentChatName = personName;
-
     document.getElementById('chat-name').textContent    = personName;
     document.getElementById('chat-role').textContent    = role;
     document.getElementById('chat-avatar').textContent  = getInitials(personName);
-
     const modal   = document.getElementById('chat-modal');
     const overlay = document.getElementById('chat-overlay');
     modal.style.display   = 'flex';
     overlay.style.display = 'block';
-
     document.getElementById('chat-messages').innerHTML =
         '<div style="text-align:center;margin:auto;font-size:12px;color:#aaa;">' +
         '<i class="fas fa-spinner fa-spin me-1"></i>Loading messages...</div>';
-
     await markRead(key, type);
     clearUnreadDot(key, type);
     fetchMessages();
@@ -1135,15 +1195,12 @@ async function fetchMessages() {
         );
         const data = await res.json();
         if (data.success) renderMessages(data.messages ?? []);
-    } catch (err) {
-        console.warn('Failed to load messages:', err);
-    }
+    } catch (err) { console.warn('Failed to load messages:', err); }
 }
 
 function renderMessages(msgs) {
     const box = document.getElementById('chat-messages');
     box.innerHTML = '';
-
     if (!msgs.length) {
         box.innerHTML = `
             <div style="text-align:center;margin:auto;">
@@ -1155,7 +1212,6 @@ function renderMessages(msgs) {
             </div>`;
         return;
     }
-
     let lastDate = null;
     msgs.forEach(m => {
         const d       = new Date(m.time);
@@ -1192,7 +1248,6 @@ async function sendChatMessage() {
     const input = document.getElementById('chat-input');
     const text  = input.value.trim();
     if (!text || !currentChatKey) return;
-
     const existingMsgs = Array.from(document.querySelectorAll('#chat-messages .chat-bubble-wrap')).length > 0;
     input.value = '';
     const tempMsg = { mine: true, text, time: new Date().toISOString() };
@@ -1202,7 +1257,6 @@ async function sendChatMessage() {
         appendBubble(tempMsg);
         document.getElementById('chat-messages').scrollTop = 999999;
     }
-
     try {
         await fetch('/Student/SendClearanceMessage', {
             method:  'POST',
@@ -1226,27 +1280,6 @@ function appendBubble(m) {
     wrap.appendChild(time);
     box.appendChild(wrap);
 }
-
-/* ══════════════════════════════════════════
-   TAB SWITCHING
-══════════════════════════════════════════ */
-function switchTab(tab) {
-    const pc = document.getElementById('panel-clearance');
-    const pa = document.getElementById('panel-approval');
-    if (pc) pc.style.display = tab === 'clearance' ? 'block' : 'none';
-    if (pa) pa.style.display = tab === 'approval'  ? 'block' : 'none';
-    document.querySelectorAll('.ctab').forEach(t => t.classList.remove('active'));
-    const btn = document.getElementById('tab-' + tab);
-    if (btn) btn.classList.add('active');
-    if (tab === 'approval') history.replaceState(null, '', '#approval');
-    else history.replaceState(null, '', window.location.pathname + window.location.search);
-}
-if (window.location.hash === '#approval' && document.getElementById('panel-approval')) switchTab('approval');
-
-/* ── Init ── */
-buildPeriodDropdown();
-loadUnreadBadges();
-setInterval(loadUnreadBadges, 30000);
 
 /* ══════════════════════════════════════════
    SIGNED CHAT (officer ↔ student)
@@ -1355,5 +1388,10 @@ async function sendSignedChat() {
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeChat(); closeSignedChat(); } });
+
+/* ── Init ── */
+buildPeriodDropdown();
+loadUnreadBadges();
+setInterval(loadUnreadBadges, 30000);
 </script>
 }
