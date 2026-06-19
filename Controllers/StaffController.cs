@@ -41,7 +41,8 @@ namespace OnlineClearanceSystem.Controllers
 
                 var appCmd = new MySqlCommand(@"
                     SELECT COUNT(*) FROM clearance_organization co
-                    JOIN organizations o ON o.position_title = co.position
+                    JOIN organizations o
+                      ON LOWER(TRIM(o.position_title)) = LOWER(TRIM(co.position))
                     WHERE o.user_id = @uid AND co.status = 'Cleared'
                       AND (@pid = 0 OR co.period_id = @pid)", conn);
                 appCmd.Parameters.AddWithValue("@uid", userId);
@@ -50,7 +51,8 @@ namespace OnlineClearanceSystem.Controllers
 
                 var penCmd = new MySqlCommand(@"
                     SELECT COUNT(*) FROM clearance_organization co
-                    JOIN organizations o ON o.position_title = co.position
+                    JOIN organizations o
+                      ON LOWER(TRIM(o.position_title)) = LOWER(TRIM(co.position))
                     WHERE o.user_id = @uid AND co.status = 'Pending'
                       AND (@pid = 0 OR co.period_id = @pid)", conn);
                 penCmd.Parameters.AddWithValue("@uid", userId);
@@ -59,7 +61,8 @@ namespace OnlineClearanceSystem.Controllers
 
                 var decCmd = new MySqlCommand(@"
                     SELECT COUNT(*) FROM clearance_organization co
-                    JOIN organizations o ON o.position_title = co.position
+                    JOIN organizations o
+                      ON LOWER(TRIM(o.position_title)) = LOWER(TRIM(co.position))
                     WHERE o.user_id = @uid AND co.status = 'Declined'
                       AND (@pid = 0 OR co.period_id = @pid)", conn);
                 decCmd.Parameters.AddWithValue("@uid", userId);
@@ -80,7 +83,6 @@ namespace OnlineClearanceSystem.Controllers
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
             var items  = new List<SignatoryViewModel>();
 
-            // ── Resolve & persist the active period ───────────────────────
             int pid = 0;
             string periodLabel = "—";
 
@@ -90,7 +92,10 @@ namespace OnlineClearanceSystem.Controllers
                 conn.Open();
 
                 if (!periodId.HasValue || periodId.Value <= 0)
-                { int.TryParse(Request.Cookies["StaffPeriodId"], out var cp); if (cp > 0) periodId = cp; }
+                {
+                    int.TryParse(Request.Cookies["StaffPeriodId"], out var cp);
+                    if (cp > 0) periodId = cp;
+                }
 
                 (pid, periodLabel) = ResolvePeriod(conn, periodId);
                 if (pid > 0) Response.Cookies.Append("StaffPeriodId", pid.ToString(),
@@ -98,12 +103,14 @@ namespace OnlineClearanceSystem.Controllers
                 ViewData["ActivePeriodId"] = pid;
                 ViewData["ActivePeriod"]   = periodLabel;
 
-                // ── Pending requests ──────────────────────────────────────
+                // FIX: co.student_number is the canonical chat key — expose it
+                // as StudentId so data-sn in the view and GetUnreadCounts both
+                // use the same value (the raw id_number stored in co.student_number).
                 var cmd = new MySqlCommand(@"
                     SELECT
                         co.id                                                   AS Id,
-                        CONCAT(stu.first_name, ' ', stu.last_name)             AS StudentName,
-                        stu.student_number                                      AS StudentId,
+                        COALESCE(CONCAT(stu.first_name, ' ', stu.last_name), '—') AS StudentName,
+                        co.student_number                                       AS StudentId,
                         COALESCE(
                             CONCAT(c.course_code, '-', cu.year_level, cu.section),
                             '—'
@@ -112,10 +119,11 @@ namespace OnlineClearanceSystem.Controllers
                         co.position                                             AS Position,
                         co.requested_at                                         AS RequestedAt
                     FROM clearance_organization co
-                    JOIN organizations  o   ON o.position_title  = co.position
-                    JOIN users          stu ON stu.student_number = co.student_number
-                    LEFT JOIN curriculum cu ON cu.id             = stu.curriculum_id
-                    LEFT JOIN courses    c  ON c.id              = cu.course_id
+                    JOIN organizations  o
+                      ON LOWER(TRIM(o.position_title)) = LOWER(TRIM(co.position))
+                    LEFT JOIN users      stu ON stu.id_number      = co.student_number
+                    LEFT JOIN curriculum cu  ON cu.id             = stu.curriculum_id
+                    LEFT JOIN courses    c   ON c.id              = cu.course_id
                     WHERE o.user_id = @uid
                       AND (@pid = 0 OR co.period_id = @pid)
                       AND co.status = 'Pending'
@@ -141,8 +149,6 @@ namespace OnlineClearanceSystem.Controllers
             catch { }
 
             // ── Signed clearances (Cleared / Declined) ────────────────────
-            // FIX: filter by the SAME resolved period id so Signed History
-            //      changes when the user switches the period dropdown.
             var signedItems = new List<StaffSignedClearance>();
             try
             {
@@ -153,8 +159,10 @@ namespace OnlineClearanceSystem.Controllers
 
                 var signedCmd = new MySqlCommand(@"
                     SELECT
+                        co.id                                                   AS RowId,
+                        co.period_id                                            AS PeriodId,
                         co.student_number                                       AS StudentId,
-                        CONCAT(stu.first_name, ' ', stu.last_name)             AS StudentName,
+                        COALESCE(CONCAT(stu.first_name, ' ', stu.last_name), '—') AS StudentName,
                         COALESCE(
                             CONCAT(c.course_code, '-', cu.year_level, cu.section),
                             '—'
@@ -165,29 +173,48 @@ namespace OnlineClearanceSystem.Controllers
                         co.requested_at                                         AS RequestedAt,
                         co.signed_at                                            AS SignedAt
                     FROM   clearance_organization co
-                    JOIN   organizations  o   ON o.position_title  = co.position
-                    JOIN   users          stu ON stu.student_number = co.student_number
+                    JOIN   organizations  o
+                      ON   LOWER(TRIM(o.position_title)) = LOWER(TRIM(co.position))
+                    LEFT JOIN users       stu ON stu.id_number     = co.student_number
                     LEFT JOIN curriculum  cu  ON cu.id             = stu.curriculum_id
                     LEFT JOIN courses     c   ON c.id              = cu.course_id
                     WHERE  o.user_id = @uid2
                       AND  co.status IN ('Cleared', 'Declined')
-                      AND  (@pid2 = 0 OR co.period_id = @pid2)
+                      AND  (
+                            @pid2 = 0
+                            OR co.period_id = @pid2
+                            OR (co.period_id IS NULL AND @pid2 = 0)
+                           )
                     ORDER BY co.signed_at DESC", conn2);
 
                 signedCmd.Parameters.AddWithValue("@uid2", uid2);
-                signedCmd.Parameters.AddWithValue("@pid2", pid);   // <-- THE FIX
+                signedCmd.Parameters.AddWithValue("@pid2", pid);
+
+                var seen = new HashSet<string>();
 
                 using var sr = signedCmd.ExecuteReader();
                 while (sr.Read())
-                    signedItems.Add(new StaffSignedClearance {
-                        StudentId     = sr.IsDBNull(sr.GetOrdinal("StudentId"))     ? "—" : sr.GetString("StudentId"),
+                {
+                    var studentId   = sr.IsDBNull(sr.GetOrdinal("StudentId"))   ? "—" : sr.GetString("StudentId");
+                    var description = sr.IsDBNull(sr.GetOrdinal("Description")) ? "—" : sr.GetString("Description");
+                    var status      = sr.GetString("Status");
+                    var signedAt    = sr.IsDBNull(sr.GetOrdinal("SignedAt")) ? (DateTime?)null : sr.GetDateTime("SignedAt");
+                    var periodIdVal = sr.IsDBNull(sr.GetOrdinal("PeriodId")) ? (int?)null : sr.GetInt32("PeriodId");
+
+                    var dedupeKey = $"{studentId}|{description}|{status}|{signedAt:O}|{periodIdVal}";
+                    if (!seen.Add(dedupeKey)) continue;
+
+                    signedItems.Add(new StaffSignedClearance
+                    {
+                        StudentId     = studentId,
                         StudentName   = sr.IsDBNull(sr.GetOrdinal("StudentName"))   ? "—" : sr.GetString("StudentName"),
                         StudentCourse = sr.IsDBNull(sr.GetOrdinal("StudentCourse")) ? "—" : sr.GetString("StudentCourse"),
-                        Description   = sr.IsDBNull(sr.GetOrdinal("Description"))   ? "—" : sr.GetString("Description"),
-                        Status        = sr.GetString("Status"),
-                        RequestedAt   = sr.IsDBNull(sr.GetOrdinal("RequestedAt"))   ? null : sr.GetDateTime("RequestedAt"),
-                        SignedAt      = sr.IsDBNull(sr.GetOrdinal("SignedAt"))      ? DateTime.MinValue : sr.GetDateTime("SignedAt")
+                        Description   = description,
+                        Status        = status,
+                        RequestedAt   = sr.IsDBNull(sr.GetOrdinal("RequestedAt")) ? null : sr.GetDateTime("RequestedAt"),
+                        SignedAt      = signedAt ?? DateTime.MinValue
                     });
+                }
             }
             catch { }
             ViewBag.SignedItems = signedItems;
@@ -196,6 +223,12 @@ namespace OnlineClearanceSystem.Controllers
         }
 
         // ── Chat: Get Messages ────────────────────────────────────────────
+        // FIX: Added an ownership check (matching the same join Signatories
+        // uses) before returning messages. Without this, a staff member who
+        // does NOT actually hold the position in `key` could still fetch
+        // (and silently see) a conversation that isn't theirs, because the
+        // old version only filtered on student_number/clearance_type/key
+        // with no check that the caller is the rightful position-holder.
         [HttpGet]
         public IActionResult GetClearanceMessages(string studentNumber, string key, string type)
         {
@@ -204,6 +237,10 @@ namespace OnlineClearanceSystem.Controllers
             {
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
+
+                if (type == "org" && !StaffOwnsConversation(conn, userId, studentNumber, key))
+                    return Json(new { success = false, error = "Not authorized for this conversation.", messages = Array.Empty<object>() });
+
                 var cmd = new MySqlCommand(@"
                     SELECT sender_id, message, sent_at
                     FROM   clearance_messages
@@ -217,13 +254,25 @@ namespace OnlineClearanceSystem.Controllers
                 var messages = new List<object>();
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
-                    messages.Add(new { mine = r.GetInt32("sender_id") == userId, text = r.GetString("message"), time = r.GetDateTime("sent_at").ToString("O") });
+                    messages.Add(new
+                    {
+                        mine = r.GetInt32("sender_id") == userId,
+                        text = r.GetString("message"),
+                        time = r.GetDateTime("sent_at").ToString("O")
+                    });
                 return Json(new { success = true, messages });
             }
-            catch (Exception ex) { return Json(new { success = false, error = ex.Message, messages = Array.Empty<object>() }); }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message, messages = Array.Empty<object>() });
+            }
         }
 
         // ── Chat: Send Message ────────────────────────────────────────────
+        // FIX: clearance_type is always 'org' for staff — enforce it server-side
+        // so messages are stored consistently regardless of what the JS sends.
+        // This ensures GetUnreadCounts (which filters clearance_type = 'org')
+        // will always find them.
         [HttpPost, ValidateAntiForgeryToken]
         public IActionResult SendClearanceMessage([FromBody] InstructorSendMessageDto dto)
         {
@@ -237,16 +286,18 @@ namespace OnlineClearanceSystem.Controllers
                 var cmd = new MySqlCommand(@"
                     INSERT INTO clearance_messages
                         (sender_id, student_number, clearance_type, clearance_key, message, sent_at, is_read)
-                    VALUES (@sid, @sn, @type, @key, @msg, NOW(), 0)", conn);
-                cmd.Parameters.AddWithValue("@sid",  userId);
-                cmd.Parameters.AddWithValue("@sn",   dto.StudentNumber  ?? "");
-                cmd.Parameters.AddWithValue("@type", dto.ClearanceType  ?? "");
-                cmd.Parameters.AddWithValue("@key",  dto.ClearanceKey   ?? "");
-                cmd.Parameters.AddWithValue("@msg",  dto.Message.Trim());
+                    VALUES (@sid, @sn, 'org', @key, @msg, NOW(), 0)", conn);
+                cmd.Parameters.AddWithValue("@sid", userId);
+                cmd.Parameters.AddWithValue("@sn",  dto.StudentNumber ?? "");
+                cmd.Parameters.AddWithValue("@key", dto.ClearanceKey  ?? "");
+                cmd.Parameters.AddWithValue("@msg", dto.Message.Trim());
                 cmd.ExecuteNonQuery();
                 return Json(new { success = true });
             }
-            catch (Exception ex) { return Json(new { success = false, error = ex.Message }); }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message });
+            }
         }
 
         // ── Chat: Mark Messages as Read ───────────────────────────────────
@@ -262,21 +313,63 @@ namespace OnlineClearanceSystem.Controllers
                     UPDATE clearance_messages
                     SET    is_read = 1
                     WHERE  student_number = @sn
-                      AND  clearance_type = @type
+                      AND  clearance_type = 'org'
                       AND  clearance_key  = @key
-                      AND  sender_id      != @uid
+                      AND  sender_id     != @uid
                       AND  is_read        = 0", conn);
-                cmd.Parameters.AddWithValue("@sn",   dto.StudentNumber ?? "");
-                cmd.Parameters.AddWithValue("@type", dto.ClearanceType ?? "");
-                cmd.Parameters.AddWithValue("@key",  dto.ClearanceKey  ?? "");
-                cmd.Parameters.AddWithValue("@uid",  userId);
+                cmd.Parameters.AddWithValue("@sn",  dto.StudentNumber ?? "");
+                cmd.Parameters.AddWithValue("@key", dto.ClearanceKey  ?? "");
+                cmd.Parameters.AddWithValue("@uid", userId);
                 cmd.ExecuteNonQuery();
                 return Json(new { success = true });
             }
-            catch { return Json(new { success = true }); }
+            catch
+            {
+                return Json(new { success = true });
+            }
         }
 
         // ── Chat: Unread Counts ───────────────────────────────────────────
+        // PERMANENT FIX — root cause of the missing red dot:
+        //
+        // The previous version gated "do I own this conversation" purely on
+        // a free-text match: LOWER(TRIM(clearance_key)) against
+        // organizations.position_title / user_signatures.position for the
+        // logged-in staff member. That match has NO relationship to which
+        // clearance requests actually belong to this staff member — it just
+        // checks "does some row of mine happen to have this exact position
+        // string". If the staff account's organizations/user_signatures row
+        // doesn't have an exact (post trim/lower) match for every position
+        // label students message ("SSG Treasurer", "Class Adviser",
+        // "Organization Adviser", etc.), that conversation's unread count
+        // silently never appears — no error, just a missing dot.
+        //
+        // The fix: route ownership through clearance_organization, the same
+        // table/join that Signatories() already uses to decide which
+        // requests belong to this staff member. A message is now counted as
+        // "mine to see" only if there's an actual clearance_organization row
+        // for that (student_number, position) pair that's owned by this
+        // staff member via organizations.user_id — i.e. the exact same rule
+        // that put the request on this staff member's Signatories page in
+        // the first place. One source of truth, so the two can't diverge.
+        //
+        // The user_signatures fallback is kept as a secondary OR-branch for
+        // positions that might only be represented there, but it is no
+        // longer the only path — clearance_organization ownership is primary.
+        //
+        // ADDITIONAL FIX: a student can open the chat and message a position
+        // BEFORE ever submitting a clearance request to it (the chat button
+        // in the Clearance view is only disabled once Status == "Cleared",
+        // not while Status is empty/no request yet exists). In that case
+        // there is no clearance_organization row at all for that
+        // (student_number, position) pair, so the PRIMARY EXISTS check above
+        // can never match, and most staff don't have a matching
+        // user_signatures row either (that table is mainly for student
+        // officers). The message would insert fine but be invisible to this
+        // badge query forever. FALLBACK 2 below closes that gap: if the
+        // staff member simply holds this position in `organizations`
+        // (regardless of whether any clearance_organization row exists yet),
+        // the message still counts as theirs to see.
         [HttpGet]
         public IActionResult GetUnreadCounts()
         {
@@ -286,26 +379,82 @@ namespace OnlineClearanceSystem.Controllers
             {
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
+
                 var cmd = new MySqlCommand(@"
-                    SELECT cm.student_number, cm.clearance_key, cm.clearance_type
+                    SELECT
+                        cm.student_number                   AS studentNumber,
+                        cm.clearance_key                    AS clearanceKey,
+                        cm.clearance_type                   AS clearanceType,
+                        COUNT(*)                            AS unreadCount
                     FROM   clearance_messages cm
-                    WHERE  cm.sender_id != @uid
-                      AND  cm.is_read   =  0
-                      AND  EXISTS (
-                          SELECT 1 FROM clearance_messages
-                          WHERE  sender_id     = @uid2
-                            AND  student_number = cm.student_number
-                            AND  clearance_key  = cm.clearance_key
-                            AND  clearance_type = cm.clearance_type
-                      )
+                    WHERE  cm.sender_id     != @uid
+                      AND  cm.is_read        = 0
+                      AND  cm.clearance_type = 'org'
+                      AND  (
+                            -- PRIMARY: this message's (student, position) pair
+                            -- corresponds to an actual clearance request owned
+                            -- by this staff member — same rule as Signatories().
+                            -- NOTE on COLLATE: clearance_messages columns are
+                            -- utf8mb4_0900_ai_ci while clearance_organization /
+                            -- organizations columns are utf8mb4_unicode_ci.
+                            -- Comparing them directly throws an Illegal mix
+                            -- of collations error, which the catch{} below
+                            -- swallowed — so this whole query returned nothing
+                            -- and the staff red dot NEVER lit up (while the
+                            -- student side worked, because it only compares a
+                            -- column against a parameter). Forcing the cm.*
+                            -- columns to utf8mb4_unicode_ci on each cross-table
+                            -- comparison fixes the asymmetry.
+                            EXISTS (
+                                SELECT 1
+                                FROM clearance_organization co
+                                JOIN organizations o
+                                  ON LOWER(TRIM(o.position_title)) = LOWER(TRIM(co.position))
+                                WHERE co.student_number = cm.student_number COLLATE utf8mb4_unicode_ci
+                                  AND LOWER(TRIM(co.position)) = LOWER(TRIM(cm.clearance_key)) COLLATE utf8mb4_unicode_ci
+                                  AND o.user_id = @uid2
+                            )
+                            -- FALLBACK 1: position only registered via signatures,
+                            -- not (yet) via a clearance_organization request.
+                            OR EXISTS (
+                                SELECT 1 FROM user_signatures us
+                                WHERE LOWER(TRIM(us.position)) = LOWER(TRIM(cm.clearance_key))
+                                  AND us.user_id = @uid3
+                            )
+                            -- FALLBACK 2: staff member holds this position in
+                            -- organizations, but the student messaged them
+                            -- before ever submitting a clearance request, so
+                            -- no clearance_organization row exists yet at all.
+                            OR EXISTS (
+                                SELECT 1 FROM organizations o2
+                                WHERE LOWER(TRIM(o2.position_title)) = LOWER(TRIM(cm.clearance_key)) COLLATE utf8mb4_unicode_ci
+                                  AND o2.user_id = @uid4
+                            )
+                          )
                     GROUP BY cm.student_number, cm.clearance_key, cm.clearance_type", conn);
+
                 cmd.Parameters.AddWithValue("@uid",  userId);
                 cmd.Parameters.AddWithValue("@uid2", userId);
+                cmd.Parameters.AddWithValue("@uid3", userId);
+                cmd.Parameters.AddWithValue("@uid4", userId);
+
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
-                    items.Add(new { studentNumber = r.GetString("student_number"), clearanceKey = r.GetString("clearance_key"), clearanceType = r.GetString("clearance_type") });
+                    items.Add(new
+                    {
+                        studentNumber = r.GetString("studentNumber"),
+                        clearanceKey  = r.GetString("clearanceKey"),
+                        clearanceType = r.GetString("clearanceType"),
+                        unreadCount   = r.GetInt32("unreadCount")
+                    });
             }
-            catch { }
+            catch (Exception ex)
+{
+    return Json(new
+    {
+        error = ex.Message
+    });
+}
             return Json(items);
         }
 
@@ -327,7 +476,7 @@ namespace OnlineClearanceSystem.Controllers
             return RedirectToAction(nameof(Signatories));
         }
 
-        // ── Signed Clearance (standalone page, kept as-is) ───────────────
+        // ── Signed Clearance (standalone page) ────────────────────────────
         public IActionResult SignedClearance(string filter = "all")
         {
             ViewData["Filter"] = filter;
@@ -345,16 +494,18 @@ namespace OnlineClearanceSystem.Controllers
                     _          => ""
                 };
 
-                var cmd = new MySqlCommand($@"
-                    SELECT sc.student_number   AS StudentId,
-                           sc.student_name     AS StudentName,
-                           sc.course           AS StudentCourse,
-                           sc.department       AS Description,
-                           sc.status           AS Status,
-                           sc.signed_at        AS SignedAt
-                    FROM signed_clearances sc
-                    {where}
-                    ORDER BY sc.signed_at DESC", conn);
+                var cmd = new MySqlCommand(@"
+    SELECT
+        student_number AS studentNumber,
+        clearance_key AS clearanceKey,
+        clearance_type AS clearanceType,
+        COUNT(*) AS unreadCount
+    FROM clearance_messages
+    WHERE sender_id != @uid
+      AND is_read = 0
+      AND clearance_type = 'org'
+    GROUP BY student_number, clearance_key, clearance_type
+", conn);
 
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
@@ -397,13 +548,13 @@ namespace OnlineClearanceSystem.Controllers
                 using var r = cmd.ExecuteReader();
                 if (r.Read())
                 {
-                    model.FirstName       = r.IsDBNull(r.GetOrdinal("first_name"))      ? "" : r.GetString("first_name");
-                    model.MiddleInitial   = r.IsDBNull(r.GetOrdinal("middle_initial"))  ? "" : r.GetString("middle_initial");
-                    model.LastName        = r.IsDBNull(r.GetOrdinal("last_name"))       ? "" : r.GetString("last_name");
-                    model.StaffId         = r.IsDBNull(r.GetOrdinal("id_number"))       ? "—" : r.GetString("id_number");
-                    model.Email           = r.IsDBNull(r.GetOrdinal("email"))            ? "" : r.GetString("email");
-                    model.SignatureBase64  = r.IsDBNull(r.GetOrdinal("signature_data")) ? null : r.GetString("signature_data");
-                    model.Password        = "";
+                    model.FirstName      = r.IsDBNull(r.GetOrdinal("first_name"))     ? "" : r.GetString("first_name");
+                    model.MiddleInitial  = r.IsDBNull(r.GetOrdinal("middle_initial")) ? "" : r.GetString("middle_initial");
+                    model.LastName       = r.IsDBNull(r.GetOrdinal("last_name"))      ? "" : r.GetString("last_name");
+                    model.StaffId        = r.IsDBNull(r.GetOrdinal("id_number"))      ? "—" : r.GetString("id_number");
+                    model.Email          = r.IsDBNull(r.GetOrdinal("email"))           ? "" : r.GetString("email");
+                    model.SignatureBase64 = r.IsDBNull(r.GetOrdinal("signature_data")) ? null : r.GetString("signature_data");
+                    model.Password       = "";
                 }
                 r.Close();
 
@@ -500,7 +651,12 @@ namespace OnlineClearanceSystem.Controllers
                     "SELECT id, year_label, semester FROM academic_periods ORDER BY id DESC", conn);
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
-                    items.Add(new { id = r.GetInt32("id"), ay = r.GetString("year_label"), sem = r.GetString("semester") });
+                    items.Add(new
+                    {
+                        id  = r.GetInt32("id"),
+                        ay  = r.GetString("year_label"),
+                        sem = r.GetString("semester")
+                    });
             }
             catch { }
             return Json(items);
@@ -527,6 +683,54 @@ namespace OnlineClearanceSystem.Controllers
             if (r.Read())
                 return (r.GetInt32("id"), r.IsDBNull(1) ? "—" : r.GetString("lbl"));
             return (0, "—");
+        }
+
+        // ── Ownership helper ─────────────────────────────────────────────
+        // FIX: Shared ownership check used by GetClearanceMessages so a
+        // staff member can only read 'org' conversations tied to a position
+        // they actually hold (per clearance_organization + organizations,
+        // the same rule Signatories()/GetUnreadCounts() use), with the
+        // user_signatures table as a fallback for positions not yet tied to
+        // a clearance request.
+        //
+        // ADDITIONAL FIX: also fall back to a direct organizations check
+        // (same as FALLBACK 2 in GetUnreadCounts) so a staff member can open
+        // a conversation about a position they hold even if the student
+        // hasn't yet submitted a clearance_organization request for it.
+        // Without this, GetUnreadCounts could correctly show a red dot while
+        // GetClearanceMessages still returned "Not authorized" when the
+        // staff member tried to open the chat.
+        private static bool StaffOwnsConversation(MySqlConnection conn, int userId, string studentNumber, string positionKey)
+        {
+            var cmd = new MySqlCommand(@"
+                SELECT
+                    EXISTS (
+                        SELECT 1
+                        FROM clearance_organization co
+                        JOIN organizations o
+                          ON LOWER(TRIM(o.position_title)) = LOWER(TRIM(co.position))
+                        WHERE co.student_number = @sn
+                          AND LOWER(TRIM(co.position)) = LOWER(TRIM(@key))
+                          AND o.user_id = @uid
+                    )
+                    OR EXISTS (
+                        SELECT 1 FROM user_signatures us
+                        WHERE LOWER(TRIM(us.position)) = LOWER(TRIM(@key))
+                          AND us.user_id = @uid2
+                    )
+                    OR EXISTS (
+                        SELECT 1 FROM organizations o2
+                        WHERE LOWER(TRIM(o2.position_title)) = LOWER(TRIM(@key))
+                          AND o2.user_id = @uid3
+                    ) AS owns", conn);
+            cmd.Parameters.AddWithValue("@sn",   studentNumber ?? "");
+            cmd.Parameters.AddWithValue("@key",  positionKey   ?? "");
+            cmd.Parameters.AddWithValue("@uid",  userId);
+            cmd.Parameters.AddWithValue("@uid2", userId);
+            cmd.Parameters.AddWithValue("@uid3", userId);
+
+            var result = cmd.ExecuteScalar();
+            return result != null && Convert.ToBoolean(result);
         }
 
         // ── Helpers ───────────────────────────────────────────────────────

@@ -58,7 +58,7 @@ namespace OnlineClearanceSystem.Controllers
                 conn.Open();
 
                 var snCmd = new MySqlCommand(
-                    "SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
+                    "SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
                 snCmd.Parameters.AddWithValue("@uid", userId);
                 var studentNumber = snCmd.ExecuteScalar()?.ToString() ?? "";
 
@@ -206,7 +206,7 @@ namespace OnlineClearanceSystem.Controllers
                 model.ActivePeriodId = activePeriodId;
 
                 var snCmd = new MySqlCommand(
-                    "SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
+                    "SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
                 snCmd.Parameters.AddWithValue("@uid", userId);
                 var studentNumber = snCmd.ExecuteScalar()?.ToString() ?? "";
 
@@ -273,7 +273,7 @@ namespace OnlineClearanceSystem.Controllers
                 conn.Open();
 
                 var snCmd = new MySqlCommand(
-                    "SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
+                    "SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
                 snCmd.Parameters.AddWithValue("@uid", userId);
                 var studentNumber = snCmd.ExecuteScalar()?.ToString() ?? "";
 
@@ -346,7 +346,7 @@ namespace OnlineClearanceSystem.Controllers
 
                 // ── Resolve student_number + curriculum_id ────────────────────────
                 var stuCmd = new MySqlCommand(
-                    "SELECT COALESCE(student_number, id_number) AS student_number, curriculum_id FROM users WHERE id = @uid LIMIT 1", conn);
+                    "SELECT id_number AS student_number, curriculum_id FROM users WHERE id = @uid LIMIT 1", conn);
                 stuCmd.Parameters.AddWithValue("@uid", userId);
 
                 string studentNumber = "";
@@ -620,13 +620,6 @@ namespace OnlineClearanceSystem.Controllers
 
                 // ════════════════════════════════════════════════════════════════════
                 // ── Sort OrgItems by canonical position order ─────────────────────
-                // Order: Computer Laboratory In-Charge → SSG Treasurer →
-                //        Organization Adviser → Class Adviser → Department Chairperson
-                // Any position not listed in _positionOrder sorts to the end (rank 99).
-                // NOTE: ClassAdviser lives in model.ClassAdviser (its own property) and
-                //       is NOT in OrgItems, so it is handled by the view separately.
-                //       We still include it in the sort table so that if it ever appears
-                //       in OrgItems (e.g. fallback path) it lands in the right slot.
                 // ════════════════════════════════════════════════════════════════════
                 model.OrgItems = model.OrgItems
                     .OrderBy(x => _positionOrder.TryGetValue(x.OrgName, out var rank) ? rank : _defaultRank)
@@ -645,7 +638,7 @@ namespace OnlineClearanceSystem.Controllers
                 using var conn2 = DbHelper.GetConnection(_config);
                 conn2.Open();
 
-                var snCmd2 = new MySqlCommand("SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn2);
+                var snCmd2 = new MySqlCommand("SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn2);
                 snCmd2.Parameters.AddWithValue("@uid", userId);
                 var sn2 = snCmd2.ExecuteScalar()?.ToString() ?? "";
 
@@ -734,7 +727,7 @@ namespace OnlineClearanceSystem.Controllers
                                co.requested_at                                      AS RequestedAt,
                                co.signed_at                                         AS SignedAt
                         FROM   clearance_organization co
-                        JOIN   users stu ON COALESCE(stu.student_number, stu.id_number) COLLATE utf8mb4_unicode_ci = co.student_number COLLATE utf8mb4_unicode_ci
+                        JOIN   users stu ON stu.id_number COLLATE utf8mb4_unicode_ci = co.student_number COLLATE utf8mb4_unicode_ci
                         LEFT JOIN curriculum cu ON cu.id = stu.curriculum_id
                         LEFT JOIN courses    c  ON c.id  = cu.course_id
                         WHERE  co.position COLLATE utf8mb4_unicode_ci IN ({inClause})
@@ -816,7 +809,7 @@ namespace OnlineClearanceSystem.Controllers
                 conn.Open();
 
                 var snCmd = new MySqlCommand(
-                    "SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
+                    "SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
                 snCmd.Parameters.AddWithValue("@uid", userId);
                 var studentNumber = snCmd.ExecuteScalar()?.ToString() ?? "";
 
@@ -877,13 +870,13 @@ namespace OnlineClearanceSystem.Controllers
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
 
+                // ── Get student_number + curriculum_id ────────────────────────────
                 var stuCmd = new MySqlCommand(
-                    "SELECT COALESCE(student_number, id_number) AS student_number, curriculum_id FROM users WHERE id = @uid LIMIT 1", conn);
+                    "SELECT id_number AS student_number, curriculum_id FROM users WHERE id = @uid LIMIT 1", conn);
                 stuCmd.Parameters.AddWithValue("@uid", userId);
 
                 string studentNumber = "";
                 int curriculumId = 0;
-
                 using (var r = stuCmd.ExecuteReader())
                 {
                     if (!r.Read())
@@ -892,141 +885,189 @@ namespace OnlineClearanceSystem.Controllers
                     curriculumId  = r.IsDBNull(r.GetOrdinal("curriculum_id"))  ? 0  : r.GetInt32("curriculum_id");
                 }
 
+                // ── Check if position exists in organizations WITHOUT curriculum restriction.
                 var checkOrgCmd = new MySqlCommand(@"
                     SELECT COUNT(*) FROM organizations
-                    WHERE  position_title = @pos
-                      AND  COALESCE(is_active, 1) = 1
-                      AND  (curriculum_id IS NULL OR curriculum_id = @cid)", conn);
+                    WHERE  LOWER(TRIM(position_title)) = LOWER(TRIM(@pos))
+                      AND  COALESCE(is_active, 1) = 1", conn);
                 checkOrgCmd.Parameters.AddWithValue("@pos", dto.OrgName);
-                checkOrgCmd.Parameters.AddWithValue("@cid", curriculumId);
                 var orgExists = Convert.ToInt32(checkOrgCmd.ExecuteScalar()) > 0;
 
+                // Also allow positions held by student officers (user_signatures)
                 var checkSsCmd = new MySqlCommand(@"
                     SELECT COUNT(*) FROM user_signatures
-                    WHERE  user_id   = @uid
-                      AND  position  = @pos", conn);
+                    WHERE  user_id  = @uid
+                      AND  LOWER(TRIM(position)) = LOWER(TRIM(@pos))", conn);
                 checkSsCmd.Parameters.AddWithValue("@uid", userId);
                 checkSsCmd.Parameters.AddWithValue("@pos", dto.OrgName);
                 var isSelfPosition = Convert.ToInt32(checkSsCmd.ExecuteScalar()) > 0;
 
                 var checkStudentSigCmd = new MySqlCommand(@"
                     SELECT COUNT(*) FROM user_signatures
-                    WHERE  position = @pos AND position IS NOT NULL AND position != ''", conn);
+                    WHERE  LOWER(TRIM(position)) = LOWER(TRIM(@pos))
+                      AND  position IS NOT NULL AND position != ''", conn);
                 checkStudentSigCmd.Parameters.AddWithValue("@pos", dto.OrgName);
                 var isStudentSigPosition = Convert.ToInt32(checkStudentSigCmd.ExecuteScalar()) > 0;
 
-                if (!orgExists && !isSelfPosition && !isStudentSigPosition)
-                    return Json(new { success = false, error = "You are not allowed to request this position." });
+                // "Class Adviser" is always valid if the student has a curriculum
+                var isClassAdviser = dto.OrgName.Equals("Class Adviser", StringComparison.OrdinalIgnoreCase);
 
+                if (!orgExists && !isSelfPosition && !isStudentSigPosition && !isClassAdviser)
+                    return Json(new { success = false, error = "Position not found in the system." });
+
+                // ── Resolve active period ─────────────────────────────────────────
                 int activePid = dto.PeriodId > 0 ? dto.PeriodId : 0;
                 if (activePid == 0)
                 {
                     var periodCmd = new MySqlCommand(
-                        "SELECT id FROM academic_periods ORDER BY id DESC LIMIT 1", conn);
+                        "SELECT id FROM academic_periods ORDER BY is_active DESC, id DESC LIMIT 1", conn);
                     activePid = Convert.ToInt32(periodCmd.ExecuteScalar() ?? 1);
                 }
 
-                bool hasPeriodCol = false;
-                try
-                {
-                    new MySqlCommand("SELECT period_id FROM clearance_organization LIMIT 0", conn)
-                        .ExecuteNonQuery();
-                    hasPeriodCol = true;
-                }
-                catch { }
+                // ── Always use period-aware insert/update ────────────────────
+                var existCmd = new MySqlCommand(@"
+                    SELECT id, status FROM clearance_organization
+                    WHERE  student_number COLLATE utf8mb4_unicode_ci = @sn
+                      AND  LOWER(TRIM(position))  = LOWER(TRIM(@pos))
+                      AND  period_id = @pid
+                    LIMIT  1", conn);
+                existCmd.Parameters.AddWithValue("@sn",  studentNumber);
+                existCmd.Parameters.AddWithValue("@pos", dto.OrgName);
+                existCmd.Parameters.AddWithValue("@pid", activePid);
 
-                if (hasPeriodCol)
+                int    existId     = 0;
+                string existStatus = "";
+                using (var er = existCmd.ExecuteReader())
                 {
-                    var existCmd = new MySqlCommand(@"
-                        SELECT status FROM clearance_organization
-                        WHERE  student_number = @sn
-                          AND  position       = @pos
-                          AND  period_id      = @pid
-                        LIMIT  1", conn);
-                    existCmd.Parameters.AddWithValue("@sn",  studentNumber);
-                    existCmd.Parameters.AddWithValue("@pos", dto.OrgName);
-                    existCmd.Parameters.AddWithValue("@pid", activePid);
-                    var existStatus = existCmd.ExecuteScalar();
-
-                    if (existStatus != null && existStatus != DBNull.Value)
+                    if (er.Read())
                     {
-                        var st = existStatus.ToString() ?? "";
-                        if (st == "Pending") return Json(new { success = false, error = "Request already pending for this period." });
-                        if (st == "Cleared") return Json(new { success = false, error = "Already cleared for this period." });
-
-                        var resetCmd = new MySqlCommand(@"
-                            UPDATE clearance_organization
-                            SET    status = 'Pending', requested_at = NOW(), signed_at = NULL
-                            WHERE  student_number = @sn
-                              AND  position       = @pos
-                              AND  period_id      = @pid", conn);
-                        resetCmd.Parameters.AddWithValue("@sn",  studentNumber);
-                        resetCmd.Parameters.AddWithValue("@pos", dto.OrgName);
-                        resetCmd.Parameters.AddWithValue("@pid", activePid);
-                        resetCmd.ExecuteNonQuery();
-                        return Json(new { success = true });
+                        existId     = er.GetInt32("id");
+                        existStatus = er.GetString("status");
                     }
-
-                    var insertCmd = new MySqlCommand(@"
-                        INSERT INTO clearance_organization
-                            (student_number, position, status, period_id, requested_at)
-                        VALUES (@sn, @pos, 'Pending', @pid, NOW())", conn);
-                    insertCmd.Parameters.AddWithValue("@sn",  studentNumber);
-                    insertCmd.Parameters.AddWithValue("@pos", dto.OrgName);
-                    insertCmd.Parameters.AddWithValue("@pid", activePid);
-                    insertCmd.ExecuteNonQuery();
                 }
-                else
+
+                if (existId > 0)
                 {
-                    var existCmd = new MySqlCommand(@"
-                        SELECT status FROM clearance_organization
-                        WHERE  student_number = @sn
-                          AND  position       = @pos
-                        LIMIT  1", conn);
-                    existCmd.Parameters.AddWithValue("@sn",  studentNumber);
-                    existCmd.Parameters.AddWithValue("@pos", dto.OrgName);
-                    var existStatus = existCmd.ExecuteScalar();
+                    if (existStatus == "Pending")
+                        return Json(new { success = false, error = "Request already pending for this period." });
+                    if (existStatus == "Cleared")
+                        return Json(new { success = false, error = "Already cleared for this period." });
 
-                    if (existStatus != null && existStatus != DBNull.Value)
-                    {
-                        var st = existStatus.ToString() ?? "";
-                        if (st == "Pending") return Json(new { success = false, error = "Request already pending." });
-                        if (st == "Cleared") return Json(new { success = false, error = "Already cleared." });
-
-                        var resetCmd = new MySqlCommand(@"
-                            UPDATE clearance_organization
-                            SET    status = 'Pending', requested_at = NOW(), signed_at = NULL
-                            WHERE  student_number = @sn
-                              AND  position       = @pos", conn);
-                        resetCmd.Parameters.AddWithValue("@sn",  studentNumber);
-                        resetCmd.Parameters.AddWithValue("@pos", dto.OrgName);
-                        resetCmd.ExecuteNonQuery();
-                        return Json(new { success = true });
-                    }
-
-                    var insertCmd = new MySqlCommand(@"
-                        INSERT INTO clearance_organization (student_number, position, status, requested_at)
-                        VALUES (@sn, @pos, 'Pending', NOW())", conn);
-                    insertCmd.Parameters.AddWithValue("@sn",  studentNumber);
-                    insertCmd.Parameters.AddWithValue("@pos", dto.OrgName);
-                    insertCmd.ExecuteNonQuery();
+                    // Declined → allow re-request
+                    var resetCmd = new MySqlCommand(@"
+                        UPDATE clearance_organization
+                        SET    status = 'Pending', requested_at = NOW(), signed_at = NULL
+                        WHERE  id = @id", conn);
+                    resetCmd.Parameters.AddWithValue("@id", existId);
+                    resetCmd.ExecuteNonQuery();
+                    return Json(new { success = true });
                 }
+
+                // ── Fresh insert with period_id ───────────────────────────────────
+                var insertCmd = new MySqlCommand(@"
+                    INSERT INTO clearance_organization
+                        (student_number, position, status, period_id, requested_at)
+                    VALUES (@sn, @pos, 'Pending', @pid, NOW())", conn);
+                insertCmd.Parameters.AddWithValue("@sn",  studentNumber);
+                insertCmd.Parameters.AddWithValue("@pos", dto.OrgName);
+                insertCmd.Parameters.AddWithValue("@pid", activePid);
+                insertCmd.ExecuteNonQuery();
 
                 return Json(new { success = true });
             }
             catch (MySqlException mex) when (mex.Number == 1062)
             {
-                return Json(new
-                {
-                    success = false,
-                    error   = "This position already has a clearance record. " +
-                              "If you're seeing this after switching academic periods, " +
-                              "run migration.sql to make uq_co period-aware."
-                });
+                return Json(new { success = false, error = "A clearance record already exists for this period. Try refreshing the page." });
             }
             catch (Exception ex)
             {
                 return Json(new { success = false, error = ex.Message });
+            }
+        }
+
+        // ── Trigger Org Clearance (called after all subjects cleared) ─────────────
+        private void TriggerOrgClearance(MySqlConnection conn, string studentNumber)
+        {
+            // 1. Get the student's curriculum_id AND their current period
+            var stuCmd = new MySqlCommand(
+                "SELECT curriculum_id FROM users WHERE id_number = @sn LIMIT 1", conn);
+            stuCmd.Parameters.AddWithValue("@sn", studentNumber);
+
+            int curriculumId = 0;
+            using (var r = stuCmd.ExecuteReader())
+            {
+                if (r.Read())
+                    curriculumId = r.IsDBNull(r.GetOrdinal("curriculum_id")) ? 0 : r.GetInt32("curriculum_id");
+            }
+
+            // 2. Resolve the active period_id for this student
+            int activePid = 0;
+            var pidCmd = new MySqlCommand(
+                "SELECT COALESCE(MAX(period_id),0) FROM clearance_subjects WHERE student_number = @sn", conn);
+            pidCmd.Parameters.AddWithValue("@sn", studentNumber);
+            activePid = Convert.ToInt32(pidCmd.ExecuteScalar() ?? 0);
+
+            if (activePid == 0)
+            {
+                var defPid = new MySqlCommand(
+                    "SELECT id FROM academic_periods ORDER BY is_active DESC, id DESC LIMIT 1", conn);
+                activePid = Convert.ToInt32(defPid.ExecuteScalar() ?? 1);
+            }
+
+            // 3. Get ALL active org positions
+            var orgCmd = new MySqlCommand(@"
+                SELECT DISTINCT position_title
+                FROM   organizations
+                WHERE  COALESCE(is_active, 1) = 1
+                  AND  position_title IS NOT NULL
+                  AND  position_title != ''", conn);
+
+            var positions = new List<string>();
+            using (var r = orgCmd.ExecuteReader())
+            {
+                while (r.Read())
+                    positions.Add(r.GetString("position_title"));
+            }
+
+            // Always include Class Adviser
+            if (!positions.Any(p => p.Equals("Class Adviser", StringComparison.OrdinalIgnoreCase)))
+                positions.Add("Class Adviser");
+
+            // 4. Also include any student-officer positions from user_signatures
+            var sigCmd = new MySqlCommand(@"
+                SELECT DISTINCT position FROM user_signatures
+                WHERE  position IS NOT NULL AND position != ''", conn);
+            using (var r = sigCmd.ExecuteReader())
+            {
+                while (r.Read())
+                {
+                    var pos = r.GetString("position");
+                    if (!positions.Any(p => p.Equals(pos, StringComparison.OrdinalIgnoreCase)))
+                        positions.Add(pos);
+                }
+            }
+
+            // 5. Insert Pending rows for each position (with period_id)
+            foreach (var pos in positions)
+            {
+                var checkCmd = new MySqlCommand(@"
+                    SELECT COUNT(*) FROM clearance_organization
+                    WHERE  student_number COLLATE utf8mb4_unicode_ci = @sn
+                      AND  LOWER(TRIM(position)) = LOWER(TRIM(@pos))
+                      AND  period_id = @pid", conn);
+                checkCmd.Parameters.AddWithValue("@sn",  studentNumber);
+                checkCmd.Parameters.AddWithValue("@pos", pos);
+                checkCmd.Parameters.AddWithValue("@pid", activePid);
+                if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0) continue;
+
+                var insertCmd = new MySqlCommand(@"
+                    INSERT INTO clearance_organization
+                        (student_number, position, status, period_id, requested_at)
+                    VALUES (@sn, @pos, 'Pending', @pid, NOW())", conn);
+                insertCmd.Parameters.AddWithValue("@sn",  studentNumber);
+                insertCmd.Parameters.AddWithValue("@pos", pos);
+                insertCmd.Parameters.AddWithValue("@pid", activePid);
+                try { insertCmd.ExecuteNonQuery(); } catch { /* ignore duplicate */ }
             }
         }
 
@@ -1055,7 +1096,7 @@ namespace OnlineClearanceSystem.Controllers
                     return Json(new { success = false, error = "You do not hold this position." });
 
                 var snCmd = new MySqlCommand(
-                    "SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
+                    "SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
                 snCmd.Parameters.AddWithValue("@uid", userId);
                 var studentNumber = snCmd.ExecuteScalar()?.ToString() ?? "";
 
@@ -1154,7 +1195,7 @@ namespace OnlineClearanceSystem.Controllers
                     SELECT
                         u.first_name, u.middle_initial,
                         u.last_name,  u.suffix_name, u.email,
-                        u.id_number,  u.student_number,
+                        u.id_number,
                         u.curriculum_id,
                         c.course_code,
                         cu.year_level,
@@ -1169,10 +1210,9 @@ namespace OnlineClearanceSystem.Controllers
                 {
                     if (r.Read())
                     {
-                        var studentNum = r.IsDBNull(r.GetOrdinal("student_number")) ? null : r.GetString("student_number");
-                        var idNumber   = r.IsDBNull(r.GetOrdinal("id_number"))      ? null : r.GetString("id_number");
+                        var idNumber = r.IsDBNull(r.GetOrdinal("id_number")) ? null : r.GetString("id_number");
 
-                        model.StudentId     = studentNum ?? idNumber ?? "";
+                        model.StudentId     = idNumber ?? "";
                         model.FirstName     = r.IsDBNull(r.GetOrdinal("first_name"))     ? "" : r.GetString("first_name");
                         model.MiddleInitial = r.IsDBNull(r.GetOrdinal("middle_initial")) ? "" : r.GetString("middle_initial");
                         model.LastName      = r.IsDBNull(r.GetOrdinal("last_name"))      ? "" : r.GetString("last_name");
@@ -1295,9 +1335,8 @@ namespace OnlineClearanceSystem.Controllers
                     cmd.ExecuteNonQuery();
                 }
 
-                var studentNumber = model.StudentId?.Trim() ?? "";
-                var courseCode    = model.Course?.Trim()    ?? "";
-                var section       = model.Section?.Trim()   ?? "";
+                var courseCode = model.Course?.Trim()  ?? "";
+                var section    = model.Section?.Trim() ?? "";
                 var yearInt = model.YearLevel switch
                 {
                     "1st Year" => 1, "2nd Year" => 2,
@@ -1343,12 +1382,13 @@ namespace OnlineClearanceSystem.Controllers
                     }
                 }
 
+                // NOTE: student_number column was removed from `users`; identity is
+                // now id_number (admin-assigned, not edited here). Only curriculum
+                // is updated on profile save.
                 var updateUserCmd = new MySqlCommand(@"
                     UPDATE users SET
-                        student_number = @sn,
-                        curriculum_id  = @cid
+                        curriculum_id = @cid
                     WHERE id = @uid", conn);
-                updateUserCmd.Parameters.AddWithValue("@sn",  studentNumber);
                 updateUserCmd.Parameters.AddWithValue("@cid",
                     curriculumId > 0 ? (object)curriculumId : DBNull.Value);
                 updateUserCmd.Parameters.AddWithValue("@uid", userId);
@@ -1416,8 +1456,11 @@ namespace OnlineClearanceSystem.Controllers
                     return RedirectToAction(nameof(Clearance), new { periodId });
                 }
 
-                new MySqlCommand("UPDATE clearance_organization SET status = 'Cleared', signed_at = NOW() WHERE id = @id", conn)
-                    .Also(c => { c.Parameters.AddWithValue("@id", id); c.ExecuteNonQuery(); });
+                var approveCmd = new MySqlCommand(
+                    "UPDATE clearance_organization SET status = 'Cleared', signed_at = NOW() WHERE id = @id", conn);
+                approveCmd.Parameters.AddWithValue("@id", id);
+                approveCmd.ExecuteNonQuery();
+
                 TempData["Success"] = "Clearance approved.";
             }
             catch (Exception ex) { TempData["Error"] = "Error: " + ex.Message; }
@@ -1448,8 +1491,11 @@ namespace OnlineClearanceSystem.Controllers
                     return RedirectToAction(nameof(Clearance), new { periodId });
                 }
 
-                new MySqlCommand("UPDATE clearance_organization SET status = 'Declined', signed_at = NOW() WHERE id = @id", conn)
-                    .Also(c => { c.Parameters.AddWithValue("@id", id); c.ExecuteNonQuery(); });
+                var declineCmd = new MySqlCommand(
+                    "UPDATE clearance_organization SET status = 'Declined', signed_at = NOW() WHERE id = @id", conn);
+                declineCmd.Parameters.AddWithValue("@id", id);
+                declineCmd.ExecuteNonQuery();
+
                 TempData["Success"] = "Request declined.";
             }
             catch (Exception ex) { TempData["Error"] = "Error: " + ex.Message; }
@@ -1465,7 +1511,7 @@ namespace OnlineClearanceSystem.Controllers
             {
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
-                var snCmd = new MySqlCommand("SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
+                var snCmd = new MySqlCommand("SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
                 snCmd.Parameters.AddWithValue("@uid", userId);
                 var myNum = snCmd.ExecuteScalar()?.ToString() ?? "";
                 var cmd = new MySqlCommand(@"
@@ -1535,7 +1581,7 @@ namespace OnlineClearanceSystem.Controllers
                         CONCAT(u.last_name, ', ', u.first_name,
                                IF(u.middle_initial IS NOT NULL AND u.middle_initial != '',
                                   CONCAT(' ', u.middle_initial, '.'), '')) AS full_name,
-                        u.student_number,
+                        u.id_number,
                         u.curriculum_id,
                         c.course_code,
                         cu.year_level,
@@ -1554,7 +1600,7 @@ namespace OnlineClearanceSystem.Controllers
                     if (ir.Read())
                     {
                         model.StudentName = ir.IsDBNull(ir.GetOrdinal("full_name"))      ? "" : ir.GetString("full_name");
-                        model.StudentId   = ir.IsDBNull(ir.GetOrdinal("student_number")) ? "" : ir.GetString("student_number");
+                        model.StudentId   = ir.IsDBNull(ir.GetOrdinal("id_number"))      ? "" : ir.GetString("id_number");
                         studentNumber     = model.StudentId;
                         curriculumId      = ir.IsDBNull(ir.GetOrdinal("curriculum_id"))  ? 0  : ir.GetInt32("curriculum_id");
 
@@ -1829,7 +1875,7 @@ namespace OnlineClearanceSystem.Controllers
                 conn.Open();
 
                 var snCmd = new MySqlCommand(
-                    "SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
+                    "SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
                 snCmd.Parameters.AddWithValue("@uid", userId);
                 var studentNumber = snCmd.ExecuteScalar()?.ToString() ?? "";
 
@@ -1883,7 +1929,7 @@ namespace OnlineClearanceSystem.Controllers
             {
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
-                var snCmd = new MySqlCommand("SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
+                var snCmd = new MySqlCommand("SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
                 snCmd.Parameters.AddWithValue("@uid", userId);
                 var sn = snCmd.ExecuteScalar()?.ToString() ?? "";
                 var cmd = new MySqlCommand(@"
@@ -1915,7 +1961,7 @@ namespace OnlineClearanceSystem.Controllers
                 using var conn = DbHelper.GetConnection(_config);
                 conn.Open();
 
-                var snCmd = new MySqlCommand("SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
+                var snCmd = new MySqlCommand("SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
                 snCmd.Parameters.AddWithValue("@uid", userId);
                 var sn = snCmd.ExecuteScalar()?.ToString() ?? "";
 
@@ -1952,7 +1998,7 @@ namespace OnlineClearanceSystem.Controllers
                 conn.Open();
 
                 var snCmd = new MySqlCommand(
-                    "SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
+                    "SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
                 snCmd.Parameters.AddWithValue("@uid", userId);
                 var studentNumber = snCmd.ExecuteScalar()?.ToString() ?? "";
 
@@ -2003,7 +2049,7 @@ namespace OnlineClearanceSystem.Controllers
                 conn.Open();
 
                 var snCmd = new MySqlCommand(
-                    "SELECT COALESCE(student_number, id_number) AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
+                    "SELECT id_number AS student_number FROM users WHERE id = @uid LIMIT 1", conn);
                 snCmd.Parameters.AddWithValue("@uid", userId);
                 var studentNumber = snCmd.ExecuteScalar()?.ToString() ?? "";
 
@@ -2095,7 +2141,6 @@ namespace OnlineClearanceSystem.Controllers
 
                 var cmd = new MySqlCommand(@"
                     SELECT
-                        u.student_number,
                         u.id_number,
                         c.course_code,
                         cu.year_level,
@@ -2110,9 +2155,8 @@ namespace OnlineClearanceSystem.Controllers
                 {
                     if (r.Read())
                     {
-                        var studentNum = r.IsDBNull(r.GetOrdinal("student_number")) ? null : r.GetString("student_number");
-                        var idNumber   = r.IsDBNull(r.GetOrdinal("id_number"))      ? null : r.GetString("id_number");
-                        ViewData["UserId"] = studentNum ?? idNumber ?? "—";
+                        var idNumber = r.IsDBNull(r.GetOrdinal("id_number")) ? null : r.GetString("id_number");
+                        ViewData["UserId"] = idNumber ?? "—";
 
                         ViewData["UserCourse"] = r.IsDBNull(r.GetOrdinal("course_code"))
                                                     ? "—" : r.GetString("course_code");

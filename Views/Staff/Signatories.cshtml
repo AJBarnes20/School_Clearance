@@ -51,7 +51,6 @@
                     <tr>
                         <th style="width:50px;text-align:center;">NO.</th>
                         <th>STUDENT</th>
-                        <th>COURSE</th>
                         <th style="text-align:center;">STATUS</th>
                         <th style="text-align:center;">REQUESTED</th>
                         <th style="text-align:center;">ACTION</th>
@@ -67,9 +66,8 @@
                                 <td style="text-align:center;">@i.ToString("D2")</td>
                                 <td>
                                     <div style="font-weight:600;font-size:13px;">@item.StudentName</div>
-                                    <div style="font-size:11px;color:#888;">ID: @item.StudentId</div>
+                                    <div style="font-size:11px;color:#888;">@item.StudentId · @item.Course</div>
                                 </td>
-                                <td style="font-size:13px;">@item.Course</td>
                                 <td style="text-align:center;">
                                     <span class="status-pending-sm">Pending</span>
                                 </td>
@@ -102,13 +100,17 @@
                                                 <i class="fas fa-times me-1"></i>Decline
                                             </button>
                                         </form>
-                                        <div class="chat-btn-wrap" data-sn="@item.StudentId" data-key="@item.Position" data-type="org">
+                                        <div class="chat-btn-wrap"
+                                             data-sn="@item.StudentId"
+                                             data-key="@item.Position"
+                                             data-type="org"
+                                             style="position:relative;display:inline-flex;">
                                             <button class="chat-icon-btn"
                                                     onclick="openChat('@Html.Raw(item.StudentId)','@Html.Raw(item.StudentName)','@Html.Raw(item.Position)','org','@Html.Raw(item.Course)')"
                                                     title="Message @item.StudentName">
                                                 <i class="fas fa-comment-dots"></i>
                                             </button>
-                                            <span class="unread-dot" style="display:none;"></span>
+                                            <span class="unread-dot"></span>
                                         </div>
                                     </div>
                                 </td>
@@ -140,20 +142,22 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>POSITION</th>
+                        <th style="width:50px;text-align:center;">NO.</th>
                         <th>STUDENT</th>
                         <th style="text-align:center;">STATUS</th>
                         <th style="text-align:center;">REQUESTED</th>
                         <th style="text-align:center;">SIGNED</th>
+                        <th style="text-align:center;">CHAT</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (signedItems.Any())
                     {
+                        int j = 1;
                         foreach (var item in signedItems)
                         {
                             <tr>
-                                <td style="font-weight:600;">@item.Description</td>
+                                <td style="text-align:center;">@j.ToString("D2")</td>
                                 <td>
                                     <div style="font-weight:600;">@item.StudentName</div>
                                     <div style="font-size:11px;color:#888;">@item.StudentId · @item.StudentCourse</div>
@@ -184,12 +188,20 @@
                                     }
                                     else { <span class="date-none">—</span> }
                                 </td>
+                                <td style="text-align:center;">
+                                    <div class="chat-btn-wrap" style="position:relative;display:inline-flex;">
+                                        <button class="chat-icon-btn" disabled title="Clearance already signed — chat closed">
+                                            <i class="fas fa-comment-dots"></i>
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
+                            j++;
                         }
                     }
                     else
                     {
-                        <tr><td colspan="5" style="padding:40px;text-align:center;color:#888;">
+                        <tr><td colspan="6" style="padding:40px;text-align:center;color:#888;">
                             <i class="fas fa-check-circle" style="font-size:28px;color:#ddd;display:block;margin-bottom:10px;"></i>
                             No signed clearances found.
                         </td></tr>
@@ -247,21 +259,42 @@
     .pd-opt{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#1a1a2e;cursor:pointer;transition:background .15s;gap:8px}
     .pd-opt:hover{background:rgba(0,0,0,.04)}.pd-opt.selected{background:rgba(26,71,49,.1);color:#1a4731}
     .pd-opt.selected .pd-check{display:block}.pd-check{display:none;font-size:11px;color:#1a4731;flex-shrink:0}
+
     /* Status badges */
     .status-pending-sm{background:#fff8e1;color:#e6a817;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;}
     .status-approved{background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;}
     .status-declined{background:#fce4ec;color:#c62828;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;}
+
     /* Buttons */
     .btn-approve{background:#2e7d32;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s}
     .btn-approve:hover:not(:disabled){opacity:.85}
     .btn-decline{background:#c62828;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s}
     .btn-decline:hover:not(:disabled){opacity:.85}
     .btn-approve:disabled,.btn-decline:disabled{opacity:0.4;cursor:not-allowed;pointer-events:none;}
-    /* Chat */
+
+    /* ── CHAT + UNREAD DOT ── */
     .chat-btn-wrap{position:relative;display:inline-flex;}
     .chat-icon-btn{width:34px;height:34px;border-radius:50%;border:none;background:#e8f5e9;color:#1a4731;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .2s,transform .15s;}
-    .chat-icon-btn:hover{background:#c8e6c9;transform:scale(1.1);}
-    .unread-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;background:#dc3545;border-radius:50%;border:1.5px solid white;}
+    .chat-icon-btn:hover:not(:disabled){background:#c8e6c9;transform:scale(1.1);}
+    .chat-icon-btn:disabled{background:#f0f0f0;color:#bbb;cursor:not-allowed;pointer-events:none;}
+
+    .unread-dot {
+        display: none;
+        position: absolute;
+        top: -3px;
+        right: -3px;
+        width: 11px;
+        height: 11px;
+        background: #dc3545;
+        border-radius: 50%;
+        border: 2px solid white;
+        pointer-events: none;
+        z-index: 10;
+    }
+    .unread-dot.has-unread {
+        display: block !important;
+    }
+
     .chat-bubble-wrap{display:flex;flex-direction:column;max-width:78%;}
     .chat-bubble-wrap.mine{align-self:flex-end;align-items:flex-end;}
     .chat-bubble-wrap.theirs{align-self:flex-start;align-items:flex-start;}
@@ -282,9 +315,17 @@ const _serverPid = @serverPid;
 let _allPeriods = [];
 async function loadPeriods() {
     const dd = document.getElementById('period-dd');
-    try { const r = await fetch('/api/staff/periods'); _allPeriods = await r.json(); } catch { _allPeriods = []; }
+    try {
+        const r = await fetch('/api/staff/periods');
+        _allPeriods = await r.json();
+    } catch {
+        _allPeriods = [];
+    }
     dd.innerHTML = '';
-    if (!_allPeriods.length) { dd.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:#888;">No periods found.</div>'; return; }
+    if (!_allPeriods.length) {
+        dd.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:#888;">No periods found.</div>';
+        return;
+    }
     const pre = _allPeriods.find(p => p.id === _serverPid) ?? _allPeriods[0];
     document.getElementById('period-btn-value').textContent = `${pre.sem}, A.Y. ${pre.ay}`;
     _allPeriods.forEach(p => {
@@ -295,20 +336,123 @@ async function loadPeriods() {
         dd.appendChild(opt);
     });
 }
-function togglePeriodDd(e) { e.stopPropagation(); document.getElementById('period-wrap').classList.toggle('open'); }
-document.addEventListener('click', e => { const w = document.getElementById('period-wrap'); if (w && !w.contains(e.target)) w.classList.remove('open'); });
+function togglePeriodDd(e) {
+    e.stopPropagation();
+    document.getElementById('period-wrap').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+    const w = document.getElementById('period-wrap');
+    if (w && !w.contains(e.target)) w.classList.remove('open');
+});
+
+function esc(s) {
+    return String(s ?? '')
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+}
+
+/* ──────────────────────────────────────────────────────────────
+   UNREAD BADGES
+   - Logs the raw payload to console once so you can see exactly
+     what field names the server is sending back (open DevTools
+     console, look for "[unread-badges] raw payload").
+   - Accepts several possible field-name variants from the server
+     (camelCase / PascalCase, studentId / studentNumber) so a
+     casing mismatch can't silently break the match.
+   - A row's data-sn is only enforced if it's non-empty AND the
+     unread record actually has a student identifier. If the
+     unread record has no student identifier at all (e.g. some
+     endpoints only key by clearanceKey/clearanceType), we fall
+     back to matching on key+type alone so the dot still lights up.
+   - Only rows in the Requests panel carry data-sn/data-key/data-type
+     (the disabled Signed History buttons intentionally don't), so
+     this naturally never lights up a dot on an already-signed row.
+────────────────────────────────────────────────────────────── */
+let _loggedPayloadOnce = false;
+
+function pick(obj, ...names) {
+    for (const n of names) {
+        if (obj[n] !== undefined && obj[n] !== null) return obj[n];
+    }
+    return '';
+}
+
+async function loadUnreadBadges() {
+    try {
+        const res = await fetch('/Staff/GetUnreadCounts');
+        if (!res.ok) {
+            console.warn('[unread-badges] GetUnreadCounts returned', res.status);
+            return;
+        }
+        const unreads = await res.json();
+
+        if (!_loggedPayloadOnce) {
+            console.log('[unread-badges] raw payload from /Staff/GetUnreadCounts:', unreads);
+            _loggedPayloadOnce = true;
+        }
+
+        // Reset all dots first
+        document.querySelectorAll('.unread-dot').forEach(d => d.classList.remove('has-unread'));
+
+        if (!unreads || !unreads.length) return;
+
+        unreads.forEach(u => {
+            const uSnRaw = pick(u, 'studentNumber', 'StudentNumber', 'studentId', 'StudentId', 'sn', 'Sn');
+            const uSn    = String(uSnRaw).trim().toLowerCase();
+            const uKey   = String(pick(u, 'clearanceKey', 'ClearanceKey', 'key', 'Key')).trim().toLowerCase();
+            const uType  = String(pick(u, 'clearanceType', 'ClearanceType', 'type', 'Type')).trim().toLowerCase();
+            const hasSn  = uSn !== '';
+
+            // Don't light up the dot for the conversation currently open in
+            // the chat modal — the staff member is already looking at it.
+            const isCurrentlyOpen = _chatSN !== null &&
+                String(_chatSN   ?? '').trim().toLowerCase() === uSn  &&
+                String(_chatKey  ?? '').trim().toLowerCase() === uKey &&
+                String(_chatType ?? '').trim().toLowerCase() === uType;
+            if (isCurrentlyOpen) return;
+
+            // Only Requests-panel rows have data-sn/data-key/data-type, so
+            // this will never match (and never light up) a disabled
+            // Signed History button — those rows simply don't carry the
+            // dataset attributes needed to match here.
+            document.querySelectorAll('.chat-btn-wrap[data-sn]').forEach(wrap => {
+                const wSn   = String(wrap.dataset.sn   ?? '').trim().toLowerCase();
+                const wKey  = String(wrap.dataset.key  ?? '').trim().toLowerCase();
+                const wType = String(wrap.dataset.type ?? '').trim().toLowerCase();
+
+                // If the unread record carries a student id, the row must match it
+                // (when the row itself has one). If the unread record has no student
+                // id, fall back to key+type only so the dot still lights up.
+                const snOk = !hasSn ? true : (wSn === '' ? true : wSn === uSn);
+
+                if (snOk && wKey === uKey && wType === uType) {
+                    const dot = wrap.querySelector('.unread-dot');
+                    if (dot) dot.classList.add('has-unread');
+                }
+            });
+        });
+    } catch(e) {
+        console.error('[unread-badges] error:', e);
+    }
+}
 
 /* ── CHAT ── */
 let _chatSN = null, _chatName = null, _chatKey = null, _chatType = null;
-function getInitials(n) { return (n??'').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
-function fmtTime(d) { return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }
-function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function getInitials(n) {
+    return (n ?? '').split(' ').filter(Boolean).map(w => w[0]).join('').slice(0,2).toUpperCase();
+}
+function fmtTime(d) {
+    return d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+}
 
 async function openChat(sn, name, key, type, course) {
     _chatSN = sn; _chatName = name; _chatKey = key; _chatType = type;
-    document.getElementById('chat-name').textContent    = name;
-    document.getElementById('chat-sub').textContent     = course || key;
-    document.getElementById('chat-avatar').textContent  = getInitials(name);
+    document.getElementById('chat-name').textContent   = name;
+    document.getElementById('chat-sub').textContent    = course || key;
+    document.getElementById('chat-avatar').textContent = getInitials(name);
     document.getElementById('chat-modal').style.display   = 'flex';
     document.getElementById('chat-overlay').style.display = 'block';
     document.getElementById('chat-messages').innerHTML =
@@ -316,74 +460,129 @@ async function openChat(sn, name, key, type, course) {
     await markRead(sn, key, type);
     clearUnreadDot(sn, key, type);
     await fetchMessages();
+    // Re-sync badges immediately after opening — picks up anything that
+    // changed in OTHER conversations without waiting on the 30s poll.
+    loadUnreadBadges();
     setTimeout(() => document.getElementById('chat-input').focus(), 80);
 }
+
 function closeChat() {
     document.getElementById('chat-modal').style.display   = 'none';
     document.getElementById('chat-overlay').style.display = 'none';
-    _chatSN = null;
+    _chatSN = null; _chatKey = null; _chatType = null;
+    // Refresh badges on close too — if a new message arrived for a
+    // different row while this modal was open, its dot shows right away.
+    loadUnreadBadges();
 }
+
 async function markRead(sn, key, type) {
-    try { await fetch('/Staff/MarkMessagesRead', { method:'POST', headers:{'Content-Type':'application/json','RequestVerificationToken':_csrf}, body:JSON.stringify({studentNumber:sn,clearanceKey:key,clearanceType:type,message:''}) }); } catch {}
+    try {
+        await fetch('/Staff/MarkMessagesRead', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'RequestVerificationToken':_csrf },
+            body: JSON.stringify({ studentNumber:sn, clearanceKey:key, clearanceType:type, message:'' })
+        });
+    } catch {}
 }
+
+function clearUnreadDot(sn, key, type) {
+    const snL   = String(sn   ?? '').trim().toLowerCase();
+    const keyL  = String(key  ?? '').trim().toLowerCase();
+    const typeL = String(type ?? '').trim().toLowerCase();
+
+    document.querySelectorAll('.chat-btn-wrap[data-sn]').forEach(wrap => {
+        if (String(wrap.dataset.sn   ?? '').trim().toLowerCase() === snL &&
+            String(wrap.dataset.key  ?? '').trim().toLowerCase() === keyL &&
+            String(wrap.dataset.type ?? '').trim().toLowerCase() === typeL) {
+            const dot = wrap.querySelector('.unread-dot');
+            if (dot) dot.classList.remove('has-unread');
+        }
+    });
+}
+
 async function fetchMessages() {
     if (!_chatSN) return;
     try {
-        const d = await (await fetch(`/Staff/GetClearanceMessages?studentNumber=${encodeURIComponent(_chatSN)}&key=${encodeURIComponent(_chatKey)}&type=${encodeURIComponent(_chatType)}`)).json();
+        const d = await (await fetch(
+            `/Staff/GetClearanceMessages?studentNumber=${encodeURIComponent(_chatSN)}&key=${encodeURIComponent(_chatKey)}&type=${encodeURIComponent(_chatType)}`
+        )).json();
         if (d.success) renderMessages(d.messages ?? []);
     } catch {}
 }
+
 function renderMessages(msgs) {
-    const box = document.getElementById('chat-messages'); box.innerHTML = '';
+    const box = document.getElementById('chat-messages');
+    box.innerHTML = '';
     if (!msgs.length) {
-        box.innerHTML = `<div style="text-align:center;margin:auto;"><div style="font-size:32px;margin-bottom:10px;">💬</div><div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px;">Start the conversation</div><div style="font-size:12px;color:#aaa;max-width:220px;margin:0 auto;line-height:1.6;">Send a message to <strong>${esc(_chatName)}</strong>.</div></div>`;
+        box.innerHTML = `<div style="text-align:center;margin:auto;">
+            <div style="font-size:32px;margin-bottom:10px;">💬</div>
+            <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px;">Start the conversation</div>
+            <div style="font-size:12px;color:#aaa;max-width:220px;margin:0 auto;line-height:1.6;">
+                Send a message to <strong>${esc(_chatName)}</strong>.
+            </div>
+        </div>`;
         return;
     }
     let lastDate = null;
     msgs.forEach(m => {
-        const d=new Date(m.time), ds=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-        if (ds!==lastDate) { const div=document.createElement('div'); div.style.cssText='text-align:center;font-size:10px;color:#aaa;margin:6px 0;'; div.textContent=ds; box.appendChild(div); lastDate=ds; }
-        const wrap=document.createElement('div'); wrap.className='chat-bubble-wrap '+(m.mine?'mine':'theirs');
-        if (!m.mine) { const sn=document.createElement('div'); sn.className='chat-sender-name'; sn.textContent=_chatName; wrap.appendChild(sn); }
-        const bubble=document.createElement('div'); bubble.className='chat-bubble '+(m.mine?'mine':'theirs'); bubble.textContent=m.text; wrap.appendChild(bubble);
-        const time=document.createElement('div'); time.className='chat-time'; time.textContent=fmtTime(d); wrap.appendChild(time);
+        const d   = new Date(m.time);
+        const ds  = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+        if (ds !== lastDate) {
+            const sep = document.createElement('div');
+            sep.style.cssText = 'text-align:center;font-size:10px;color:#aaa;margin:6px 0;';
+            sep.textContent = ds;
+            box.appendChild(sep);
+            lastDate = ds;
+        }
+        const wrap     = document.createElement('div');
+        wrap.className = 'chat-bubble-wrap ' + (m.mine ? 'mine' : 'theirs');
+        if (!m.mine) {
+            const sn       = document.createElement('div');
+            sn.className   = 'chat-sender-name';
+            sn.textContent = _chatName;
+            wrap.appendChild(sn);
+        }
+        const bubble       = document.createElement('div');
+        bubble.className   = 'chat-bubble ' + (m.mine ? 'mine' : 'theirs');
+        bubble.textContent = m.text;
+        wrap.appendChild(bubble);
+        const time       = document.createElement('div');
+        time.className   = 'chat-time';
+        time.textContent = fmtTime(d);
+        wrap.appendChild(time);
         box.appendChild(wrap);
     });
-    box.scrollTop=box.scrollHeight;
+    box.scrollTop = box.scrollHeight;
 }
-async function sendChatMessage() {
-    const input=document.getElementById('chat-input'), text=input.value.trim();
-    if (!text||!_chatSN) return; input.value='';
-    const wrap=document.createElement('div'); wrap.className='chat-bubble-wrap mine';
-    const b=document.createElement('div'); b.className='chat-bubble mine'; b.textContent=text;
-    const t=document.createElement('div'); t.className='chat-time'; t.textContent=fmtTime(new Date());
-    wrap.appendChild(b); wrap.appendChild(t);
-    const box=document.getElementById('chat-messages'); box.appendChild(wrap); box.scrollTop=box.scrollHeight;
-    try { await fetch('/Staff/SendClearanceMessage',{method:'POST',headers:{'Content-Type':'application/json','RequestVerificationToken':_csrf},body:JSON.stringify({studentNumber:_chatSN,clearanceType:_chatType,clearanceKey:_chatKey,message:text})}); } catch {}
-}
-function clearUnreadDot(sn,key,type) {
-    document.querySelectorAll('.chat-btn-wrap').forEach(w=>{
-        if(w.dataset.sn===sn&&w.dataset.key===key&&w.dataset.type===type){const d=w.querySelector('.unread-dot');if(d)d.style.display='none';}
-    });
-}
-async function loadUnreadBadges() {
-    try {
-        const unreads = await(await fetch('/Staff/GetUnreadCounts')).json();
-        document.querySelectorAll('.chat-btn-wrap .unread-dot').forEach(d => d.style.display = 'none');
-        unreads.forEach(u => {
-            document.querySelectorAll('.chat-btn-wrap').forEach(w => {
-                if (w.dataset.sn===u.studentNumber && w.dataset.key===u.clearanceKey && w.dataset.type===u.clearanceType) {
-                    const d = w.querySelector('.unread-dot');
-                    if (d) d.style.display = 'block';
-                }
-            });
-        });
-    } catch(e) { console.error('[chat-dots] error:', e); }
-}
-document.addEventListener('keydown', e => { if(e.key==='Escape') closeChat(); });
 
+async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const text  = input.value.trim();
+    if (!text || !_chatSN) return;
+    input.value = '';
+
+    const wrap   = document.createElement('div'); wrap.className   = 'chat-bubble-wrap mine';
+    const b      = document.createElement('div'); b.className      = 'chat-bubble mine'; b.textContent = text;
+    const t      = document.createElement('div'); t.className      = 'chat-time'; t.textContent = fmtTime(new Date());
+    wrap.appendChild(b); wrap.appendChild(t);
+    const box = document.getElementById('chat-messages');
+    box.appendChild(wrap);
+    box.scrollTop = box.scrollHeight;
+
+    try {
+        await fetch('/Staff/SendClearanceMessage', {
+            method:  'POST',
+            headers: { 'Content-Type':'application/json', 'RequestVerificationToken':_csrf },
+            body: JSON.stringify({ studentNumber:_chatSN, clearanceType:_chatType, clearanceKey:_chatKey, message:text })
+        });
+    } catch {}
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeChat(); });
+
+/* ── Init ── */
 loadPeriods();
 loadUnreadBadges();
-setInterval(loadUnreadBadges, 30000);
+setInterval(loadUnreadBadges, 30_000);
 </script>
 }

@@ -7,7 +7,6 @@ C:\Users\Admin\OnlineClearance\bin\Debug\net10.0\OnlineClearanceSystem.deps.json
 C:\Users\Admin\OnlineClearance\bin\Debug\net10.0\OnlineClearanceSystem.runtimeconfig.json
 C:\Users\Admin\OnlineClearance\bin\Debug\net10.0\OnlineClearanceSystem.dll
 C:\Users\Admin\OnlineClearance\bin\Debug\net10.0\OnlineClearanceSystem.pdb
-C:\Users\Admin\OnlineClearance\bin\Debug\net10.0\BCrypt.Net-Next.dll
 C:\Users\Admin\OnlineClearance\bin\Debug\net10.0\BouncyCastle.Cryptography.dll
 C:\Users\Admin\OnlineClearance\bin\Debug\net10.0\Google.Protobuf.dll
 C:\Users\Admin\OnlineClearance\bin\Debug\net10.0\Humanizer.dll
@@ -209,3 +208,4 @@ C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\lxll5s2epz-{0}-kkhfn
 C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\nriwk74ll1-{0}-61n19gt1b8-61n19gt1b8.gz
 C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\56v3ttmq8f-{0}-6wribq53vx-6wribq53vx.gz
 C:\Users\Admin\OnlineClearance\obj\Debug\net10.0\compressed\6ogcua3vyw-{0}-9brqc2kuth-9brqc2kuth.gz
+C:\Users\Admin\OnlineClearance\bin\Debug\net10.0\BCrypt-Net-Next.dll

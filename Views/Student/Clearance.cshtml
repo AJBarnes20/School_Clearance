@@ -250,7 +250,7 @@
                                                 @(item.Status == "Cleared" ? "disabled" : "")>
                                             <i class="fas fa-comment-dots"></i>
                                         </button>
-                                        <span class="unread-dot" style="display:none;"></span>
+                                        <span class="unread-dot"></span>
                                     </div>
                                     <button class="delete-icon-btn"
                                             onclick="deleteClearance('subject', '@item.MisCode')"
@@ -411,7 +411,7 @@
                                                     @(item.Status == "Cleared" ? "disabled" : "")>
                                                 <i class="fas fa-comment-dots"></i>
                                             </button>
-                                            <span class="unread-dot" style="display:none;"></span>
+                                            <span class="unread-dot"></span>
                                         </div>
 
                                         @* Delete *@
@@ -529,7 +529,7 @@
                                                         title="Chat with @item.StudentName">
                                                     <i class="fas fa-comment-dots"></i>
                                                 </button>
-                                                <span class="unread-dot" style="display:none;position:absolute;top:-3px;right:-3px;width:10px;height:10px;background:#dc3545;border-radius:50%;border:1.5px solid white;"></span>
+                                                <span class="unread-dot"></span>
                                             </div>
                                         </div>
                                     </td>
@@ -824,7 +824,13 @@
 
     /* ── Chat icon button ── */
     .chat-btn-wrap { position:relative;display:inline-flex; }
-    .unread-dot { position:absolute;top:-3px;right:-3px;width:10px;height:10px;background:#dc3545;border-radius:50%;border:1.5px solid white; }
+    .unread-dot {
+        display: none;
+        position:absolute;top:-3px;right:-3px;width:10px;height:10px;
+        background:#dc3545;border-radius:50%;border:1.5px solid white;
+        pointer-events:none;z-index:10;
+    }
+    .unread-dot.has-unread { display:block !important; }
     .chat-icon-btn {
         width:34px;height:34px;border-radius:50%;border:none;
         background:#e8f5e9;color:#1a4731;font-size:15px;
@@ -1070,20 +1076,47 @@ if (window.location.hash === '#approval' && document.getElementById('panel-appro
 
 /* ══════════════════════════════════════════
    UNREAD NOTIFICATION BADGES
+   FIX: normalized (trim + lowercase) comparison on sn/key/type,
+   matching the approach already used on the Instructor and Staff
+   pages, and toggled via the .has-unread CSS class instead of
+   inline style so it can't be left half-applied. Rows that have
+   no data-sn (the student's own clearance items) match on
+   key+type alone; rows that DO have data-sn (approval-request
+   rows, where multiple students can share the same position key)
+   must also match the student number, otherwise one student's
+   unread message could light up another student's row.
 ══════════════════════════════════════════ */
 async function loadUnreadBadges() {
     try {
-        const unreads = await (await fetch('/Student/GetUnreadCounts')).json();
-        document.querySelectorAll('.chat-btn-wrap .unread-dot').forEach(d => d.style.display = 'none');
+        const res = await fetch('/Student/GetUnreadCounts');
+        if (!res.ok) return;
+        const unreads = await res.json();
+
+        document.querySelectorAll('.unread-dot').forEach(d => d.classList.remove('has-unread'));
+
+        if (!unreads || !unreads.length) return;
+
         unreads.forEach(u => {
-            document.querySelectorAll('.chat-btn-wrap').forEach(w => {
-                if (w.dataset.key === u.clearanceKey && w.dataset.type === u.clearanceType) {
-                    const dot = w.querySelector('.unread-dot');
-                    if (dot) dot.style.display = 'block';
+            const uSn   = String(u.studentNumber ?? '').trim().toLowerCase();
+            const uKey  = String(u.clearanceKey  ?? '').trim().toLowerCase();
+            const uType = String(u.clearanceType ?? '').trim().toLowerCase();
+
+            document.querySelectorAll('.chat-btn-wrap').forEach(wrap => {
+                const wSn   = String(wrap.dataset.sn   ?? '').trim().toLowerCase();
+                const wKey  = String(wrap.dataset.key  ?? '').trim().toLowerCase();
+                const wType = String(wrap.dataset.type ?? '').trim().toLowerCase();
+
+                const snOk = wSn === '' ? true : wSn === uSn;
+
+                if (snOk && wKey === uKey && wType === uType) {
+                    const dot = wrap.querySelector('.unread-dot');
+                    if (dot) dot.classList.add('has-unread');
                 }
             });
         });
-    } catch {}
+    } catch (e) {
+        console.error('[unread-badges] error:', e);
+    }
 }
 async function markRead(key, type) {
     try {
@@ -1094,11 +1127,18 @@ async function markRead(key, type) {
         });
     } catch {}
 }
-function clearUnreadDot(key, type) {
+function clearUnreadDot(key, type, sn) {
+    const keyL  = String(key  ?? '').trim().toLowerCase();
+    const typeL = String(type ?? '').trim().toLowerCase();
+    const snL   = String(sn   ?? '').trim().toLowerCase();
     document.querySelectorAll('.chat-btn-wrap').forEach(w => {
-        if (w.dataset.key === key && w.dataset.type === type) {
+        const wSn   = String(w.dataset.sn   ?? '').trim().toLowerCase();
+        const wKey  = String(w.dataset.key  ?? '').trim().toLowerCase();
+        const wType = String(w.dataset.type ?? '').trim().toLowerCase();
+        const snOk  = wSn === '' ? true : wSn === snL;
+        if (snOk && wKey === keyL && wType === typeL) {
             const dot = w.querySelector('.unread-dot');
-            if (dot) dot.style.display = 'none';
+            if (dot) dot.classList.remove('has-unread');
         }
     });
 }
@@ -1302,11 +1342,7 @@ async function openSignedChat(sn, name, position) {
             body: JSON.stringify({ clearanceKey: position, clearanceType: 'org', studentNumber: sn, message: '' })
         });
     } catch {}
-    document.querySelectorAll('.chat-btn-wrap').forEach(w => {
-        if (w.dataset.sn === sn && w.dataset.key === position && w.dataset.type === 'org') {
-            const d = w.querySelector('.unread-dot'); if (d) d.style.display = 'none';
-        }
-    });
+    clearUnreadDot(position, 'org', sn);
     try {
         const res = await fetch(`/Student/GetClearanceMessages?key=${encodeURIComponent(position)}&type=org&studentNumber=${encodeURIComponent(sn)}`);
         const d   = await res.json();

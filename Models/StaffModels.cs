@@ -31,6 +31,7 @@ namespace OnlineClearanceSystem.Models
     // ───────── SIGNED CLEARANCE ─────────
     public class StaffSignedClearance
     {
+        public int       Id          { get; set; }
         public string    StudentId     { get; set; } = "";
         public string    StudentName   { get; set; } = "";
         public string    StudentCourse { get; set; } = "";

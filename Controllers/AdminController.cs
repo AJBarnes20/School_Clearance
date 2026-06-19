@@ -738,7 +738,7 @@ namespace OnlineClearanceSystem.Controllers
                 conn.Open();
                 var cmd = new MySqlCommand(@"
                     SELECT id, CONCAT(first_name,' ',last_name) AS name, role,
-                           COALESCE(student_number, id_number, '—') AS idNum
+                           COALESCE(id_number, '—') AS idNum
                     FROM users WHERE is_active = 1 AND role IN ('Student','Instructor','Staff','Admin')
                     ORDER BY first_name", conn);
                 using var r = cmd.ExecuteReader();
@@ -797,7 +797,7 @@ namespace OnlineClearanceSystem.Controllers
                     SELECT us.id, u.id AS userId,
                            CONCAT(u.first_name,' ',u.last_name) AS name,
                            'Student' AS role,
-                           COALESCE(u.student_number, u.id_number,'—') AS idNum,
+                           COALESCE(u.id_number,'—') AS idNum,
                            us.position AS posTitle
                     FROM user_signatures us
                     JOIN users u ON u.id = us.user_id
@@ -903,16 +903,16 @@ namespace OnlineClearanceSystem.Controllers
                 var cmd = new MySqlCommand(@"
                     SELECT u.id,
                            CONCAT(u.first_name,' ',u.last_name)         AS name,
-                           COALESCE(u.student_number, u.id_number, '—') AS student_number,
+                           COALESCE(u.id_number, '—') AS student_number,
                            COALESCE(c.course_code,'—')                  AS course_code,
                            COALESCE(cu.year_level, 0)                   AS year_level,
                            COALESCE(cu.section,'—')                     AS section,
                            CASE
-                               WHEN u.student_number IS NULL AND u.id_number IS NULL THEN 'Pending'
+                               WHEN u.id_number IS NULL THEN 'Pending'
                                WHEN (SELECT COUNT(*) FROM clearance_subjects cs2
-                                     WHERE cs2.student_number = COALESCE(u.student_number, u.id_number)) = 0 THEN 'Pending'
+                                     WHERE cs2.student_number = u.id_number) = 0 THEN 'Pending'
                                WHEN (SELECT COUNT(*) FROM clearance_subjects cs
-                                     WHERE cs.student_number = COALESCE(u.student_number, u.id_number)
+                                     WHERE cs.student_number = u.id_number
                                        AND cs.status != 'Cleared') = 0 THEN 'Cleared'
                                ELSE 'Pending'
                            END AS cs
@@ -942,7 +942,7 @@ namespace OnlineClearanceSystem.Controllers
                     SELECT us.id,
                            u.id                                          AS userId,
                            CONCAT(u.first_name,' ',u.last_name)         AS name,
-                           COALESCE(u.student_number, u.id_number, '—') AS student_number,
+                           COALESCE(u.id_number, '—') AS student_number,
                            COALESCE(c.course_code,'—')                  AS course,
                            COALESCE(cu.year_level, 0)                   AS year_level,
                            COALESCE(cu.section,'—')                     AS section,
@@ -1170,7 +1170,7 @@ namespace OnlineClearanceSystem.Controllers
                 conn.Open();
 
                 var numCmd = new MySqlCommand(
-                    "SELECT COALESCE(student_number, id_number) AS snum FROM users WHERE id=@id", conn);
+                    "SELECT id_number AS snum FROM users WHERE id=@id", conn);
                 numCmd.Parameters.AddWithValue("@id", id);
                 var snum = numCmd.ExecuteScalar()?.ToString();
 
@@ -1321,24 +1321,8 @@ namespace OnlineClearanceSystem.Controllers
             return Ok(items);
         }
 
-        // ── Academic Periods (student endpoint) ───────────────────────────
-        [HttpGet("/api/student/periods")]
-        public IActionResult GetStudentPeriods()
-        {
-            var items = new List<object>();
-            try
-            {
-                using var conn = DbHelper.GetConnection(_config);
-                conn.Open();
-                var cmd = new MySqlCommand(
-                    "SELECT id, year_label, semester, is_active FROM academic_periods ORDER BY id DESC", conn);
-                using var r = cmd.ExecuteReader();
-                while (r.Read())
-                    items.Add(new { id = r.GetInt32("id"), ay = r.GetString("year_label"), sem = r.GetString("semester"), active = r.GetBoolean("is_active") });
-            }
-            catch { }
-            return Ok(items);
-        }
+        // Note: /api/student/periods is served by StudentController.GetPeriods.
+        // A duplicate mapping here caused an AmbiguousMatchException (HTTP 500).
 
         // ── Form Posts ────────────────────────────────────────────────────
         [HttpPost, ValidateAntiForgeryToken]

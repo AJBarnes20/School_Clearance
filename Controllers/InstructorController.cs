@@ -45,6 +45,31 @@ namespace OnlineClearanceSystem.Controllers
             base.OnActionExecuting(context);
         }
 
+        // Loads the academic periods list into ViewBag.Periods (JSON) so the
+        // period dropdown in the views can render. Without this the dropdown
+        // shows "No academic periods found."
+        private void LoadPeriodsIntoViewBag(MySqlConnection conn)
+        {
+            var periodsList = new List<object>();
+            try
+            {
+                var cmd = new MySqlCommand(
+                    "SELECT id, year_label AS ay, semester AS sem FROM academic_periods ORDER BY id DESC", conn);
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    periodsList.Add(new
+                    {
+                        id  = r.GetInt32("id"),
+                        ay  = r.IsDBNull(r.GetOrdinal("ay"))  ? "" : r.GetString("ay"),
+                        sem = r.IsDBNull(r.GetOrdinal("sem")) ? "" : r.GetString("sem")
+                    });
+                }
+            }
+            catch { }
+            ViewBag.Periods = JsonSerializer.Serialize(periodsList);
+        }
+
         // ── Dashboard ─────────────────────────────────────────────────────
         public IActionResult Dashboard()
         {
@@ -115,7 +140,7 @@ namespace OnlineClearanceSystem.Controllers
                           AND (@opid = 0 OR co.period_id = @opid)
                         UNION
                         SELECT co2.id FROM clearance_organization co2
-                        JOIN users stu ON stu.student_number = co2.student_number
+                        JOIN users stu ON stu.id_number = co2.student_number
                         JOIN organizations org2
                              ON org2.user_id = @opuid2
                              AND org2.position_title = 'Class Adviser'
@@ -337,6 +362,7 @@ namespace OnlineClearanceSystem.Controllers
                 var (pid, lbl) = ResolvePeriod(conn, periodId);
                 ViewData["ActivePeriodId"] = pid;
                 ViewData["ActivePeriod"]   = lbl;
+                LoadPeriodsIntoViewBag(conn);
 
                 var cmd = new MySqlCommand(@"
                     SELECT
@@ -393,8 +419,9 @@ namespace OnlineClearanceSystem.Controllers
                     new CookieOptions { MaxAge = TimeSpan.FromDays(365), HttpOnly = true, SameSite = SameSiteMode.Lax });
                 ViewData["ActivePeriodId"] = pid;
                 ViewData["ActivePeriod"]   = lbl;
+                LoadPeriodsIntoViewBag(conn);
 
-                // ── Subject requests (Pending only) ──────────────────────────────
+                // ── Subject requests (Pending only) ───────────────────────
                 var cmd = new MySqlCommand(@"
                     SELECT
                         cs.id                                                   AS Id,
@@ -408,12 +435,11 @@ namespace OnlineClearanceSystem.Controllers
                         )                                                       AS StudentCourse,
                         cs.student_number                                       AS StudentNumber,
                         cs.status                                               AS Status,
-                        cs.requested_at                                         AS RequestedAt,
-                        cs.signed_at                                            AS SignedAt
+                        cs.requested_at                                         AS RequestedAt
                     FROM clearance_subjects cs
                     JOIN subject_offerings so  ON so.mis_code        = cs.mis_code
                     JOIN subjects          s   ON s.id               = so.subject_id
-                    JOIN users             stu ON stu.student_number = cs.student_number
+                    JOIN users             stu ON stu.id_number      = cs.student_number
                     LEFT JOIN curriculum   cu  ON cu.id              = stu.curriculum_id
                     LEFT JOIN courses      c   ON c.id               = cu.course_id
                     WHERE so.user_id = @uid
@@ -437,13 +463,12 @@ namespace OnlineClearanceSystem.Controllers
                             StudentCourse = r.GetString("StudentCourse"),
                             StudentNumber = r.GetString("StudentNumber"),
                             Status        = r.GetString("Status"),
-                            RequestedAt   = r.IsDBNull(r.GetOrdinal("RequestedAt")) ? null : r.GetDateTime("RequestedAt"),
-                            SignedAt      = r.IsDBNull(r.GetOrdinal("SignedAt"))     ? null : r.GetDateTime("SignedAt")
+                            RequestedAt   = r.IsDBNull(r.GetOrdinal("RequestedAt")) ? null : r.GetDateTime("RequestedAt")
                         });
                     }
                 }
 
-                // ── Sidebar: assigned subjects ────────────────────────────────────
+                // ── Sidebar: assigned subjects ─────────────────────────────
                 var subjectList = new List<SubjectOfferingDto>();
                 var subCmd = new MySqlCommand(@"
                     SELECT so.mis_code    AS MisCode,
@@ -470,22 +495,22 @@ namespace OnlineClearanceSystem.Controllers
                 }
                 ViewBag.AssignedSubjects = subjectList;
 
-                // ── Org requests (Pending ONLY → Requests tab) ───────────────────
+                // ── Org requests (Pending ONLY → Requests tab) ────────────
                 var orgItems = new List<OrganizationRequest>();
 
+                // Path A: non-adviser positions, Pending only
                 var orgPathACmd = new MySqlCommand(@"
                     SELECT co.id AS Id, o.position_title AS Position,
                            CONCAT(stu.first_name,' ',stu.last_name) AS StudentName,
                            co.student_number AS StudentNumber,
                            COALESCE(CONCAT(c.course_code,' ',cu.year_level,cu.section),'—') AS Course,
                            COALESCE(co.status,'Pending') AS Status,
-                           co.requested_at AS RequestedAt,
-                           co.signed_at    AS SignedAt
+                           co.requested_at AS RequestedAt
                     FROM   clearance_organization co
                     JOIN   organizations o ON o.position_title = co.position
                                          AND o.user_id = @ouid
                                          AND o.position_title != 'Class Adviser'
-                    JOIN   users stu ON stu.student_number = co.student_number
+                    JOIN   users stu ON stu.id_number = co.student_number
                     LEFT JOIN curriculum cu ON cu.id = stu.curriculum_id
                     LEFT JOIN courses    c  ON c.id  = cu.course_id
                     WHERE  co.status = 'Pending'
@@ -503,11 +528,11 @@ namespace OnlineClearanceSystem.Controllers
                             StudentNumber = r1.IsDBNull(r1.GetOrdinal("StudentNumber")) ? ""  : r1.GetString("StudentNumber"),
                             Course        = r1.IsDBNull(r1.GetOrdinal("Course"))        ? "—" : r1.GetString("Course"),
                             Status        = r1.GetString("Status"),
-                            RequestedAt   = r1.IsDBNull(r1.GetOrdinal("RequestedAt"))   ? null : r1.GetDateTime("RequestedAt"),
-                            SignedAt      = r1.IsDBNull(r1.GetOrdinal("SignedAt"))      ? null : r1.GetDateTime("SignedAt")
+                            RequestedAt   = r1.IsDBNull(r1.GetOrdinal("RequestedAt"))   ? null : r1.GetDateTime("RequestedAt")
                         });
                 }
 
+                // Path B: Class Adviser, Pending only
                 var advCmd = new MySqlCommand(
                     "SELECT curriculum_id FROM organizations WHERE user_id=@auid AND position_title='Class Adviser' AND curriculum_id IS NOT NULL", conn);
                 advCmd.Parameters.AddWithValue("@auid", userId);
@@ -524,10 +549,9 @@ namespace OnlineClearanceSystem.Controllers
                                co.student_number AS StudentNumber,
                                COALESCE(CONCAT(c.course_code,' ',cu.year_level,cu.section),'—') AS Course,
                                COALESCE(co.status,'Pending') AS Status,
-                               co.requested_at AS RequestedAt,
-                               co.signed_at    AS SignedAt
+                               co.requested_at AS RequestedAt
                         FROM   clearance_organization co
-                        JOIN   users stu ON stu.student_number = co.student_number
+                        JOIN   users stu ON stu.id_number = co.student_number
                                        AND stu.curriculum_id IN ({inList})
                         LEFT JOIN curriculum cu ON cu.id = stu.curriculum_id
                         LEFT JOIN courses    c  ON c.id  = cu.course_id
@@ -549,15 +573,14 @@ namespace OnlineClearanceSystem.Controllers
                                 StudentNumber = r2.IsDBNull(r2.GetOrdinal("StudentNumber")) ? ""  : r2.GetString("StudentNumber"),
                                 Course        = r2.IsDBNull(r2.GetOrdinal("Course"))        ? "—" : r2.GetString("Course"),
                                 Status        = r2.GetString("Status"),
-                                RequestedAt   = r2.IsDBNull(r2.GetOrdinal("RequestedAt"))   ? null : r2.GetDateTime("RequestedAt"),
-                                SignedAt      = r2.IsDBNull(r2.GetOrdinal("SignedAt"))      ? null : r2.GetDateTime("SignedAt")
+                                RequestedAt   = r2.IsDBNull(r2.GetOrdinal("RequestedAt"))   ? null : r2.GetDateTime("RequestedAt")
                             });
                         }
                     }
                 }
                 ViewBag.OrgItems = orgItems;
 
-                // ── Signed subject clearances (Cleared / Declined) ────────────────
+                // ── Signed subject clearances (Cleared / Declined) ─────────
                 var signedItems = new List<SignedClearance>();
                 var signedCmd = new MySqlCommand(@"
                     SELECT cs.mis_code AS MisCode, s.subject_code AS SubjectCode,
@@ -570,7 +593,7 @@ namespace OnlineClearanceSystem.Controllers
                     FROM   clearance_subjects cs
                     JOIN   subject_offerings so  ON so.mis_code = cs.mis_code
                     JOIN   subjects          s   ON s.id        = so.subject_id
-                    JOIN   users             stu ON stu.student_number = cs.student_number
+                    JOIN   users             stu ON stu.id_number = cs.student_number
                     LEFT JOIN curriculum     cu  ON cu.id = stu.curriculum_id
                     LEFT JOIN courses        c   ON c.id  = cu.course_id
                     WHERE  so.user_id = @suid
@@ -595,9 +618,10 @@ namespace OnlineClearanceSystem.Controllers
                 }
                 ViewBag.SignedItems = signedItems;
 
-                // ── Org signed clearances (Cleared / Declined → Signed tab) ──────
+                // ── Org signed clearances (Cleared / Declined → Signed tab) ──
                 var orgSignedItems = new List<OrganizationRequest>();
 
+                // Path A signed: non-adviser positions
                 var orgSignedPathACmd = new MySqlCommand(@"
                     SELECT co.id AS Id, o.position_title AS Position,
                            CONCAT(stu.first_name,' ',stu.last_name) AS StudentName,
@@ -610,7 +634,7 @@ namespace OnlineClearanceSystem.Controllers
                     JOIN   organizations o ON o.position_title = co.position
                                          AND o.user_id = @osuid
                                          AND o.position_title != 'Class Adviser'
-                    JOIN   users stu ON stu.student_number = co.student_number
+                    JOIN   users stu ON stu.id_number = co.student_number
                     LEFT JOIN curriculum cu ON cu.id = stu.curriculum_id
                     LEFT JOIN courses    c  ON c.id  = cu.course_id
                     WHERE  co.status IN ('Cleared','Declined')
@@ -633,6 +657,7 @@ namespace OnlineClearanceSystem.Controllers
                         });
                 }
 
+                // Path B signed: Class Adviser
                 if (advIds.Count > 0)
                 {
                     var inList = string.Join(",", advIds);
@@ -645,7 +670,7 @@ namespace OnlineClearanceSystem.Controllers
                                co.requested_at AS RequestedAt,
                                co.signed_at    AS SignedAt
                         FROM   clearance_organization co
-                        JOIN   users stu ON stu.student_number = co.student_number
+                        JOIN   users stu ON stu.id_number = co.student_number
                                        AND stu.curriculum_id IN ({inList})
                         LEFT JOIN curriculum cu ON cu.id = stu.curriculum_id
                         LEFT JOIN courses    c  ON c.id  = cu.course_id
@@ -674,21 +699,6 @@ namespace OnlineClearanceSystem.Controllers
                     }
                 }
                 ViewBag.OrgSignedItems = orgSignedItems;
-
-                // ── Bake periods list into ViewBag (no AJAX needed) ───────────────
-                var periodsList = new List<object>();
-                var periodCmd = new MySqlCommand(
-                    "SELECT id, year_label AS ay, semester AS sem FROM academic_periods ORDER BY id DESC", conn);
-                using (var pr = periodCmd.ExecuteReader())
-                {
-                    while (pr.Read())
-                        periodsList.Add(new {
-                            id  = pr.GetInt32("id"),
-                            ay  = pr.IsDBNull(pr.GetOrdinal("ay"))  ? "" : pr.GetString("ay"),
-                            sem = pr.IsDBNull(pr.GetOrdinal("sem")) ? "" : pr.GetString("sem")
-                        });
-                }
-                ViewBag.Periods = JsonSerializer.Serialize(periodsList);
             }
             catch (Exception ex)
             {
@@ -697,7 +707,7 @@ namespace OnlineClearanceSystem.Controllers
                 ViewBag.OrgItems         = new List<OrganizationRequest>();
                 ViewBag.SignedItems       = new List<SignedClearance>();
                 ViewBag.OrgSignedItems   = new List<OrganizationRequest>();
-                ViewBag.Periods          = "[]";
+                if (ViewBag.Periods == null) ViewBag.Periods = "[]";
             }
 
             return View(items);
@@ -788,6 +798,7 @@ namespace OnlineClearanceSystem.Controllers
                     new CookieOptions { MaxAge = TimeSpan.FromDays(365), HttpOnly = true, SameSite = SameSiteMode.Lax });
                 ViewData["ActivePeriodId"] = pid;
                 ViewData["ActivePeriod"]   = lbl;
+                LoadPeriodsIntoViewBag(conn);
 
                 var pathACmd = new MySqlCommand(@"
                     SELECT
@@ -805,7 +816,7 @@ namespace OnlineClearanceSystem.Controllers
                                ON  o.position_title  = co.position
                               AND  o.user_id          = @uid
                               AND  o.position_title  != 'Class Adviser'
-                    JOIN   users                     stu ON stu.student_number = co.student_number
+                    JOIN   users                     stu ON stu.id_number = co.student_number
                     LEFT JOIN curriculum             cu  ON cu.id              = stu.curriculum_id
                     LEFT JOIN courses                c   ON c.id               = cu.course_id
                     WHERE  (@pid = 0 OR co.period_id = @pid)
@@ -861,7 +872,7 @@ namespace OnlineClearanceSystem.Controllers
                             COALESCE(co.status, 'Pending')                         AS Status
                         FROM   clearance_organization   co
                         JOIN   users                     stu
-                                   ON  stu.student_number  = co.student_number
+                                   ON  stu.id_number       = co.student_number
                                   AND  stu.curriculum_id  IN ({inList})
                         LEFT JOIN curriculum             cu  ON cu.id = stu.curriculum_id
                         LEFT JOIN courses                c   ON c.id  = cu.course_id
@@ -953,6 +964,7 @@ namespace OnlineClearanceSystem.Controllers
                     new CookieOptions { MaxAge = TimeSpan.FromDays(365), HttpOnly = true, SameSite = SameSiteMode.Lax });
                 ViewData["ActivePeriodId"] = pid;
                 ViewData["ActivePeriod"]   = lbl;
+                LoadPeriodsIntoViewBag(conn);
 
                 var statusFilter = filter switch
                 {
@@ -971,11 +983,13 @@ namespace OnlineClearanceSystem.Controllers
                             CONCAT(c.course_code, '-', cu.year_level, cu.section),
                             '—'
                         )                                                       AS StudentCourse,
-                        CASE WHEN cs.status = 'Cleared' THEN 'Approved' ELSE 'Declined' END AS Status
+                        CASE WHEN cs.status = 'Cleared' THEN 'Approved' ELSE 'Declined' END AS Status,
+                        cs.requested_at AS RequestedAt,
+                        cs.signed_at    AS SignedAt
                     FROM clearance_subjects cs
                     JOIN subject_offerings so  ON so.mis_code        = cs.mis_code
                     JOIN subjects          s   ON s.id               = so.subject_id
-                    JOIN users             stu ON stu.student_number = cs.student_number
+                    JOIN users             stu ON stu.id_number      = cs.student_number
                     LEFT JOIN curriculum   cu  ON cu.id              = stu.curriculum_id
                     LEFT JOIN courses      c   ON c.id               = cu.course_id
                     WHERE so.user_id = @uid
@@ -995,7 +1009,9 @@ namespace OnlineClearanceSystem.Controllers
                         Description   = r.GetString("Description"),
                         StudentName   = r.GetString("StudentName"),
                         StudentCourse = r.GetString("StudentCourse"),
-                        Status        = r.GetString("Status")
+                        Status        = r.GetString("Status"),
+                        RequestedAt   = r.IsDBNull(r.GetOrdinal("RequestedAt")) ? null : r.GetDateTime("RequestedAt"),
+                        SignedAt      = r.IsDBNull(r.GetOrdinal("SignedAt"))    ? null : r.GetDateTime("SignedAt")
                     });
                 }
             }
@@ -1147,7 +1163,7 @@ namespace OnlineClearanceSystem.Controllers
         private void TriggerOrgClearance(MySqlConnection conn, string studentNumber)
         {
             var stuCmd = new MySqlCommand(
-                "SELECT curriculum_id FROM users WHERE student_number = @sn LIMIT 1", conn);
+                "SELECT curriculum_id FROM users WHERE id_number = @sn LIMIT 1", conn);
             stuCmd.Parameters.AddWithValue("@sn", studentNumber);
 
             int curriculumId = 0;
@@ -1178,8 +1194,8 @@ namespace OnlineClearanceSystem.Controllers
             {
                 var insertCmd = new MySqlCommand(@"
                     INSERT IGNORE INTO clearance_organization
-                        (student_number, position, status)
-                    VALUES (@sn, @pos, 'Pending')", conn);
+                        (student_number, position, status, requested_at)
+                    VALUES (@sn, @pos, 'Pending', NOW())", conn);
                 insertCmd.Parameters.AddWithValue("@sn",  studentNumber);
                 insertCmd.Parameters.AddWithValue("@pos", pos);
                 insertCmd.ExecuteNonQuery();
