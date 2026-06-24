@@ -1,0 +1,12 @@
+.env
+bin/
+obj/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+cloudflared.exe
+publish/
