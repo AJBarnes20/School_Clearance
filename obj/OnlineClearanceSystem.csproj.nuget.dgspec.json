@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Admin\\OnlineClearance\\OnlineClearanceSystem.csproj": {}
+    "C:\\Users\\alduane.mirasol\\School_Clearance\\OnlineClearanceSystem.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Admin\\OnlineClearance\\OnlineClearanceSystem.csproj": {
+    "C:\\Users\\alduane.mirasol\\School_Clearance\\OnlineClearanceSystem.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Admin\\OnlineClearance\\OnlineClearanceSystem.csproj",
+        "projectUniqueName": "C:\\Users\\alduane.mirasol\\School_Clearance\\OnlineClearanceSystem.csproj",
         "projectName": "OnlineClearanceSystem",
-        "projectPath": "C:\\Users\\Admin\\OnlineClearance\\OnlineClearanceSystem.csproj",
-        "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Admin\\OnlineClearance\\obj\\",
+        "projectPath": "C:\\Users\\alduane.mirasol\\School_Clearance\\OnlineClearanceSystem.csproj",
+        "packagesPath": "C:\\Users\\alduane.mirasol\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\alduane.mirasol\\School_Clearance\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\alduane.mirasol\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net10.0"
@@ -101,7 +101,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.109/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.102/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.AspNetCore": "(,10.0.32767]",
             "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",
