@@ -72,11 +72,6 @@ else
   echo ""
   die "Fix MySQL setup above, then re-run ./deploy.sh"
 fi
-
-if ss -tlnp 2>/dev/null | grep -q ":$APP_PORT "; then
-  die "Port $APP_PORT is already in use"
-fi
-ok "Port $APP_PORT is free"
 echo ""
 echo "  PHASE 2 — SYNC CODE FROM GITHUB"
 
