@@ -481,7 +481,7 @@ namespace OnlineClearanceSystem.Controllers
             return Ok(items);
         }
 
-       [HttpPost("/api/admin/subject-offerings")]
+        [HttpPost("/api/admin/subject-offerings")]
 public IActionResult CreateOffering([FromBody] JsonElement body)
 {
     try
@@ -490,72 +490,70 @@ public IActionResult CreateOffering([FromBody] JsonElement body)
         var instructorId = body.GetProperty("inst").GetInt32();
 
         if (instructorId == 0)
-            return BadRequest(new { success = false, error = "Invalid instructor selected." });
+            return Ok(new { success = false, error = "Invalid instructor selected." });
         if (subjId == 0)
-            return BadRequest(new { success = false, error = "Invalid subject." });
+            return Ok(new { success = false, error = "Invalid subject." });
 
         using var conn = DbHelper.GetConnection(_config);
         conn.Open();
-        using var txn = conn.BeginTransaction();
 
-        // Always pull mis_code from subjects table by ID
+        // Always pull mis_code and subject_code directly from subjects table by ID
         // Never trust the payload mis — this prevents GT-1 collision bug
         var subjectCmd = new MySqlCommand(
-            "SELECT mis_code FROM subjects WHERE id=@id LIMIT 1", conn, txn);
+            "SELECT mis_code, subject_code FROM subjects WHERE id=@id LIMIT 1", conn);
         subjectCmd.Parameters.AddWithValue("@id", subjId);
 
-        string dbMis = "";
+        string dbMis = "", dbCode = "";
         using (var r = subjectCmd.ExecuteReader())
         {
             if (!r.Read())
-            {
-                txn.Rollback();
-                return NotFound(new { success = false, error = "Subject not found." });
-            }
-            dbMis = r.IsDBNull(0) ? "" : r.GetString(0);
+                return Ok(new { success = false, error = "Subject not found." });
+            dbMis  = r.IsDBNull(0) ? "" : r.GetString(0);
+            dbCode = r.IsDBNull(1) ? "" : r.GetString(1);
         }
 
-        // Atomic upsert — eliminates check→insert race condition
-        // Requires unique constraint on subject_id in subject_offerings
-        var upsertCmd = new MySqlCommand(@"
-            INSERT INTO subject_offerings (mis_code, subject_id, user_id, is_active)
-            VALUES (@mis, @sid, @uid, 1)
-            ON DUPLICATE KEY UPDATE
-                user_id   = VALUES(user_id),
-                mis_code  = VALUES(mis_code),
-                is_active = 1", conn, txn);
-        upsertCmd.Parameters.AddWithValue("@mis", dbMis);
-        upsertCmd.Parameters.AddWithValue("@sid", subjId);
-        upsertCmd.Parameters.AddWithValue("@uid", instructorId);
+        // Check by subject_id — never by mis_code alone
+        var checkCmd = new MySqlCommand(
+            "SELECT id FROM subject_offerings WHERE subject_id=@sid LIMIT 1", conn);
+        checkCmd.Parameters.AddWithValue("@sid", subjId);
+        var existingId = checkCmd.ExecuteScalar();
 
-        // ROW_COUNT() returns 1 for insert, 2 for update, 0 for no-op
-        upsertCmd.ExecuteNonQuery();
-        var action = upsertCmd.LastInsertedId > 0 ? "created" : "updated";
+        if (existingId != null)
+        {
+            // Re-activate and reassign instructor, also fix any bad mis_code
+            var upd = new MySqlCommand(@"
+                UPDATE subject_offerings 
+                SET user_id   = @uid,
+                    mis_code  = @mis,
+                    is_active = 1
+                WHERE subject_id = @sid", conn);
+            upd.Parameters.AddWithValue("@uid", instructorId);
+            upd.Parameters.AddWithValue("@mis", dbMis);
+            upd.Parameters.AddWithValue("@sid", subjId);
+            upd.ExecuteNonQuery();
+        }
+        else
+        {
+            var ins = new MySqlCommand(@"
+                INSERT INTO subject_offerings (mis_code, subject_id, user_id, is_active)
+                VALUES (@mis, @sid, @uid, 1)", conn);
+            ins.Parameters.AddWithValue("@mis", dbMis);
+            ins.Parameters.AddWithValue("@sid", subjId);
+            ins.Parameters.AddWithValue("@uid", instructorId);
+            ins.ExecuteNonQuery();
+        }
 
-        // Self-heal any other offerings with wrong/empty mis_code
-        // Restricted to rows where subject already has a valid mis_code
+        // Also self-heal any other offerings with wrong/empty mis_code in one shot
         var healCmd = new MySqlCommand(@"
             UPDATE subject_offerings so
             JOIN subjects s ON s.id = so.subject_id
             SET so.mis_code = s.mis_code
-            WHERE (so.mis_code IS NULL OR so.mis_code = '')
-              AND s.mis_code IS NOT NULL 
-              AND s.mis_code != ''", conn, txn);
+            WHERE so.mis_code IS NULL OR so.mis_code = ''", conn);
         healCmd.ExecuteNonQuery();
 
-        txn.Commit();
-        return Ok(new { success = true, action });
+        return Ok(new { success = true });
     }
-    catch (MySqlException ex) when (ex.Number == 1062)
-    {
-        // Duplicate key — should not happen with ON DUPLICATE KEY UPDATE,
-        // but kept as a safety net
-        return Conflict(new { success = false, error = "Offering already exists." });
-    }
-    catch (Exception ex)
-    {
-        return StatusCode(500, new { success = false, error = ex.Message });
-    }
+    catch (Exception ex) { return Ok(new { success = false, error = ex.Message }); }
 }
 
         [HttpPut("/api/admin/subject-offerings/{id}")]
