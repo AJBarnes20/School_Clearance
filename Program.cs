@@ -25,19 +25,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 builder.Services.AddSingleton<IConfiguration>(builder.Configuration);
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-var dbHost = builder.Configuration["DB_HOST"];
-if (!string.IsNullOrWhiteSpace(dbHost))
-{
-    var dbPort = builder.Configuration["DB_PORT"] ?? "3306";
-    var dbName = builder.Configuration["DB_NAME"] ?? "schoolclearance_db";
-    var dbUser = builder.Configuration["DB_USER"] ?? "schoolclearance";
-    var dbPassword = builder.Configuration["DB_PASSWORD"] ?? string.Empty;
-    connectionString = $"server={dbHost};port={dbPort};database={dbName};user={dbUser};password={dbPassword};";
-}
-
-if (string.IsNullOrWhiteSpace(connectionString))
-    throw new InvalidOperationException("Configure ConnectionStrings:DefaultConnection or the DB_* environment variables.");
+var connectionString = DbHelper.GetConnectionString(builder.Configuration);
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));

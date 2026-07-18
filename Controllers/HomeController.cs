@@ -315,7 +315,10 @@ namespace OnlineClearanceSystem.Controllers
                         });
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[registration] Failed to load sections: {ex.Message}");
+            }
             return Json(items);
         }
 
@@ -350,7 +353,10 @@ namespace OnlineClearanceSystem.Controllers
                         Text  = r.GetString("course_name")
                     });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[registration] Failed to load courses: {ex.Message}");
+            }
         }
 
         // ── OTP: send code before password change ──────────────
