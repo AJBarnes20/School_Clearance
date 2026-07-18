@@ -1,197 +1,105 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-CHECK="${GREEN}[✓]${NC}"
-CROSS="${RED}[✗]${NC}"
-ARROW="${YELLOW}[▶]${NC}"
-ok()   { echo -e "$CHECK $1"; }
-fail() { echo -e "$CROSS $1"; }
-info() { echo -e "$ARROW $1"; }
-die()  { fail "$1"; exit 1; }
-echo ""
-echo "  PHASE 0 — LOAD CONFIGURATION"
+APP_IMAGE="schoolclearance-app"
+LATEST_IMAGE="${APP_IMAGE}:latest"
+PREVIOUS_IMAGE="${APP_IMAGE}:previous"
+ROLLBACK_AVAILABLE=false
+ROLLING_BACK=false
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+info() { printf '[INFO] %s\n' "$*"; }
+ok() { printf '[ OK ] %s\n' "$*"; }
+warn() { printf '[WARN] %s\n' "$*"; }
+error() { printf '[ERROR] %s\n' "$*" >&2; }
 
-if [ ! -f ".env" ]; then
-  die ".env file not found. Create it from .env.example:\n  cp .env.example .env\n  nano .env"
-fi
-source .env
-: "${GITHUB_REPO_URL:?}" "${GITHUB_TOKEN:?GITHUB_TOKEN is empty — add it to .env}"
-: "${DB_USER:?}" "${DB_PASSWORD:?}" "${DB_NAME:?}"
-: "${APP_PORT:=8086}"
-
-ok "Configuration loaded from .env"
-
-echo ""
-echo "  PHASE 1 — SYSTEM DEPENDENCIES"
-
-if dotnet --version 2>/dev/null | grep -q "^10"; then
-  ok ".NET 10 SDK already installed ($(dotnet --version))"
-else
-  info "Installing .NET 10 SDK..."
-  sudo apt update -qq
-  sudo apt install -y -qq dotnet-sdk-10.0
-  ok ".NET 10 SDK installed"
-fi
-
-if command -v mysql &>/dev/null; then
-  ok "MySQL client found ($(mysql --version | head -1))"
-else
-  info "Installing MySQL server..."
-  sudo apt install -y -qq mysql-server
-  sudo systemctl start mysql
-  ok "MySQL installed"
-fi
-
-if sudo systemctl is-active mysql &>/dev/null; then
-  ok "MySQL service is running"
-else
-  info "Starting MySQL..."
-  sudo systemctl start mysql
-  ok "MySQL service started"
-fi
-
-if mysql -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "SELECT 1" &>/dev/null; then
-  ok "MySQL user '$DB_USER' can access database '$DB_NAME'"
-else
-  echo ""
-  fail "MySQL user '$DB_USER' or database '$DB_NAME' is not accessible."
-  echo ""
-  echo "  Run these commands as root (sudo mysql):"
-  echo ""
-  echo "    CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';"
-  echo "    CREATE DATABASE $DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
-  echo "    GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost';"
-  echo "    FLUSH PRIVILEGES;"
-  echo ""
-  die "Fix MySQL setup above, then re-run ./deploy.sh"
-fi
-echo ""
-echo "  PHASE 2 — SYNC CODE FROM GITHUB"
-
-if [ ! -d ".git" ]; then
-  info "Not a git repository — cloning..."
-  REPO_AUTH="https://${GITHUB_TOKEN}@${GITHUB_REPO_URL#https://}"
-  cd "$(dirname "$SCRIPT_DIR")"
-  git clone "$REPO_AUTH" "$(basename "$SCRIPT_DIR")"
-  cd "$SCRIPT_DIR"
-  ok "Repository cloned"
-else
-  REPO_AUTH="https://${GITHUB_TOKEN}@${GITHUB_REPO_URL#https://}"
-  git remote set-url origin "$REPO_AUTH"
-  git fetch origin main
-  git checkout main
-  git reset --hard origin/main
-  git clean -fd
-  git remote set-url origin "$GITHUB_REPO_URL"
-  ok "Code synced to origin/main ($(git log -1 --format='%h %s' 2>/dev/null || echo 'n/a'))"
-fi
-echo ""
-echo "  PHASE 3 — DATABASE IMPORT"
-
-TABLE_COUNT=$(mysql -u"$DB_USER" -p"$DB_PASSWORD" -NBe \
-  "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME'" 2>/dev/null || echo "0")
-
-if [ "$TABLE_COUNT" -gt 0 ]; then
-  ok "Database '$DB_NAME' has $TABLE_COUNT tables — skipping import (data preserved)"
-else
-  if [ -d "Dump20260619" ]; then
-    SQL_FILES=(Dump20260619/*.sql)
-    if [ ${#SQL_FILES[@]} -gt 0 ]; then
-      info "Importing ${#SQL_FILES[@]} SQL dump files..."
-      for f in "${SQL_FILES[@]}"; do
-        echo "    -> $f"
-        mysql -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$f"
-      done
-      ok "SQL import complete"
-    else
-      info "No .sql files found in Dump20260619/ — skipping"
-    fi
-  else
-    info "Dump20260619/ directory not found — skipping import"
-  fi
-fi
-echo ""
-echo "  PHASE 4 — BUILD & PUBLISH"
-
-info "Restoring NuGet packages..."
-dotnet restore
-
-info "Generating appsettings.json..."
-cat > appsettings.json <<JSONEOF
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "server=${DB_HOST:-localhost};port=${DB_PORT:-3306};database=${DB_NAME};user=${DB_USER};password=${DB_PASSWORD};"
-  },
-  "Email": {
-    "SmtpHost": "${SMTP_HOST:-smtp.gmail.com}",
-    "SmtpPort": ${SMTP_PORT:-587},
-    "SenderEmail": "${SMTP_USER}",
-    "SenderName": "Online Clearance",
-    "Password": "${SMTP_PASS}"
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-  "AllowedHosts": "*"
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || { error "Required command not found: $1"; exit 1; }
 }
-JSONEOF
 
-PUBLISH_DIR="$HOME/publish"
-info "Publishing to $PUBLISH_DIR..."
-dotnet publish -c Release -o "$PUBLISH_DIR" --nologo
-cp appsettings.json "$PUBLISH_DIR/"
-ok "Build & publish complete"
-echo ""
-echo "  PHASE 5 — SYSTEMD SERVICE"
+wait_healthy() {
+    local container="$1"
+    local attempts="${2:-60}"
+    local status
+    for ((i=1; i<=attempts; i++)); do
+        status=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container" 2>/dev/null || true)
+        [ "$status" = "healthy" ] && return 0
+        [ "$status" = "unhealthy" ] && return 1
+        sleep 2
+    done
+    error "Timed out waiting for ${container}."
+    return 1
+}
 
-SERVICE_FILE="/etc/systemd/system/clearance.service"
+rollback_image() {
+    [ "$ROLLBACK_AVAILABLE" = true ] || return 1
+    docker image inspect "$PREVIOUS_IMAGE" >/dev/null
+    docker tag "$PREVIOUS_IMAGE" "$LATEST_IMAGE"
+    docker compose up -d --remove-orphans --no-build
+    wait_healthy schoolclearance-app
+    wait_healthy schoolclearance-nginx
+}
 
-sudo tee "$SERVICE_FILE" > /dev/null <<SERVICEEOF
-[Unit]
-Description=Online Clearance System
-After=network.target mysql.service
+on_error() {
+    error "Deployment failed."
+    docker compose logs --tail=100 || true
+    if [ "$ROLLBACK_AVAILABLE" = true ] && [ "$ROLLING_BACK" = false ]; then
+        warn "Attempting automatic application-image rollback..."
+        ROLLING_BACK=true
+        trap - ERR
+        rollback_image && ok "Previous application image restored." || error "Automatic rollback failed; run ./rollback.sh manually."
+    fi
+}
+trap on_error ERR
 
-[Service]
-WorkingDirectory=$PUBLISH_DIR
-ExecStart=/usr/bin/dotnet $PUBLISH_DIR/OnlineClearanceSystem.dll
-Restart=always
-RestartSec=10
-KillSignal=SIGINT
-SyslogIdentifier=clearance
-User=$(whoami)
-Environment=ASPNETCORE_URLS=http://0.0.0.0:${APP_PORT}
-Environment=ASPNETCORE_ENVIRONMENT=Production
+require_command docker
+docker compose version >/dev/null
+require_command curl
 
-[Install]
-WantedBy=multi-user.target
-SERVICEEOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable clearance
-sudo systemctl restart clearance
-
-ok "Service 'clearance' started on port $APP_PORT"
-echo ""
-echo -e "  ${GREEN}[✓] DEPLOYMENT COMPLETE${NC}"
-echo ""
-echo "  LAN Access:  http://<this-server-ip>:${APP_PORT}"
-echo ""
-echo "  Useful commands:"
-echo "    sudo systemctl status clearance"
-echo "    sudo journalctl -u clearance -f"
-echo ""
-IP=$(ip -4 addr show scope global 2>/dev/null | grep -oP 'inet \K[\d.]+' | head -1)
-if [ -n "$IP" ]; then
-  echo "  Server IP:   http://${IP}:${APP_PORT}"
+if [ ! -f .env ]; then
+    cp .env.example .env
+    warn ".env created from .env.example. Fill in production values, then run ./deploy.sh again."
+    exit 1
 fi
-echo ""
+
+set -a
+# shellcheck disable=SC1091
+source .env
+set +a
+
+: "${APP_PORT:=8086}"
+: "${DB_NAME:=schoolclearance_db}"
+: "${DB_USER:=schoolclearance}"
+: "${DB_PASSWORD:?Set DB_PASSWORD in .env}"
+: "${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}"
+: "${APP_BASE_URL:?Set APP_BASE_URL in .env}"
+
+info "Validating Docker Compose configuration..."
+docker compose config --quiet
+
+if docker image inspect "$LATEST_IMAGE" >/dev/null 2>&1; then
+    docker tag "$LATEST_IMAGE" "$PREVIOUS_IMAGE"
+    ROLLBACK_AVAILABLE=true
+    ok "Saved current application image as ${PREVIOUS_IMAGE}."
+else
+    warn "First deployment: no previous image is available for rollback."
+fi
+
+info "Building application image..."
+docker compose build schoolclearance-app
+
+info "Starting containers..."
+docker compose up -d --remove-orphans --no-build
+
+info "Waiting for MySQL..."
+wait_healthy schoolclearance-mysql 90
+info "Waiting for the application..."
+wait_healthy schoolclearance-app 60
+info "Waiting for Nginx..."
+wait_healthy schoolclearance-nginx 60
+
+docker exec schoolclearance-nginx nginx -t >/dev/null
+curl --fail --silent --show-error "http://localhost:${APP_PORT}/health" >/dev/null
+
+docker image prune -f >/dev/null
+ok "Deployment completed: ${APP_BASE_URL}"
+docker compose ps

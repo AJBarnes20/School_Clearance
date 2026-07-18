@@ -35,10 +35,10 @@ namespace OnlineClearanceSystem.Data
             await client.DisconnectAsync(true);
         }
 
-        // Base URL of the running site (Cloudflare tunnel URL set by start.ps1,
-        // or falls back to local port for dev).
+        // Hosting-neutral base URL. Override App:BaseUrl outside local development.
         private string LoginUrl =>
-            (_config["PublicUrl"]?.TrimEnd('/') ?? "http://localhost:5183") + "/Home/Login";
+            (_config["APP_BASE_URL"] ?? _config["App:BaseUrl"] ?? "http://localhost:5183")
+                .TrimEnd('/') + "/Home/Login";
 
         // ── Pre-built templates ───────────────────────────────────────────
         public Task SendApprovalAsync(string toEmail, string name, string role) =>

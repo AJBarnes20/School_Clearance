@@ -1,0 +1,101 @@
+services:
+  schoolclearance-mysql:
+    image: mysql:8.4
+    container_name: schoolclearance-mysql
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${DB_NAME:-schoolclearance_db}
+      MYSQL_USER: ${DB_USER:-schoolclearance}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - schoolclearance-mysql-data:/var/lib/mysql
+      - ./docker/mysql/init-db.sh:/docker-entrypoint-initdb.d/10-init-db.sh:ro
+      - ./Dump20260619:/seed:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    expose:
+      - "3306"
+    networks:
+      - schoolclearance-network
+
+  schoolclearance-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: schoolclearance-app:latest
+    container_name: schoolclearance-app
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      DB_HOST: schoolclearance-mysql
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-schoolclearance_db}
+      DB_USER: ${DB_USER:-schoolclearance}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8086}
+      Email__SmtpHost: ${SMTP_HOST:-smtp.gmail.com}
+      Email__SmtpPort: ${SMTP_PORT:-587}
+      Email__SenderEmail: ${SMTP_USERNAME:-}
+      Email__SenderName: Online Clearance
+      Email__Password: ${SMTP_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5183/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    expose:
+      - "5183"
+    depends_on:
+      schoolclearance-mysql:
+        condition: service_healthy
+    networks:
+      - schoolclearance-network
+
+  schoolclearance-nginx:
+    image: nginx:alpine
+    container_name: schoolclearance-nginx
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    ports:
+      - "${APP_PORT:-8086}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      schoolclearance-app:
+        condition: service_healthy
+    networks:
+      - schoolclearance-network
+
+volumes:
+  schoolclearance-mysql-data:
+
+networks:
+  schoolclearance-network:
+    name: schoolclearance-network
+    driver: bridge

@@ -10,3 +10,4 @@ obj/
 Thumbs.db
 cloudflared.exe
 publish/
+backups/

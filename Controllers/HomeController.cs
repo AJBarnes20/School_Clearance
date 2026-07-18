@@ -5,6 +5,7 @@ using System.Security.Claims;
 using MySql.Data.MySqlClient;
 using OnlineClearanceSystem.Models;
 using OnlineClearanceSystem.Data;
+using System.Diagnostics;
 
 namespace OnlineClearanceSystem.Controllers
 {
@@ -22,6 +23,13 @@ namespace OnlineClearanceSystem.Controllers
         // ── GET /Home/Index ────────────────────────────────────
         public IActionResult Index() => View();
 
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Error() =>
+            View("~/Views/Shared/Error.cshtml", new ErrorViewModel
+            {
+                RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier
+            });
+
         // ── GET /Home/Login ────────────────────────────────────
         [HttpGet]
         public IActionResult Login()
@@ -32,7 +40,6 @@ namespace OnlineClearanceSystem.Controllers
             if (TempData["RegisterSuccess"] != null)
                 ViewBag.SuccessMessage = TempData["RegisterSuccess"];
 
-            ViewBag.PublicUrl = _config["PublicUrl"] ?? $"{Request.Scheme}://{Request.Host}";
             return View(new LoginViewModel());
         }
 
