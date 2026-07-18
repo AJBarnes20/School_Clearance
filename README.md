@@ -94,7 +94,9 @@ checks, validates Nginx, and automatically attempts an image rollback on failure
 On a fresh MySQL volume, `docker/mysql/init-db.sh` imports all SQL files from
 `Dump20260619` in one session with foreign-key checks temporarily disabled. Once
 the named volume exists, restarts and redeployments preserve its data and do not
-re-import the snapshot.
+re-import the snapshot. The initializer also records `Dump20260619` in the
+`deployment_seed_history` table and refuses to import when application tables
+already exist, preventing duplicate seed rows or accidental data replacement.
 
 To intentionally initialize a new database, use a new Compose project/volume.
 Do not delete the existing volume unless its data has been backed up and permanent

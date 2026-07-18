@@ -99,6 +99,20 @@ echo "     School Clearance Deployment        "
 echo "========================================"
 echo
 
+log_info "Checking database seed files..."
+if [ ! -x docker/mysql/init-db.sh ]; then
+    log_error "docker/mysql/init-db.sh is missing or not executable."
+    exit 1
+fi
+shopt -s nullglob
+SEED_FILES=(Dump20260619/*.sql)
+shopt -u nullglob
+if [ ${#SEED_FILES[@]} -eq 0 ]; then
+    log_error "No SQL seed files found in Dump20260619/."
+    exit 1
+fi
+log_ok "Database initializer and ${#SEED_FILES[@]} SQL seed files are ready."
+
 log_info "Validating Docker Compose configuration..."
 docker compose config --quiet
 log_ok "Docker Compose configuration is valid."
